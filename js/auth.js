@@ -6,6 +6,7 @@ import { auth as fbAuth, db, firebaseConfig } from './firebase.js';
 import {
   onAuthStateChanged, signInWithEmailAndPassword, signOut as fbSignOut,
   createUserWithEmailAndPassword, updatePassword, getAuth,
+  sendPasswordResetEmail,
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { setDoc, doc, serverTimestamp, getFirestore } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -55,6 +56,10 @@ export const auth = {
 
   async signOut() {
     return fbSignOut(fbAuth);
+  },
+
+  async sendPasswordReset(email) {
+    return sendPasswordResetEmail(fbAuth, email);
   },
 
   // Crea un alumno nuevo SIN romper la sesión del admin actual.
@@ -126,6 +131,7 @@ export function authErrorMsg(err) {
     case 'auth/email-already-in-use':  return 'Ya existe una cuenta con ese email.';
     case 'auth/weak-password':         return 'La contraseña debe tener al menos 6 caracteres.';
     case 'auth/requires-recent-login': return 'Vuelve a iniciar sesión para cambiar la contraseña.';
+    case 'auth/missing-email':         return 'Introduce un email.';
     default: return err?.message || 'Error desconocido.';
   }
 }
