@@ -42,6 +42,26 @@
 .hm-hour-label { color: var(--muted); display: flex; align-items: center; font-size: 9px; }
 .hm-cell { padding: 10px 4px; text-align: center; border-radius: 6px; font-size: 11px; font-weight: 500; cursor: default; background: rgba(255,255,255,0.03); color: var(--dim); }
 
+/* ── Filter bar (encima de la tabla de trades) ───────────── */
+.filter-bar {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px; margin-bottom: 12px;
+}
+.filter-bar .filter-select {
+  padding: 6px 26px 6px 10px;
+  font-size: 12px;
+}
+.filter-bar .btn { padding: 5px 10px; font-size: 11px; }
+.filter-count {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 /* ── Trade-table specifics ───────────────────────────────── */
 .trade-table-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); }
 .trade-table { width: 100%; border-collapse: collapse; min-width: 1100px; }
