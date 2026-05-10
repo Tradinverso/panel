@@ -29,14 +29,14 @@ function sanitizeTrade(t) {
   const pnl_pct = typeof t.pnl_pct === 'number' ? t.pnl_pct : (parseFloat(t.pnl_pct) || 0);
   const open_str = t.open_str || '';
   const close_str = t.close_str || '';
-  // accounts: [{accountId, riskPct, commission}] — comisión opcional por cuenta.
+  // accounts: [{accountId, riskPct}] — el balance de la cuenta se ajusta
+  // editándola directamente; no usamos comisiones por trade.
   const accounts = Array.isArray(t.accounts)
     ? t.accounts
         .filter(a => a && a.accountId)
         .map(a => ({
           accountId: a.accountId,
           riskPct: typeof a.riskPct === 'number' && a.riskPct > 0 ? a.riskPct : 1.0,
-          commission: typeof a.commission === 'number' && a.commission >= 0 ? a.commission : 0,
         }))
     : [];
   return {
@@ -84,6 +84,8 @@ function sanitizeCuenta(c) {
     capital,
     initialBalance,
     cost: typeof c.cost === 'number' ? c.cost : (parseFloat(c.cost) || 0),
+    targetUsd: c.targetUsd != null ? (typeof c.targetUsd === 'number' ? c.targetUsd : parseFloat(c.targetUsd) || 0) : 0,
+    maxDdUsd: c.maxDdUsd != null ? (typeof c.maxDdUsd === 'number' ? c.maxDdUsd : parseFloat(c.maxDdUsd) || 0) : 0,
     defaultRiskPct: typeof c.defaultRiskPct === 'number' && c.defaultRiskPct > 0 ? c.defaultRiskPct : 1.0,
     status: VALID_STATUS.has(c.status) ? c.status : 'activa',
     fase: VALID_FASE.has(c.fase) ? c.fase : 'challenge_1',

@@ -1,7 +1,7 @@
 /* ── Cuentas: lista de cards ─────────────────────────────── */
 .cuenta-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -9,7 +9,7 @@
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 18px 20px;
+  padding: 20px 22px;
   cursor: pointer;
   transition: border-color .12s, transform .1s;
   position: relative;
@@ -27,22 +27,22 @@
   border-bottom: 1px solid var(--border);
 }
 .cuenta-card-title {
-  font-size: 14px; font-weight: 600; color: var(--text-strong);
+  font-size: 16px; font-weight: 600; color: var(--text-strong);
   letter-spacing: -.2px; line-height: 1.3;
 }
 .cuenta-card-meta {
-  margin-top: 6px; font-size: 11px; font-family: var(--mono); color: var(--muted);
+  margin-top: 8px; font-size: 12px; font-family: var(--mono); color: var(--muted);
   display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
 }
 .cuenta-card-actions { display: flex; gap: 4px; flex-shrink: 0; }
-.cuenta-card-actions .btn { padding: 4px 8px; font-size: 12px; }
-.cuenta-card-body { display: flex; flex-direction: column; gap: 7px; }
+.cuenta-card-actions .btn { padding: 5px 9px; font-size: 13px; }
+.cuenta-card-body { display: flex; flex-direction: column; gap: 9px; }
 .cc-row {
   display: flex; justify-content: space-between; align-items: baseline;
-  font-size: 12px; gap: 8px;
+  font-size: 13px; gap: 8px;
 }
-.cc-label { color: var(--muted); font-family: var(--mono); font-size: 11px; }
-.cc-value { color: var(--text); font-weight: 500; font-family: var(--mono); text-align: right; }
+.cc-label { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+.cc-value { color: var(--text); font-weight: 500; font-family: var(--mono); font-size: 13px; text-align: right; }
 
 /* ── Badges fase / estado ─────────────────────────────────── */
 .badge.fase-c1, .badge.fase-challenge_1 { background: rgba(91,141,239,.15); color: var(--accent); border-color: rgba(91,141,239,.4); }
@@ -95,4 +95,28 @@
 }
 
 /* ── Notes / sub-text en cuenta detail ────────────────────── */
-.cuenta-card-meta .badge { font-size: 9px; padding: 2px 7px; }
+.cuenta-card-meta .badge { font-size: 10px; padding: 2px 8px; }
+
+/* ── Barras de progreso (Target / Max DD) ─────────────────── */
+.prog-row {
+  margin-top: 14px;
+}
+.prog-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 13px; margin-bottom: 6px;
+  font-family: var(--mono);
+  color: var(--muted);
+}
+.prog-head strong { color: var(--text); font-family: var(--font); font-size: 14px; font-weight: 600; }
+.prog-track {
+  height: 10px;
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.prog-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width .3s ease, background .2s;
+}

@@ -60,17 +60,19 @@ function render(container, cuentaId) {
 
     <div class="kpi-grid">
       ${kpiCard({ label: 'Capital nominal', value: fmtUsd(s.capital), sub: cuenta.tipo, tone: 'blue' })}
-      ${s.initialBalance !== s.capital ? kpiCard({ label: 'Saldo inicial', value: fmtUsd(s.initialBalance), sub: signedDelta(s.initialBalance - s.capital) + ' vs capital', tone: 'purple' }) : ''}
-      ${kpiCard({ label: 'Equity actual', value: fmtUsd(s.equityUsd), sub: signedPct(s.equityPct), tone: s.equityPct >= 0 ? 'green' : 'red' })}
-      ${kpiCard({ label: 'Profit total', value: fmtUsd(s.profitTotalUsd, true), sub: (s.totalCommissions > 0 ? 'neto · ' : '') + signedPct(s.profitTotalPct), tone: s.profitTotalUsd >= 0 ? 'green' : 'red' })}
-      ${s.totalCommissions > 0 ? kpiCard({ label: 'Comisiones', value: '-' + fmtUsd(s.totalCommissions), sub: 'restadas del profit', tone: 'red' }) : ''}
-      ${isFondeada ? kpiCard({ label: 'Total retirado', value: fmtUsd(s.totalWithdrawn), sub: (cuenta.withdrawals || []).length + ' retiros', tone: 'purple' }) : ''}
+      ${kpiCard({ label: 'Equity actual', value: fmtUsd(s.equityUsd), sub: signedPct(s.equityPct) + ' vs capital', tone: s.equityPct >= 0 ? 'green' : 'red' })}
+      ${kpiCard({ label: 'Profit total', value: fmtUsd(s.profitTotalUsd, true), sub: signedPct(s.profitTotalPct), tone: s.profitTotalUsd >= 0 ? 'green' : 'red' })}
+      ${s.targetUsd > 0 ? kpiCard({ label: 'Target', value: fmtUsd(s.targetUsd), sub: signedPct(s.targetProgressPct, 0) + ' completado', tone: s.targetProgressPct >= 100 ? 'green' : 'orange' }) : ''}
+      ${s.maxDdUsd > 0 ? kpiCard({ label: 'Max DD permitido', value: fmtUsd(s.maxDdUsd), sub: s.ddVsLimitPct.toFixed(0) + '% consumido', tone: s.ddVsLimitPct >= 80 ? 'red' : s.ddVsLimitPct >= 50 ? 'orange' : 'green' }) : ''}
       ${kpiCard({ label: 'DD máximo', value: '-' + s.ddPct.toFixed(2) + '%', sub: '-' + fmtUsd(s.ddUsd), tone: 'red' })}
+      ${isFondeada ? kpiCard({ label: 'Total retirado', value: fmtUsd(s.totalWithdrawn), sub: (cuenta.withdrawals || []).length + ' retiros', tone: 'purple' }) : ''}
       ${kpiCard({ label: 'Trades', value: s.count, sub: `${s.tp} TP · ${s.sl} SL · ${s.be} BE`, tone: 'orange' })}
       ${kpiCard({ label: 'Winrate', value: (s.tp + s.sl > 0 ? s.wr.toFixed(0) + '%' : '–'), sub: 'TP / (TP+SL)', tone: 'orange' })}
       ${kpiCard({ label: 'Profit Factor', value: isFinite(s.pf) ? s.pf.toFixed(2) : '∞', sub: '$ wins / |$ losses|', tone: 'green' })}
       ${cuenta.cost > 0 && isFondeada ? kpiCard({ label: 'Net to pocket', value: fmtUsd(s.netToPocket, true), sub: 'retirado − coste', tone: s.netToPocket >= 0 ? 'green' : 'red' }) : ''}
     </div>
+
+    ${(s.targetUsd > 0 || s.maxDdUsd > 0) ? renderProgressBars(s) : ''}
 
     <div class="section-title">Curva de equity</div>
     <div class="card" style="margin-bottom:20px;">
@@ -163,7 +165,6 @@ function renderWithdrawalsSection(cuenta, stats) {
 }
 
 function renderAccountTradesTable(items, cuenta) {
-  // Trades ordenados cronológicamente con su $ P&L individual
   const sorted = [...items].sort((a, b) => {
     if (a.trade.date !== b.trade.date) return a.trade.date.localeCompare(b.trade.date);
     return (a.trade.open_hour || 0) - (b.trade.open_hour || 0);
@@ -180,19 +181,13 @@ function renderAccountTradesTable(items, cuenta) {
           <th>Zona</th>
           <th>Riesgo</th>
           <th>% sistema</th>
-          <th>$ Bruto</th>
-          <th>Comisión</th>
-          <th>$ Neto</th>
+          <th>$ P&L</th>
           <th>Resultado</th>
         </tr></thead>
         <tbody>
-          ${sorted.map(({ trade: t, riskPct, commission, usdGross, usdNet }) => {
+          ${sorted.map(({ trade: t, riskPct, usdPnl }) => {
             const pctColor = t.pnl_pct >= 0 ? 'var(--green)' : 'var(--red)';
-            const grossColor = usdGross >= 0 ? 'var(--green)' : 'var(--red)';
-            const netColor = usdNet >= 0 ? 'var(--green)' : 'var(--red)';
-            const commCell = commission > 0
-              ? `<span style="color:var(--orange);">-${fmtUsd(commission)}</span>`
-              : '<span style="color:var(--dim);">$0</span>';
+            const usdColor = usdPnl >= 0 ? 'var(--green)' : 'var(--red)';
             return `<tr>
               <td>${formatDateShort(t.date)}</td>
               <td>${t.open_str || '–'}</td>
@@ -200,11 +195,9 @@ function renderAccountTradesTable(items, cuenta) {
               <td>${t.pair || '–'}</td>
               <td>${t.setup || '–'}</td>
               <td>${t.zone || '–'}</td>
-              <td style="font-family:var(--mono);font-size:11px;color:var(--muted);">${riskPct}%</td>
+              <td style="font-family:var(--mono);font-size:12px;color:var(--muted);">${riskPct}%</td>
               <td style="color:${pctColor};">${t.pnl_pct >= 0 ? '+' : ''}${t.pnl_pct.toFixed(2)}%</td>
-              <td style="color:${grossColor};">${fmtUsd(usdGross, true)}</td>
-              <td>${commCell}</td>
-              <td style="color:${netColor};font-weight:500;">${fmtUsd(usdNet, true)}</td>
+              <td style="color:${usdColor};font-weight:500;">${fmtUsd(usdPnl, true)}</td>
               <td><span class="res-pill res-${t.result.toLowerCase()}">${t.result}</span></td>
             </tr>`;
           }).join('')}
@@ -292,14 +285,45 @@ function paintMonthlyChart(container, monthly) {
   });
 }
 
-function signedPct(v) {
+function signedPct(v, digits = 2) {
   if (v == null || isNaN(v)) return '0%';
-  return (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+  return (v >= 0 ? '+' : '') + v.toFixed(digits) + '%';
 }
 
 function signedDelta(v) {
   if (v == null || isNaN(v) || v === 0) return '$0';
   return (v >= 0 ? '+$' : '-$') + Math.abs(v).toLocaleString('en-US');
+}
+
+function renderProgressBars(s) {
+  const bars = [];
+  if (s.targetUsd > 0) {
+    const pct = Math.max(0, Math.min(100, s.targetProgressPct));
+    const color = s.targetProgressPct >= 100 ? 'var(--green)' : 'var(--accent)';
+    bars.push(`
+      <div class="prog-row">
+        <div class="prog-head">
+          <span><strong>🎯 Target</strong> · ${fmtUsd(s.profitTotalUsd, true)} de ${fmtUsd(s.targetUsd)}</span>
+          <span style="color:${color};font-weight:600;">${s.targetProgressPct.toFixed(0)}%</span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${color};"></div></div>
+      </div>
+    `);
+  }
+  if (s.maxDdUsd > 0) {
+    const pct = Math.max(0, Math.min(100, s.ddVsLimitPct));
+    const color = s.ddVsLimitPct >= 80 ? 'var(--red)' : s.ddVsLimitPct >= 50 ? 'var(--orange)' : 'var(--green)';
+    bars.push(`
+      <div class="prog-row">
+        <div class="prog-head">
+          <span><strong>🛑 Max DD</strong> · ${fmtUsd(s.ddUsd)} consumido de ${fmtUsd(s.maxDdUsd)}</span>
+          <span style="color:${color};font-weight:600;">${s.ddVsLimitPct.toFixed(0)}%</span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${color};"></div></div>
+      </div>
+    `);
+  }
+  return `<div class="card" style="margin-bottom:24px;"><div class="card-title">Progreso</div><div class="card-sub">Avance hacia los límites de la cuenta</div>${bars.join('')}</div>`;
 }
 
 function esc(s) {

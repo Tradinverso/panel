@@ -31,6 +31,8 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
     capital: cuenta?.capital != null ? String(cuenta.capital) : '',
     initialBalance: cuenta?.initialBalance != null ? String(cuenta.initialBalance) : '',
     cost: cuenta?.cost != null ? String(cuenta.cost) : '',
+    targetUsd: cuenta?.targetUsd != null && cuenta.targetUsd > 0 ? String(cuenta.targetUsd) : '',
+    maxDdUsd: cuenta?.maxDdUsd != null && cuenta.maxDdUsd > 0 ? String(cuenta.maxDdUsd) : '',
     defaultRiskPct: cuenta?.defaultRiskPct != null ? String(cuenta.defaultRiskPct) : '1.0',
     fase: cuenta?.fase || 'challenge_1',
     status: cuenta?.status || 'activa',
@@ -74,13 +76,30 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
 
         <div class="form-row">
           <div class="form-field">
-            <label class="form-label">Saldo inicial ($)</label>
+            <label class="form-label">Saldo actual ($)</label>
             <input class="form-input" type="number" step="0.01" id="ce-initbal" value="${esc(data.initialBalance)}" placeholder="${esc(data.capital) || 'igual al capital'}">
-            <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:4px;line-height:1.5;">
-              Lo que tenía la cuenta cuando empezaste a trackearla aquí. Si la cuenta ya estaba con profit antes, ponlo aquí (ej. capital 100.000, saldo inicial 105.000 = ya tenía $5.000 de profit). Por defecto = capital.
+            <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:4px;line-height:1.5;">
+              Lo que tiene la cuenta AHORA en el broker. Editable cuando quieras: si el broker no coincide con los trades calculados, ajústalo aquí. Por defecto = capital nominal.
             </div>
           </div>
           <div class="form-field"></div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">Target ($)</label>
+            <input class="form-input" type="number" step="100" id="ce-target" value="${esc(data.targetUsd)}" placeholder="ej. 5000">
+            <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:4px;line-height:1.5;">
+              Profit en $ que necesitas para pasar el challenge (o weekly target en fondeada). Opcional.
+            </div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Max DD permitido ($)</label>
+            <input class="form-input" type="number" step="100" id="ce-maxdd" value="${esc(data.maxDdUsd)}" placeholder="ej. 5000">
+            <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:4px;line-height:1.5;">
+              Drawdown máximo en $ antes de perder la cuenta. Opcional.
+            </div>
+          </div>
         </div>
 
         <div class="form-row">
@@ -169,6 +188,11 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
       data.initialBalance = e.target.value;
       initialBalanceManual = e.target.value !== '';
     });
+
+    const targetInput = root.querySelector('#ce-target');
+    if (targetInput) targetInput.addEventListener('input', e => data.targetUsd = e.target.value);
+    const maxDdInput = root.querySelector('#ce-maxdd');
+    if (maxDdInput) maxDdInput.addEventListener('input', e => data.maxDdUsd = e.target.value);
   }, 0);
 }
 
@@ -191,6 +215,10 @@ function doSave(cuenta, data, close, onSaved) {
   if (isNaN(cost) || cost < 0) return showErr('El coste no puede ser negativo.');
   const risk = parseFloat(data.defaultRiskPct);
   if (!risk || risk <= 0 || risk > 100) return showErr('El riesgo debe estar entre 0 y 100.');
+  const targetUsd = data.targetUsd === '' || data.targetUsd == null ? 0 : parseFloat(data.targetUsd);
+  if (isNaN(targetUsd) || targetUsd < 0) return showErr('El target no puede ser negativo.');
+  const maxDdUsd = data.maxDdUsd === '' || data.maxDdUsd == null ? 0 : parseFloat(data.maxDdUsd);
+  if (isNaN(maxDdUsd) || maxDdUsd < 0) return showErr('El max DD no puede ser negativo.');
 
   const payload = {
     ...(cuenta || {}),
@@ -200,6 +228,8 @@ function doSave(cuenta, data, close, onSaved) {
     capital,
     initialBalance,
     cost,
+    targetUsd,
+    maxDdUsd,
     defaultRiskPct: risk,
     fase: data.fase || 'challenge_1',
     status: data.status || 'activa',

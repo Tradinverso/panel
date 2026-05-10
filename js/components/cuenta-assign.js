@@ -16,7 +16,6 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {})
     .map(a => ({
       accountId: a.accountId,
       riskPct: a.riskPct || 1.0,
-      commission: typeof a.commission === 'number' ? a.commission : 0,
     }));
 
   function paint() {
@@ -60,11 +59,6 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {})
               <input type="number" step="0.1" min="0.01" max="100" value="${a.riskPct}" data-risk="${i}" class="ca-risk-input">
               %
             </span>
-            <span class="ca-comm" title="Comisión en $ que se resta del P&L de esta cuenta. No afecta al sistema.">
-              Com.
-              <input type="number" step="0.01" min="0" value="${a.commission || 0}" data-comm="${i}" class="ca-risk-input">
-              $
-            </span>
             <button type="button" class="ca-x" data-remove="${i}" title="Quitar">×</button>
           </div>`;
         }).join('')}
@@ -100,16 +94,6 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {})
         }
       });
     });
-    container.querySelectorAll('[data-comm]').forEach(inp => {
-      inp.addEventListener('input', () => {
-        const i = parseInt(inp.dataset.comm, 10);
-        const v = parseFloat(inp.value);
-        if (!isNaN(v) && v >= 0) {
-          assigned[i].commission = v;
-          onChange(currentArray());
-        }
-      });
-    });
     const sel = container.querySelector('#ca-select');
     if (sel) {
       sel.addEventListener('change', () => {
@@ -117,7 +101,7 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {})
         if (!id) return;
         const c = cuentas.find(x => x.id === id);
         if (!c) return;
-        assigned.push({ accountId: id, riskPct: c.defaultRiskPct || 1.0, commission: 0 });
+        assigned.push({ accountId: id, riskPct: c.defaultRiskPct || 1.0 });
         onChange(currentArray());
         paint();
       });
@@ -128,7 +112,6 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {})
     return assigned.map(a => ({
       accountId: a.accountId,
       riskPct: a.riskPct,
-      commission: a.commission || 0,
     }));
   }
 

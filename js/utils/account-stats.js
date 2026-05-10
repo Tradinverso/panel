@@ -1,20 +1,17 @@
 // Cálculos por cuenta. Convierten el % del sistema (asumiendo 1% de riesgo)
-// a importes reales en USD según capital y riesgo asignado por cuenta,
-// y restan comisiones específicas de esa cuenta.
+// a importes reales en USD según capital y riesgo asignado por cuenta.
 //
-//   $ P&L gross (trade en cuenta) = pnl_pct × riskPct × capital / 100
-//   $ P&L neto                    = $ P&L gross − commission
+//   $ P&L (trade en cuenta) = pnl_pct × riskPct × capital / 100
 //
-// initialBalance permite añadir una cuenta que ya estaba operando con un
-// saldo distinto al capital nominal. La equity de partida es initialBalance,
-// no capital.
+// Equity = initialBalance + Σ trades − Σ retiros
 //
-//   Equity = initialBalance + Σ($ P&L neto) − Σ retiros
+// Profit total = equity − capital nominal (cubre TODO: trades + diff de
+// initialBalance vs capital + ajustes manuales del broker). Esto es lo que
+// el usuario ve como "lo que has ganado en total con esta cuenta".
 
 import { sortChrono } from './calculations.js';
 
-// Devuelve [{ trade, riskPct, commission, usdGross, usdNet }] solo de los
-// trades que están asignados a esta cuenta.
+// Devuelve [{ trade, riskPct, usdPnl }] solo de los trades asignados a esta cuenta.
 export function tradesForAccount(account, allTrades) {
   if (!account || !Array.isArray(allTrades)) return [];
   const out = [];
@@ -22,15 +19,8 @@ export function tradesForAccount(account, allTrades) {
     if (!Array.isArray(t.accounts)) continue;
     const a = t.accounts.find(x => x.accountId === account.id);
     if (!a) continue;
-    const usdGross = computeUsdPnl(t.pnl_pct, a.riskPct, account.capital);
-    const commission = a.commission || 0;
-    out.push({
-      trade: t,
-      riskPct: a.riskPct,
-      commission,
-      usdGross,
-      usdNet: usdGross - commission,
-    });
+    const usdPnl = computeUsdPnl(t.pnl_pct, a.riskPct, account.capital);
+    out.push({ trade: t, riskPct: a.riskPct, usdPnl });
   }
   return out;
 }
@@ -47,27 +37,25 @@ export function totalWithdrawn(account) {
   return account.withdrawals.reduce((sum, w) => sum + (w.amount || 0), 0);
 }
 
-// Suma de todas las comisiones cobradas en esta cuenta.
-export function totalCommissions(account, allTrades) {
-  return tradesForAccount(account, allTrades).reduce((s, x) => s + x.commission, 0);
-}
-
 // Estadísticas completas de la cuenta.
 export function accountStats(account, allTrades) {
   const empty = {
     capital: account?.capital || 0,
     initialBalance: account?.initialBalance || account?.capital || 0,
     cost: account?.cost || 0,
-    profitBrutoUsd: 0,
-    totalCommissions: 0,
+    targetUsd: account?.targetUsd || 0,
+    maxDdUsd: account?.maxDdUsd || 0,
+    profitFromTrades: 0,
     totalWithdrawn: 0,
     netToPocket: 0,
     equityUsd: account?.initialBalance || account?.capital || 0,
     equityPct: 0,
     profitTotalUsd: 0,
     profitTotalPct: 0,
+    targetProgressPct: 0,
     ddUsd: 0,
     ddPct: 0,
+    ddVsLimitPct: 0,
     peakUsd: account?.initialBalance || account?.capital || 0,
     count: 0, tp: 0, sl: 0, be: 0,
     wr: 0, pf: 0,
@@ -79,17 +67,24 @@ export function accountStats(account, allTrades) {
   const capital = account.capital || 0;
   const initial = account.initialBalance != null ? account.initialBalance : capital;
   const cost = account.cost || 0;
+  const targetUsd = account.targetUsd || 0;
+  const maxDdUsd = account.maxDdUsd || 0;
 
-  // Profit bruto = suma de P&L gross (sin restar comisiones)
-  const profitGross = items.reduce((s, x) => s + x.usdGross, 0);
-  const commissions = items.reduce((s, x) => s + x.commission, 0);
-  const profitNet = profitGross - commissions;
+  const profitFromTrades = items.reduce((s, x) => s + x.usdPnl, 0);
   const withdrawn = totalWithdrawn(account);
 
-  // Equity = saldo inicial + profit neto - retiros
-  const equity = initial + profitNet - withdrawn;
-  // % de retorno se mide vs initialBalance (lo que tenía cuando empezaste)
-  const equityPct = initial > 0 ? ((equity - initial) / initial) * 100 : 0;
+  // Equity = saldo inicial + profit por trades − retiros
+  const equity = initial + profitFromTrades - withdrawn;
+
+  // Profit total = TODO lo ganado vs el capital nominal (incluye diff inicial,
+  // trades, ajustes broker, etc). Es lo que el usuario quiere ver.
+  const profitTotalUsd = equity - capital;
+  const profitTotalPct = capital > 0 ? (profitTotalUsd / capital) * 100 : 0;
+  const equityPct = profitTotalPct;
+
+  // Progreso hacia target (si está definido)
+  const targetProgressPct = targetUsd > 0 ? (profitTotalUsd / targetUsd) * 100 : 0;
+
   const netToPocket = withdrawn - cost;
 
   // Cuentas TP/SL/BE
@@ -102,15 +97,15 @@ export function accountStats(account, allTrades) {
   const decisive = tp + sl;
   const wr = decisive > 0 ? (tp / decisive) * 100 : 0;
 
-  // Profit Factor en $ neto (con comisiones)
+  // Profit Factor en $
   let wins = 0, losses = 0;
   for (const x of items) {
-    if (x.usdNet > 0) wins += x.usdNet;
-    else if (x.usdNet < 0) losses += Math.abs(x.usdNet);
+    if (x.usdPnl > 0) wins += x.usdPnl;
+    else if (x.usdPnl < 0) losses += Math.abs(x.usdPnl);
   }
   const pf = losses > 0 ? wins / losses : (wins > 0 ? Infinity : 0);
 
-  // DD basado en la curva de equity (con retiros y comisiones)
+  // DD basado en la curva de equity (con retiros)
   const events = buildEvents(account, items);
   let runningEquity = initial;
   let peak = initial;
@@ -122,6 +117,8 @@ export function accountStats(account, allTrades) {
     if (dd > maxDD) maxDD = dd;
   }
   const ddPct = peak > 0 ? (maxDD / peak) * 100 : 0;
+  // % consumido del límite máximo de DD (si está definido)
+  const ddVsLimitPct = maxDdUsd > 0 ? (maxDD / maxDdUsd) * 100 : 0;
 
   // Racha SL actual
   const sortedTrades = sortChrono(items.map(x => x.trade));
@@ -135,16 +132,19 @@ export function accountStats(account, allTrades) {
     capital,
     initialBalance: initial,
     cost,
-    profitBrutoUsd: profitGross,
-    totalCommissions: commissions,
+    targetUsd,
+    maxDdUsd,
+    profitFromTrades,
     totalWithdrawn: withdrawn,
     netToPocket,
     equityUsd: equity,
     equityPct,
-    profitTotalUsd: profitNet,                          // neto de comisiones
-    profitTotalPct: initial > 0 ? (profitNet / initial) * 100 : 0,
+    profitTotalUsd,
+    profitTotalPct,
+    targetProgressPct,
     ddUsd: maxDD,
     ddPct,
+    ddVsLimitPct,
     peakUsd: peak,
     count: items.length, tp, sl, be,
     wr, pf,
@@ -152,8 +152,7 @@ export function accountStats(account, allTrades) {
   };
 }
 
-// Curva de equity ordenada cronológicamente. Cada punto incluye el delta
-// del evento (trade, retiro). El primer punto es el saldo inicial.
+// Curva de equity ordenada cronológicamente.
 export function accountEquityCurve(account, allTrades) {
   const events = buildEvents(account, tradesForAccount(account, allTrades));
   const initial = account.initialBalance != null ? account.initialBalance : (account.capital || 0);
@@ -166,14 +165,13 @@ export function accountEquityCurve(account, allTrades) {
   return points;
 }
 
-// Eventos cronológicos: trades (con comisiones ya aplicadas) + retiros.
 function buildEvents(account, items) {
   const events = [];
   for (const x of items) {
     events.push({
       date: x.trade.date,
       type: 'trade',
-      delta: x.usdNet,
+      delta: x.usdPnl,
       result: x.trade.result,
     });
   }
@@ -189,19 +187,17 @@ function buildEvents(account, items) {
   return events;
 }
 
-// Agrupación por mes en USD para el chart de barras (neto, con comisiones)
 export function monthlyPnlUsd(account, allTrades) {
   const items = tradesForAccount(account, allTrades);
   const months = {};
   for (const x of items) {
     const m = x.trade.date.substring(0, 7);
     if (!months[m]) months[m] = 0;
-    months[m] += x.usdNet;
+    months[m] += x.usdPnl;
   }
   return Object.keys(months).sort().map(m => ({ month: m, usd: months[m] }));
 }
 
-// Formato $ con miles + 2 decimales si necesarios. Ej: 102450.5 → "$102,450.50"
 export function fmtUsd(v, withSign = false) {
   if (v == null || isNaN(v)) return '$0';
   const abs = Math.abs(v);
