@@ -1,0 +1,87 @@
+/* ── Form layout ─────────────────────────────────────────── */
+.form { display: flex; flex-direction: column; gap: 20px; max-width: 720px; }
+.form-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.form-row.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.form-row.cols-1 { grid-template-columns: 1fr; }
+.form-field { display: flex; flex-direction: column; gap: 6px; }
+.form-label { font-size: 11px; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+.form-label .required { color: var(--red); margin-left: 2px; }
+.form-input, .form-textarea {
+  background: var(--card2); border: 1px solid var(--border); color: var(--text);
+  padding: 10px 12px; border-radius: 8px; font-family: var(--font); font-size: 13px; outline: none;
+  transition: border-color .12s;
+}
+.form-input:focus, .form-textarea:focus { border-color: var(--accent); }
+.form-textarea { min-height: 80px; resize: vertical; font-family: var(--font); line-height: 1.5; }
+.form-input.error, .form-textarea.error { border-color: var(--red); }
+.form-error { font-size: 10px; color: var(--red); font-family: var(--mono); margin-top: 2px; }
+
+/* ── Pills (selectable) ──────────────────────────────────── */
+.pill-group { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill {
+  background: var(--card2); border: 1px solid var(--border); color: var(--muted);
+  padding: 7px 14px; border-radius: 20px; cursor: pointer; font-size: 12px;
+  font-family: var(--mono); transition: all .12s;
+}
+.pill:hover { border-color: var(--border-strong); color: var(--text); }
+.pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pill-group.green .pill.active { background: var(--green); color: #0A0F1E; border-color: var(--green); font-weight: 600; }
+.pill-group.red .pill.active { background: var(--red); color: #fff; border-color: var(--red); }
+.pill-group.zonas .pill.active { background: var(--zonas); border-color: var(--zonas); color: #fff; }
+.pill-group.liquidez .pill.active { background: var(--liquidez); border-color: var(--liquidez); color: #fff; }
+.pill-group.nasdaq .pill.active { background: var(--nasdaq); border-color: var(--nasdaq); color: #fff; }
+.pill-group.sens .pill[data-val="Seguro - Confiado"].active   { background: rgba(0,212,170,.5); border-color: #00D4AA; color: #fff; }
+.pill-group.sens .pill[data-val="Convencido - Calma"].active  { background: rgba(59,130,246,.5); border-color: #60A5FA; color: #fff; }
+.pill-group.sens .pill[data-val="Dudoso - Inseguro"].active   { background: rgba(255,165,2,.5); border-color: #FFA502; color: #fff; }
+.pill-group.sens .pill[data-val="Fomo - Acelerado"].active    { background: rgba(239,68,68,.5); border-color: #EF4444; color: #fff; }
+.pill-group.sens .pill[data-val="Venganza - Rabia"].active    { background: rgba(168,85,247,.5); border-color: #C084FC; color: #fff; }
+.pill-group.sens .pill[data-val="Miedo - Parálisis"].active   { background: rgba(120,120,130,.5); border-color: #9CA3AF; color: #fff; }
+
+/* ── Strategy chooser (top of new-trade) ─────────────────── */
+.strat-chooser { display: flex; gap: 8px; margin-bottom: 24px; }
+.strat-chooser .pill { font-size: 13px; padding: 10px 20px; }
+
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; padding-top: 20px; border-top: 1px solid var(--border); }
+
+/* ── Import table ────────────────────────────────────────── */
+.import-table-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); }
+.import-table { width: 100%; border-collapse: collapse; min-width: 1200px; }
+.import-table th { font-size: 9px; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .07em; padding: 8px 6px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); background: var(--card2); font-weight: 500; text-align: left; white-space: nowrap; }
+.import-table td { padding: 0; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
+.import-table tr:last-child td { border-bottom: none; }
+.import-table td input {
+  width: 100%; background: transparent; border: none; padding: 7px 8px;
+  color: var(--text); font-family: var(--font); font-size: 12px; outline: none;
+  border: 2px solid transparent;
+}
+.import-table td input:focus { border-color: var(--accent); background: var(--card2); }
+.import-table td.calc { background: var(--card2); opacity: .55; }
+.import-table td.calc input { color: var(--muted); cursor: not-allowed; }
+.import-table td.invalid input { border-color: var(--red); background: rgba(255,71,87,0.05); }
+.import-table td.row-status { text-align: center; padding: 6px; font-family: var(--mono); font-size: 12px; }
+.row-status.ok { color: var(--green); }
+.row-status.warn { color: var(--orange); }
+.row-status.err { color: var(--red); }
+
+.import-toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+.import-result { padding: 12px 14px; border-radius: 8px; background: var(--card2); margin-top: 16px; font-family: var(--mono); font-size: 12px; }
+.import-result.ok { background: var(--green-bg); color: var(--green); border: 1px solid rgba(0,212,170,.3); }
+.import-result.err { background: var(--red-bg); color: var(--red); border: 1px solid rgba(255,71,87,.3); }
+
+.import-tabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--card2); border-radius: 8px; padding: 3px; }
+.import-tab { background: transparent; border: none; color: var(--muted); padding: 8px 16px; border-radius: 6px; font-family: var(--mono); font-size: 12px; cursor: pointer; transition: all .12s; }
+.import-tab:hover { color: var(--text); }
+.import-tab.active { background: var(--card); color: var(--text); font-weight: 500; }
+
+/* ── Settings ────────────────────────────────────────────── */
+.setting-row { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid var(--border); gap: 16px; }
+.setting-row:last-child { border-bottom: none; }
+.setting-info { flex: 1; }
+.setting-label { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+.setting-desc { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+.setting-control { min-width: 240px; }
+
+/* ── Confirmation modal contents ─────────────────────────── */
+.confirm-grid { display: grid; grid-template-columns: 100px 1fr; gap: 8px 16px; font-size: 13px; }
+.confirm-grid dt { color: var(--muted); font-family: var(--mono); font-size: 11px; }
+.confirm-grid dd { color: var(--text); }

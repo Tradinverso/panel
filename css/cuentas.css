@@ -1,0 +1,97 @@
+/* ── Cuentas: lista de cards ─────────────────────────────── */
+.cuenta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.cuenta-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  cursor: pointer;
+  transition: border-color .12s, transform .1s;
+  position: relative;
+}
+.cuenta-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.cuenta-card.st-pausada { opacity: 0.75; }
+.cuenta-card.st-perdida { opacity: 0.55; }
+.cuenta-card.st-pasada::after {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--green); border-radius: 12px 0 0 12px;
+}
+.cuenta-card-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 10px; margin-bottom: 14px; padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.cuenta-card-title {
+  font-size: 14px; font-weight: 600; color: var(--text-strong);
+  letter-spacing: -.2px; line-height: 1.3;
+}
+.cuenta-card-meta {
+  margin-top: 6px; font-size: 11px; font-family: var(--mono); color: var(--muted);
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+}
+.cuenta-card-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.cuenta-card-actions .btn { padding: 4px 8px; font-size: 12px; }
+.cuenta-card-body { display: flex; flex-direction: column; gap: 7px; }
+.cc-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 12px; gap: 8px;
+}
+.cc-label { color: var(--muted); font-family: var(--mono); font-size: 11px; }
+.cc-value { color: var(--text); font-weight: 500; font-family: var(--mono); text-align: right; }
+
+/* ── Badges fase / estado ─────────────────────────────────── */
+.badge.fase-c1, .badge.fase-challenge_1 { background: rgba(91,141,239,.15); color: var(--accent); border-color: rgba(91,141,239,.4); }
+.badge.fase-c2, .badge.fase-challenge_2 { background: rgba(168,85,247,.15); color: var(--zonas); border-color: rgba(168,85,247,.4); }
+.badge.fase-fond, .badge.fase-fondeada  { background: rgba(0,212,170,.15); color: var(--green); border-color: rgba(0,212,170,.4); }
+.badge.st-activa  { background: rgba(0,212,170,.12); color: var(--green); border-color: rgba(0,212,170,.3); }
+.badge.st-pausada { background: rgba(255,165,2,.12); color: var(--orange); border-color: rgba(255,165,2,.3); }
+.badge.st-pasada  { background: rgba(0,212,170,.18); color: var(--green); border-color: rgba(0,212,170,.45); }
+.badge.st-perdida { background: rgba(255,71,87,.12); color: var(--red); border-color: rgba(255,71,87,.3); }
+
+/* ── Cuenta-assign (componente en formularios) ───────────── */
+.ca-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.ca-row {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px;
+}
+.ca-row.ca-orphan { background: var(--orange-bg); border-color: rgba(255,165,2,.3); }
+.ca-label { flex: 1; font-size: 12px; font-weight: 500; }
+.ca-meta { color: var(--muted); font-family: var(--mono); font-weight: 400; }
+.ca-risk { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); font-family: var(--mono); }
+.ca-risk-input {
+  width: 60px; background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); padding: 4px 6px; border-radius: 5px;
+  font-family: var(--mono); font-size: 12px; text-align: center;
+}
+.ca-risk-input:focus { outline: none; border-color: var(--accent); }
+.ca-x {
+  background: none; border: none; cursor: pointer; color: var(--muted);
+  padding: 4px 8px; border-radius: 5px; font-size: 14px;
+}
+.ca-x:hover { color: var(--red); background: var(--hover); }
+.ca-add { margin-top: 8px; }
+.ca-add .select { width: 100%; }
+
+/* ── Account badge en trade-table ─────────────────────────── */
+.acc-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  margin-right: 2px;
+  border-radius: 4px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 9px;
+  font-family: var(--mono);
+  font-weight: 500;
+  white-space: nowrap;
+  border: 1px solid rgba(91,141,239,.3);
+}
+
+/* ── Notes / sub-text en cuenta detail ────────────────────── */
+.cuenta-card-meta .badge { font-size: 9px; padding: 2px 7px; }
