@@ -20,6 +20,8 @@ export function renderTradeTable(container, trades, opts = {}) {
   const sheets = [...new Set(trades.map(t => t.sheet))];
   const setups = [...new Set(trades.map(t => t.setup).filter(Boolean))];
   const pairs = [...new Set(trades.map(t => t.pair).filter(Boolean))];
+  const zones = [...new Set(trades.map(t => t.zone).filter(Boolean))].sort();
+  const entries = [...new Set(trades.map(t => t.entry).filter(Boolean))].sort();
   const sensaciones = [...new Set(trades.map(t => t.sensacion).filter(Boolean))];
   const accountIds = [...new Set(trades.flatMap(t =>
     Array.isArray(t.accounts) ? t.accounts.map(a => a.accountId) : []
@@ -28,7 +30,8 @@ export function renderTradeTable(container, trades, opts = {}) {
   // Estado de filtros (privado al componente)
   let filters = {
     sheet: 'all', result: 'all', setup: 'all',
-    pair: 'all', sens: 'all', account: 'all',
+    pair: 'all', zone: 'all', entry: 'all',
+    sens: 'all', account: 'all',
   };
 
   function applyFilters() {
@@ -37,6 +40,8 @@ export function renderTradeTable(container, trades, opts = {}) {
       if (filters.result !== 'all' && t.result !== filters.result) return false;
       if (filters.setup !== 'all' && t.setup !== filters.setup) return false;
       if (filters.pair !== 'all' && t.pair !== filters.pair) return false;
+      if (filters.zone !== 'all' && t.zone !== filters.zone) return false;
+      if (filters.entry !== 'all' && t.entry !== filters.entry) return false;
       if (filters.sens !== 'all') {
         if (filters.sens === '_empty' && t.sensacion) return false;
         if (filters.sens !== '_empty' && t.sensacion !== filters.sens) return false;
@@ -65,6 +70,8 @@ export function renderTradeTable(container, trades, opts = {}) {
     const showSheet = sheets.length > 1;
     const showSetup = setups.length > 1;
     const showPair = pairs.length > 1;
+    const showZone = zones.length > 1;
+    const showEntry = entries.length > 1;
     const showSens = sensaciones.length > 0;
     const showAccount = accountIds.length > 0;
     const hasActiveFilters = Object.values(filters).some(v => v !== 'all');
@@ -88,6 +95,14 @@ export function renderTradeTable(container, trades, opts = {}) {
         ${showPair ? sel('pair', filters.pair, [
           { v: 'all', l: 'Todos los pares' },
           ...pairs.map(p => ({ v: p, l: p })),
+        ]) : ''}
+        ${showZone ? sel('zone', filters.zone, [
+          { v: 'all', l: 'Todas las zonas' },
+          ...zones.map(z => ({ v: z, l: z })),
+        ]) : ''}
+        ${showEntry ? sel('entry', filters.entry, [
+          { v: 'all', l: 'Todas las entradas' },
+          ...entries.map(e => ({ v: e, l: e })),
         ]) : ''}
         ${showSens ? sel('sens', filters.sens, [
           { v: 'all', l: 'Todas las sensaciones' },
@@ -160,7 +175,8 @@ export function renderTradeTable(container, trades, opts = {}) {
     if (clear) clear.addEventListener('click', () => {
       filters = {
         sheet: 'all', result: 'all', setup: 'all',
-        pair: 'all', sens: 'all', account: 'all',
+        pair: 'all', zone: 'all', entry: 'all',
+        sens: 'all', account: 'all',
       };
       paint();
     });
