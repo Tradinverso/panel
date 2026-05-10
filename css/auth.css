@@ -54,6 +54,11 @@ body[data-auth="false"] #view {
   font-size: 11px;
   display: flex; align-items: flex-start; gap: 8px;
 }
+.auth-error.auth-success {
+  background: var(--green-bg, rgba(46,213,115,0.12));
+  border-color: rgba(46,213,115,0.28);
+  color: var(--green, #2ed573);
+}
 .auth-help {
   text-align: center;
   font-size: 11px;
@@ -62,6 +67,19 @@ body[data-auth="false"] #view {
   margin-top: 18px;
   line-height: 1.6;
 }
+.auth-help a {
+  color: var(--accent, #4a9eff);
+  text-decoration: none;
+  cursor: pointer;
+}
+.auth-help a:hover { text-decoration: underline; }
+.auth-form a {
+  color: var(--accent, #4a9eff);
+  text-decoration: none;
+  cursor: pointer;
+  font-family: var(--mono);
+}
+.auth-form a:hover { text-decoration: underline; }
 
 /* ── Spinner pequeño dentro del botón ─────────────────────── */
 .btn .spinner-sm {
