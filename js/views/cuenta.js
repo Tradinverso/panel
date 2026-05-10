@@ -59,9 +59,11 @@ function render(container, cuentaId) {
     ${cuenta.notes ? `<div class="card" style="margin-bottom:20px;"><div class="card-sub" style="margin-bottom:0;">📝 ${esc(cuenta.notes)}</div></div>` : ''}
 
     <div class="kpi-grid">
-      ${kpiCard({ label: 'Capital inicial', value: fmtUsd(s.capital), sub: cuenta.tipo, tone: 'blue' })}
+      ${kpiCard({ label: 'Capital nominal', value: fmtUsd(s.capital), sub: cuenta.tipo, tone: 'blue' })}
+      ${s.initialBalance !== s.capital ? kpiCard({ label: 'Saldo inicial', value: fmtUsd(s.initialBalance), sub: signedDelta(s.initialBalance - s.capital) + ' vs capital', tone: 'purple' }) : ''}
       ${kpiCard({ label: 'Equity actual', value: fmtUsd(s.equityUsd), sub: signedPct(s.equityPct), tone: s.equityPct >= 0 ? 'green' : 'red' })}
-      ${kpiCard({ label: 'Profit total', value: fmtUsd(s.profitTotalUsd, true), sub: 'bruto · ' + signedPct(s.profitTotalPct), tone: s.profitTotalUsd >= 0 ? 'green' : 'red' })}
+      ${kpiCard({ label: 'Profit total', value: fmtUsd(s.profitTotalUsd, true), sub: (s.totalCommissions > 0 ? 'neto · ' : '') + signedPct(s.profitTotalPct), tone: s.profitTotalUsd >= 0 ? 'green' : 'red' })}
+      ${s.totalCommissions > 0 ? kpiCard({ label: 'Comisiones', value: '-' + fmtUsd(s.totalCommissions), sub: 'restadas del profit', tone: 'red' }) : ''}
       ${isFondeada ? kpiCard({ label: 'Total retirado', value: fmtUsd(s.totalWithdrawn), sub: (cuenta.withdrawals || []).length + ' retiros', tone: 'purple' }) : ''}
       ${kpiCard({ label: 'DD máximo', value: '-' + s.ddPct.toFixed(2) + '%', sub: '-' + fmtUsd(s.ddUsd), tone: 'red' })}
       ${kpiCard({ label: 'Trades', value: s.count, sub: `${s.tp} TP · ${s.sl} SL · ${s.be} BE`, tone: 'orange' })}
@@ -178,13 +180,19 @@ function renderAccountTradesTable(items, cuenta) {
           <th>Zona</th>
           <th>Riesgo</th>
           <th>% sistema</th>
-          <th>$ P&L</th>
+          <th>$ Bruto</th>
+          <th>Comisión</th>
+          <th>$ Neto</th>
           <th>Resultado</th>
         </tr></thead>
         <tbody>
-          ${sorted.map(({ trade: t, riskPct, usdPnl }) => {
+          ${sorted.map(({ trade: t, riskPct, commission, usdGross, usdNet }) => {
             const pctColor = t.pnl_pct >= 0 ? 'var(--green)' : 'var(--red)';
-            const usdColor = usdPnl >= 0 ? 'var(--green)' : 'var(--red)';
+            const grossColor = usdGross >= 0 ? 'var(--green)' : 'var(--red)';
+            const netColor = usdNet >= 0 ? 'var(--green)' : 'var(--red)';
+            const commCell = commission > 0
+              ? `<span style="color:var(--orange);">-${fmtUsd(commission)}</span>`
+              : '<span style="color:var(--dim);">$0</span>';
             return `<tr>
               <td>${formatDateShort(t.date)}</td>
               <td>${t.open_str || '–'}</td>
@@ -194,7 +202,9 @@ function renderAccountTradesTable(items, cuenta) {
               <td>${t.zone || '–'}</td>
               <td style="font-family:var(--mono);font-size:11px;color:var(--muted);">${riskPct}%</td>
               <td style="color:${pctColor};">${t.pnl_pct >= 0 ? '+' : ''}${t.pnl_pct.toFixed(2)}%</td>
-              <td style="color:${usdColor};font-weight:500;">${fmtUsd(usdPnl, true)}</td>
+              <td style="color:${grossColor};">${fmtUsd(usdGross, true)}</td>
+              <td>${commCell}</td>
+              <td style="color:${netColor};font-weight:500;">${fmtUsd(usdNet, true)}</td>
               <td><span class="res-pill res-${t.result.toLowerCase()}">${t.result}</span></td>
             </tr>`;
           }).join('')}
@@ -285,6 +295,11 @@ function paintMonthlyChart(container, monthly) {
 function signedPct(v) {
   if (v == null || isNaN(v)) return '0%';
   return (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+}
+
+function signedDelta(v) {
+  if (v == null || isNaN(v) || v === 0) return '$0';
+  return (v >= 0 ? '+$' : '-$') + Math.abs(v).toLocaleString('en-US');
 }
 
 function esc(s) {

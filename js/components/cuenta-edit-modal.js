@@ -29,6 +29,7 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
     tipo: cuenta?.tipo || 'CFD',
     numero: cuenta?.numero || '',
     capital: cuenta?.capital != null ? String(cuenta.capital) : '',
+    initialBalance: cuenta?.initialBalance != null ? String(cuenta.initialBalance) : '',
     cost: cuenta?.cost != null ? String(cuenta.cost) : '',
     defaultRiskPct: cuenta?.defaultRiskPct != null ? String(cuenta.defaultRiskPct) : '1.0',
     fase: cuenta?.fase || 'challenge_1',
@@ -36,6 +37,8 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
     notes: cuenta?.notes || '',
   };
   const originalCapital = cuenta?.capital;
+  // Saldo inicial fue editado manualmente? (true si edición existente o null/!= capital)
+  let initialBalanceManual = !isNew && cuenta?.initialBalance != null && cuenta.initialBalance !== cuenta.capital;
 
   openModal({
     title: isNew ? 'Nueva cuenta' : `Editar cuenta · ${cuenta.empresa} ${cuenta.numero}`,
@@ -58,14 +61,26 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
             <input class="form-input" type="text" id="ce-numero" value="${esc(data.numero)}" placeholder="1234567">
           </div>
           <div class="form-field">
-            <label class="form-label">Capital ($) <span class="required">*</span></label>
+            <label class="form-label">Capital nominal ($) <span class="required">*</span></label>
             <input class="form-input" type="number" step="100" id="ce-capital" value="${esc(data.capital)}" placeholder="50000">
+            <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:4px;">El tamaño que dice el broker (FTMO 100K, MFF 50K…). Usado para sizing de trades.</div>
             ${tradesUsing > 0 ? `
               <div id="capital-warn" style="display:none;font-size:11px;color:var(--orange);font-family:var(--mono);margin-top:6px;line-height:1.5;background:var(--orange-bg);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,165,2,0.3);">
-                ⚠ Esta cuenta tiene <strong>${tradesUsing} trade${tradesUsing !== 1 ? 's' : ''}</strong> asignados. Si cambias el capital, todos los <strong>$ P&L históricos se recalcularán</strong> con el nuevo valor. Para escalado/upgrade es mejor crear una cuenta nueva.
+                ⚠ Esta cuenta tiene <strong>${tradesUsing} trade${tradesUsing !== 1 ? 's' : ''}</strong> asignados. Si cambias el capital nominal, todos los <strong>$ P&L históricos se recalcularán</strong>.
               </div>
             ` : ''}
           </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">Saldo inicial ($)</label>
+            <input class="form-input" type="number" step="0.01" id="ce-initbal" value="${esc(data.initialBalance)}" placeholder="${esc(data.capital) || 'igual al capital'}">
+            <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:4px;line-height:1.5;">
+              Lo que tenía la cuenta cuando empezaste a trackearla aquí. Si la cuenta ya estaba con profit antes, ponlo aquí (ej. capital 100.000, saldo inicial 105.000 = ya tenía $5.000 de profit). Por defecto = capital.
+            </div>
+          </div>
+          <div class="form-field"></div>
         </div>
 
         <div class="form-row">
@@ -134,9 +149,10 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
     root.querySelector('#ce-risk').addEventListener('input', e => data.defaultRiskPct = e.target.value);
     root.querySelector('#ce-notes').addEventListener('input', e => data.notes = e.target.value);
 
-    // Capital con aviso si ha cambiado y hay trades
+    // Capital con aviso si ha cambiado y hay trades, y auto-sync de saldo inicial
     const capInput = root.querySelector('#ce-capital');
     const capWarn = root.querySelector('#capital-warn');
+    const initBalInput = root.querySelector('#ce-initbal');
     capInput.addEventListener('input', e => {
       data.capital = e.target.value;
       if (capWarn) {
@@ -144,6 +160,14 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
         const changed = !isNaN(newCap) && newCap !== originalCapital;
         capWarn.style.display = changed ? 'block' : 'none';
       }
+      // Si el usuario no ha tocado manualmente saldo inicial, lo sincronizamos
+      if (!initialBalanceManual && initBalInput) {
+        initBalInput.placeholder = data.capital || 'igual al capital';
+      }
+    });
+    initBalInput.addEventListener('input', e => {
+      data.initialBalance = e.target.value;
+      initialBalanceManual = e.target.value !== '';
     });
   }, 0);
 }
@@ -158,6 +182,11 @@ function doSave(cuenta, data, close, onSaved) {
   if (!empresa) return showErr('La empresa es obligatoria.');
   const capital = parseFloat(data.capital);
   if (!capital || capital <= 0) return showErr('El capital debe ser mayor que 0.');
+  // initialBalance opcional: si vacío, usa capital
+  const initialBalance = data.initialBalance === '' || data.initialBalance == null
+    ? capital
+    : parseFloat(data.initialBalance);
+  if (isNaN(initialBalance) || initialBalance < 0) return showErr('El saldo inicial no puede ser negativo.');
   const cost = data.cost === '' ? 0 : parseFloat(data.cost);
   if (isNaN(cost) || cost < 0) return showErr('El coste no puede ser negativo.');
   const risk = parseFloat(data.defaultRiskPct);
@@ -169,6 +198,7 @@ function doSave(cuenta, data, close, onSaved) {
     tipo: data.tipo || 'CFD',
     numero: String(data.numero || '').trim(),
     capital,
+    initialBalance,
     cost,
     defaultRiskPct: risk,
     fase: data.fase || 'challenge_1',

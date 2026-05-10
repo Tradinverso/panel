@@ -29,13 +29,14 @@ function sanitizeTrade(t) {
   const pnl_pct = typeof t.pnl_pct === 'number' ? t.pnl_pct : (parseFloat(t.pnl_pct) || 0);
   const open_str = t.open_str || '';
   const close_str = t.close_str || '';
-  // accounts: [{accountId, riskPct}] — solo valores válidos.
+  // accounts: [{accountId, riskPct, commission}] — comisión opcional por cuenta.
   const accounts = Array.isArray(t.accounts)
     ? t.accounts
         .filter(a => a && a.accountId)
         .map(a => ({
           accountId: a.accountId,
           riskPct: typeof a.riskPct === 'number' && a.riskPct > 0 ? a.riskPct : 1.0,
+          commission: typeof a.commission === 'number' && a.commission >= 0 ? a.commission : 0,
         }))
     : [];
   return {
@@ -68,12 +69,20 @@ const VALID_STATUS = new Set(['activa', 'pausada', 'pasada', 'perdida']);
 
 function sanitizeCuenta(c) {
   if (!c) return null;
+  const capital = typeof c.capital === 'number' ? c.capital : (parseFloat(c.capital) || 0);
+  // initialBalance: saldo de la cuenta cuando empezaste a trackearla.
+  // Default = capital nominal (cuenta fresca). Si la cuenta ya tenía profit
+  // antes de meterla aquí, se setea > capital.
+  const initialBalance = c.initialBalance != null
+    ? (typeof c.initialBalance === 'number' ? c.initialBalance : parseFloat(c.initialBalance) || capital)
+    : capital;
   return {
     id: c.id || uuid(),
     empresa: String(c.empresa || '').trim(),
     tipo: c.tipo === 'Futuros' ? 'Futuros' : 'CFD',
     numero: String(c.numero || '').trim(),
-    capital: typeof c.capital === 'number' ? c.capital : (parseFloat(c.capital) || 0),
+    capital,
+    initialBalance,
     cost: typeof c.cost === 'number' ? c.cost : (parseFloat(c.cost) || 0),
     defaultRiskPct: typeof c.defaultRiskPct === 'number' && c.defaultRiskPct > 0 ? c.defaultRiskPct : 1.0,
     status: VALID_STATUS.has(c.status) ? c.status : 'activa',

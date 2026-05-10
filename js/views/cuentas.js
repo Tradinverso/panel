@@ -133,7 +133,7 @@ function card(c) {
       <div class="cuenta-card-body">
         <div class="cc-row">
           <span class="cc-label">Capital</span>
-          <span class="cc-value">${fmtUsd(s.capital)}</span>
+          <span class="cc-value">${fmtUsd(s.capital)}${s.initialBalance !== s.capital ? ` <span style="color:var(--muted);font-size:10px;">→ ${fmtUsd(s.initialBalance)} inicial</span>` : ''}</span>
         </div>
         <div class="cc-row">
           <span class="cc-label">Equity</span>

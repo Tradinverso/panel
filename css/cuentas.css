@@ -63,7 +63,8 @@
 .ca-row.ca-orphan { background: var(--orange-bg); border-color: rgba(255,165,2,.3); }
 .ca-label { flex: 1; font-size: 12px; font-weight: 500; }
 .ca-meta { color: var(--muted); font-family: var(--mono); font-weight: 400; }
-.ca-risk { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); font-family: var(--mono); }
+.ca-risk, .ca-comm { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); font-family: var(--mono); }
+.ca-comm .ca-risk-input { width: 56px; }
 .ca-risk-input {
   width: 60px; background: var(--bg); border: 1px solid var(--border);
   color: var(--text); padding: 4px 6px; border-radius: 5px;
