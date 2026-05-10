@@ -22,6 +22,8 @@ const TIPO_OPTIONS = ['CFD', 'Futuros'];
 
 export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
   const isNew = !cuenta;
+  // Si es edición y la cuenta tiene trades asignados, advertir al cambiar capital
+  const tradesUsing = cuenta ? tradesForAccount(cuenta, state.trades).length : 0;
   const data = {
     empresa: cuenta?.empresa || '',
     tipo: cuenta?.tipo || 'CFD',
@@ -33,6 +35,7 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
     status: cuenta?.status || 'activa',
     notes: cuenta?.notes || '',
   };
+  const originalCapital = cuenta?.capital;
 
   openModal({
     title: isNew ? 'Nueva cuenta' : `Editar cuenta · ${cuenta.empresa} ${cuenta.numero}`,
@@ -57,6 +60,11 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
           <div class="form-field">
             <label class="form-label">Capital ($) <span class="required">*</span></label>
             <input class="form-input" type="number" step="100" id="ce-capital" value="${esc(data.capital)}" placeholder="50000">
+            ${tradesUsing > 0 ? `
+              <div id="capital-warn" style="display:none;font-size:11px;color:var(--orange);font-family:var(--mono);margin-top:6px;line-height:1.5;background:var(--orange-bg);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,165,2,0.3);">
+                ⚠ Esta cuenta tiene <strong>${tradesUsing} trade${tradesUsing !== 1 ? 's' : ''}</strong> asignados. Si cambias el capital, todos los <strong>$ P&L históricos se recalcularán</strong> con el nuevo valor. Para escalado/upgrade es mejor crear una cuenta nueva.
+              </div>
+            ` : ''}
           </div>
         </div>
 
@@ -122,10 +130,21 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
     // Inputs sync
     root.querySelector('#ce-empresa').addEventListener('input', e => data.empresa = e.target.value);
     root.querySelector('#ce-numero').addEventListener('input', e => data.numero = e.target.value);
-    root.querySelector('#ce-capital').addEventListener('input', e => data.capital = e.target.value);
     root.querySelector('#ce-cost').addEventListener('input', e => data.cost = e.target.value);
     root.querySelector('#ce-risk').addEventListener('input', e => data.defaultRiskPct = e.target.value);
     root.querySelector('#ce-notes').addEventListener('input', e => data.notes = e.target.value);
+
+    // Capital con aviso si ha cambiado y hay trades
+    const capInput = root.querySelector('#ce-capital');
+    const capWarn = root.querySelector('#capital-warn');
+    capInput.addEventListener('input', e => {
+      data.capital = e.target.value;
+      if (capWarn) {
+        const newCap = parseFloat(data.capital);
+        const changed = !isNaN(newCap) && newCap !== originalCapital;
+        capWarn.style.display = changed ? 'block' : 'none';
+      }
+    });
   }, 0);
 }
 

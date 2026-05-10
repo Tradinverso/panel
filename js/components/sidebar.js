@@ -57,14 +57,28 @@ export function renderSidebar(container) {
 
   const initial = (auth.displayName() || '?').charAt(0).toUpperCase();
 
+  // Indicador de contexto: a quién pertenece la vista actual.
+  // Si admin está en viewAs → "Viendo a [Alumno]" con icono y opción de volver.
+  // Si normal → solo el nombre del usuario.
+  const viewingContext = inViewAs && state.viewAsProfile
+    ? `<div class="brand-context viewing-as">
+         <div class="bc-label">📍 VIENDO A</div>
+         <div class="bc-name">${escapeHtml(state.viewAsProfile.nombre || state.viewAsProfile.email)}</div>
+         <button class="bc-exit" id="exitViewAsTopBtn" title="Volver a tu cuenta">↩ Volver</button>
+       </div>`
+    : `<div class="brand-context">
+         <div class="bc-name-self">${escapeHtml(auth.displayName())}</div>
+       </div>`;
+
   container.innerHTML = `
-    <a href="${auth.isAdmin() ? '#/admin' : '#/dashboard'}" class="brand">
+    <a href="${auth.isAdmin() && !inViewAs ? '#/admin' : '#/dashboard'}" class="brand">
       <div class="brand-logo">T</div>
       <div class="brand-text">
         <span class="brand-line1">Journaling</span>
         <span class="brand-line2">Tradinverso</span>
       </div>
     </a>
+    ${viewingContext}
     <nav class="nav">
       ${nav.map(item => {
         if (item.section) return `<div class="nav-section">${item.section}</div>`;
@@ -105,6 +119,13 @@ export function renderSidebar(container) {
   container.querySelector('#logoutBtn').addEventListener('click', async () => {
     try { await auth.signOut(); } catch (e) { console.error(e); }
   });
+  const exitBtn = container.querySelector('#exitViewAsTopBtn');
+  if (exitBtn) {
+    exitBtn.addEventListener('click', async () => {
+      await state.exitViewAs();
+      router.go('#/admin');
+    });
+  }
 }
 
 function countsBySheet() {

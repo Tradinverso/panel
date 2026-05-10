@@ -29,6 +29,19 @@ export function adminView(container) {
 }
 
 async function render(container) {
+  // Banner si actualmente estás viendo a un alumno
+  const viewingNow = state.viewAsUid && state.viewAsProfile;
+  const viewingBanner = viewingNow ? `
+    <div class="imp-banner" style="margin-bottom:20px;">
+      <div class="imp-banner-icon">📍</div>
+      <div class="imp-banner-text">
+        Actualmente estás viendo a <strong>${escapeHtml(state.viewAsProfile.nombre || state.viewAsProfile.email)}</strong>
+        <span class="meta">cualquier cambio que hagas afecta a su cuenta</span>
+      </div>
+      <button class="btn" id="exitViewAsAdminBtn">↩ Volver a tu cuenta</button>
+    </div>
+  ` : '';
+
   container.innerHTML = `
     <div class="page-header">
       <div>
@@ -40,10 +53,19 @@ async function render(container) {
         <button class="btn primary" id="newStudentBtn">+ Crear nuevo alumno</button>
       </div>
     </div>
+    ${viewingBanner}
     <div id="studentsContent" class="card">
       <div class="loader"><div class="spinner"></div><div>Cargando alumnos…</div></div>
     </div>
   `;
+
+  const exitBtn = container.querySelector('#exitViewAsAdminBtn');
+  if (exitBtn) {
+    exitBtn.addEventListener('click', async () => {
+      await state.exitViewAs();
+      render(container);
+    });
+  }
 
   container.querySelector('#refreshBtn').addEventListener('click', () => {
     cache = null;
@@ -125,17 +147,25 @@ function row(s) {
                   : '✅';
   const wrColor = wr >= 55 ? 'var(--green)' : wr < 45 ? 'var(--red)' : 'var(--orange)';
   const pnlColor = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+  const isViewing = state.viewAsUid === s.uid;
+  const trClass = isViewing ? ' style="background:var(--orange-bg);outline:2px solid var(--orange);outline-offset:-2px;"' : '';
+  const nameCell = isViewing
+    ? `<strong>${escapeHtml(s.profile.nombre || '–')}</strong> <span style="color:var(--orange);font-family:var(--mono);font-size:10px;">📍 viendo</span>`
+    : `<strong>${escapeHtml(s.profile.nombre || '–')}</strong>`;
 
   return `
-    <tr>
-      <td><strong>${escapeHtml(s.profile.nombre || '–')}</strong></td>
+    <tr${trClass}>
+      <td>${nameCell}</td>
       <td style="font-family:var(--mono);font-size:11px;color:var(--muted);">${escapeHtml(s.profile.email)}</td>
       <td>${counts.total} <span style="color:var(--muted);font-size:10px;">(${counts.tp}T·${counts.sl}S)</span></td>
       <td style="color:${wrColor};font-weight:500;">${counts.total ? fmtPctNoSign(wr, 0) : '–'}</td>
       <td style="color:${pnlColor};font-weight:500;">${counts.total ? fmtPct(pnl, 1) : '–'}</td>
       <td style="font-family:var(--mono);font-size:12px;">${rachaIcon}${streak >= 2 ? ' ' + streak + ' SL' : ''}</td>
       <td style="text-align:right;">
-        <button class="btn primary" data-view-uid="${s.uid}" style="padding:6px 12px;font-size:11px;">Ver dashboard →</button>
+        ${isViewing
+          ? '<span class="badge st-activa">👁 viendo ahora</span>'
+          : `<button class="btn primary" data-view-uid="${s.uid}" style="padding:6px 12px;font-size:11px;">Ver dashboard →</button>`
+        }
       </td>
     </tr>
   `;
