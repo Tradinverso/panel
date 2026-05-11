@@ -215,13 +215,30 @@ export function renderTradeTable(container, trades, opts = {}) {
 
 function row(t, canDelete) {
   const sens = t.sensacion ? `<span class="sens-pill" data-s="${t.sensacion}">${t.sensacion}</span>` : '<span style="color:var(--dim)">–</span>';
-  const cuentas = (Array.isArray(t.accounts) && t.accounts.length)
-    ? t.accounts.map(a => {
-        const c = state.cuentas.find(x => x.id === a.accountId);
-        const label = c ? (c.empresa.substring(0, 4).toUpperCase() + (c.capital >= 1000 ? Math.round(c.capital / 1000) + 'K' : '')) : '?';
-        return `<span class="acc-badge" title="${c ? c.empresa + ' ' + (c.numero || '') + ' · ' + a.riskPct + '%' : 'Cuenta no encontrada'}">${label}</span>`;
-      }).join(' ')
-    : '<span style="color:var(--dim)">–</span>';
+
+  // Cuentas: solo la primera + "+N" si hay más. El detalle completo se ve en el modal del ojo.
+  function badgeFor(a) {
+    const c = state.cuentas.find(x => x.id === a.accountId);
+    const label = c ? (c.empresa.substring(0, 4).toUpperCase() + (c.capital >= 1000 ? Math.round(c.capital / 1000) + 'K' : '')) : '?';
+    const title = c ? `${c.empresa} ${c.numero || ''} · ${a.riskPct}%` : 'Cuenta no encontrada';
+    return `<span class="acc-badge" title="${escAttr(title)}">${label}</span>`;
+  }
+  let cuentas;
+  if (Array.isArray(t.accounts) && t.accounts.length) {
+    if (t.accounts.length === 1) {
+      cuentas = badgeFor(t.accounts[0]);
+    } else {
+      const first = badgeFor(t.accounts[0]);
+      const extra = t.accounts.length - 1;
+      const restNames = t.accounts.slice(1).map(a => {
+        const cc = state.cuentas.find(x => x.id === a.accountId);
+        return cc ? `${cc.empresa} ${capShort(cc.capital)}${cc.numero ? ' #' + cc.numero : ''} · ${a.riskPct}%` : '?';
+      }).join('\n');
+      cuentas = `${first}<span class="acc-badge acc-more" title="${escAttr(restNames)}">+${extra}</span>`;
+    }
+  } else {
+    cuentas = '<span style="color:var(--dim)">–</span>';
+  }
   const links = (t.url1 || t.url2)
     ? [
         t.url1 ? `<a class="url-icon" href="${escAttr(t.url1)}" target="_blank" rel="noopener" title="${t.sheet === 'ZONAS' ? 'TradingView' : 'HTF'}">${t.sheet === 'ZONAS' ? 'L' : 'H'}</a>` : '',
