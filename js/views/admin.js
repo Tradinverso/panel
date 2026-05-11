@@ -5,7 +5,7 @@ import { auth, authErrorMsg } from '../auth.js';
 import { sync } from '../sync.js';
 import { state } from '../state.js';
 import { router } from '../router.js';
-import { winrate, pnlPct, currentSlStreak, tradeCounts } from '../utils/calculations.js';
+import { winrate, pnlPct, pnlPctReal, currentSlStreak, tradeCounts } from '../utils/calculations.js';
 import { fmtPct, fmtPctNoSign } from '../utils/number-format-es.js';
 import { openModal, closeModal } from '../components/modal.js';
 
@@ -110,9 +110,10 @@ function paintStudents(container, students) {
         <th>Nombre</th>
         <th>Email</th>
         <th>Trades</th>
-        <th>WR</th>
-        <th>P&L acum.</th>
-        <th>Racha</th>
+        <th>WR <span style="color:var(--muted);font-weight:400;">(global · estrategias)</span></th>
+        <th>P&L acum. <span style="color:var(--muted);font-weight:400;">(sist · real)</span></th>
+        <th>P&L mes</th>
+        <th>SL</th>
         <th></th>
       </tr></thead>
       <tbody>
@@ -140,13 +141,37 @@ function row(s) {
   const counts = tradeCounts(s.trades);
   const wr = winrate(s.trades);
   const pnl = pnlPct(s.trades);
+  const pnlReal = pnlPctReal(s.trades);
   const streak = currentSlStreak(s.trades);
-  const rachaIcon = streak >= 5 ? '🛑'
-                  : streak >= 3 ? '🔴'
-                  : streak === 2 ? '🟡'
-                  : '✅';
-  const wrColor = wr >= 55 ? 'var(--green)' : wr < 45 ? 'var(--red)' : 'var(--orange)';
+
+  // WR por estrategia (solo las que tienen trades)
+  const stratBreakdown = ['ZONAS', 'LIQUIDEZ', 'NASDAQ']
+    .map(sheet => {
+      const sub = s.trades.filter(t => t.sheet === sheet);
+      if (!sub.length) return null;
+      return { letter: sheet[0], wr: winrate(sub) };
+    })
+    .filter(Boolean);
+  const stratWrText = stratBreakdown.length
+    ? stratBreakdown.map(x => {
+        const c = x.wr >= 40 ? 'var(--green)' : 'var(--red)';
+        return `<span style="color:${c}">${x.letter} ${x.wr.toFixed(0)}</span>`;
+      }).join(' · ')
+    : '';
+
+  // P&L mes actual
+  const now = new Date();
+  const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const monthTrades = s.trades.filter(t => (t.date || '').startsWith(ym));
+  const pnlMonth = pnlPct(monthTrades);
+  const pnlMonthColor = pnlMonth >= 0 ? 'var(--green)' : 'var(--red)';
+
+  // Colores: WR ≥40 verde, <40 rojo
+  const wrColor = wr >= 40 ? 'var(--green)' : 'var(--red)';
   const pnlColor = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+  const pnlRealColor = pnlReal >= 0 ? 'var(--green)' : 'var(--red)';
+  const slColor = streak >= 3 ? 'var(--red)' : streak >= 1 ? 'var(--orange)' : 'var(--muted)';
+
   const isViewing = state.viewAsUid === s.uid;
   const trClass = isViewing ? ' style="background:var(--orange-bg);outline:2px solid var(--orange);outline-offset:-2px;"' : '';
   const nameCell = isViewing
@@ -158,9 +183,16 @@ function row(s) {
       <td>${nameCell}</td>
       <td style="font-family:var(--mono);font-size:11px;color:var(--muted);">${escapeHtml(s.profile.email)}</td>
       <td>${counts.total} <span style="color:var(--muted);font-size:10px;">(${counts.tp}T·${counts.sl}S)</span></td>
-      <td style="color:${wrColor};font-weight:500;">${counts.total ? fmtPctNoSign(wr, 0) : '–'}</td>
-      <td style="color:${pnlColor};font-weight:500;">${counts.total ? fmtPct(pnl, 1) : '–'}</td>
-      <td style="font-family:var(--mono);font-size:12px;">${rachaIcon}${streak >= 2 ? ' ' + streak + ' SL' : ''}</td>
+      <td>
+        <div style="color:${wrColor};font-weight:600;">${counts.total ? fmtPctNoSign(wr, 0) : '–'}</div>
+        ${stratWrText ? `<div style="font-family:var(--mono);font-size:10px;margin-top:2px;">${stratWrText}</div>` : ''}
+      </td>
+      <td>
+        <div style="color:${pnlColor};font-weight:600;">${counts.total ? fmtPct(pnl, 1) : '–'}</div>
+        ${counts.total ? `<div style="color:${pnlRealColor};font-family:var(--mono);font-size:10px;margin-top:2px;">real ${fmtPct(pnlReal, 1)}</div>` : ''}
+      </td>
+      <td style="color:${pnlMonthColor};font-weight:500;">${monthTrades.length ? fmtPct(pnlMonth, 1) : '–'}</td>
+      <td style="color:${slColor};font-family:var(--mono);font-weight:500;">${streak > 0 ? streak + ' SL' : '–'}</td>
       <td style="text-align:right;">
         ${isViewing
           ? '<span class="badge st-activa">👁 viendo ahora</span>'
