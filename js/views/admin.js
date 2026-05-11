@@ -11,6 +11,7 @@ import { openModal, closeModal } from '../components/modal.js';
 
 let cache = null;
 let cacheUid = null;
+let searchQuery = '';
 
 // Reset de cache cuando cambia el admin que usa la app (logout o cambio de cuenta).
 auth.on(() => {
@@ -89,8 +90,29 @@ async function render(container) {
 }
 
 function paintStudents(container, students) {
+  // Orden alfabético por nombre (cae a email si no hay nombre)
+  const sorted = [...students].sort((a, b) => {
+    const na = (a.profile?.nombre || a.profile?.email || '').toLowerCase();
+    const nb = (b.profile?.nombre || b.profile?.email || '').toLowerCase();
+    return na.localeCompare(nb, 'es');
+  });
+
+  // Filtra por búsqueda (nombre + email, case-insensitive)
+  const q = searchQuery.trim().toLowerCase();
+  const filtered = q
+    ? sorted.filter(s => {
+        const n = (s.profile?.nombre || '').toLowerCase();
+        const e = (s.profile?.email || '').toLowerCase();
+        return n.includes(q) || e.includes(q);
+      })
+    : sorted;
+
   const sub = container.querySelector('#adminSub');
-  if (sub) sub.textContent = `${students.length} alumno${students.length !== 1 ? 's' : ''}`;
+  if (sub) {
+    sub.textContent = q
+      ? `${filtered.length} de ${students.length} alumno${students.length !== 1 ? 's' : ''}`
+      : `${students.length} alumno${students.length !== 1 ? 's' : ''}`;
+  }
 
   const content = container.querySelector('#studentsContent');
   if (!students.length) {
@@ -105,22 +127,52 @@ function paintStudents(container, students) {
   }
 
   content.innerHTML = `
-    <table class="data-table">
-      <thead><tr>
-        <th>Nombre</th>
-        <th>Email</th>
-        <th>Trades</th>
-        <th>WR <span style="color:var(--muted);font-weight:400;">(global · estrategias)</span></th>
-        <th>P&L acum. <span style="color:var(--muted);font-weight:400;">(sist · real)</span></th>
-        <th>P&L mes</th>
-        <th>SL</th>
-        <th></th>
-      </tr></thead>
-      <tbody>
-        ${students.map(s => row(s)).join('')}
-      </tbody>
-    </table>
+    <div class="admin-search">
+      <input type="search" id="adminSearch" class="form-input" placeholder="🔍 Buscar alumno por nombre o email…" value="${escAttr(searchQuery)}" autocomplete="off">
+      ${q ? `<button class="btn ghost" id="adminSearchClear" title="Limpiar">×</button>` : ''}
+    </div>
+    ${filtered.length === 0
+      ? `<div class="empty">Ningún alumno coincide con "${escapeHtml(searchQuery)}".</div>`
+      : `<table class="data-table">
+          <thead><tr>
+            <th>Nombre</th>
+            <th>Email</th>
+            <th>Trades</th>
+            <th>WR <span style="color:var(--muted);font-weight:400;">(global · estrategias)</span></th>
+            <th>P&L acum. <span style="color:var(--muted);font-weight:400;">(sist · real)</span></th>
+            <th>P&L mes</th>
+            <th>SL</th>
+            <th></th>
+          </tr></thead>
+          <tbody>
+            ${filtered.map(s => row(s)).join('')}
+          </tbody>
+        </table>`}
   `;
+
+  // Búsqueda en vivo (sin re-fetch, solo re-paint)
+  const searchEl = content.querySelector('#adminSearch');
+  if (searchEl) {
+    searchEl.addEventListener('input', e => {
+      searchQuery = e.target.value;
+      paintStudents(container, students);
+      // Mantener el foco en el input tras el re-render
+      const newEl = container.querySelector('#adminSearch');
+      if (newEl) {
+        newEl.focus();
+        // Restaurar la posición del cursor al final
+        const len = newEl.value.length;
+        newEl.setSelectionRange(len, len);
+      }
+    });
+  }
+  const clearEl = content.querySelector('#adminSearchClear');
+  if (clearEl) {
+    clearEl.addEventListener('click', () => {
+      searchQuery = '';
+      paintStudents(container, students);
+    });
+  }
 
   content.querySelectorAll('[data-view-uid]').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -135,6 +187,10 @@ function paintStudents(container, students) {
       }
     });
   });
+}
+
+function escAttr(s) {
+  return String(s == null ? '' : s).replace(/"/g, '&quot;');
 }
 
 function row(s) {

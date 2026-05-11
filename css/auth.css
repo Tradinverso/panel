@@ -120,6 +120,18 @@ body[data-auth="false"] #view {
 .imp-banner-text strong { color: var(--text-strong); }
 .imp-banner-text .meta { color: var(--muted); font-family: var(--mono); font-size: 11px; margin-left: 8px; }
 
+/* ── Buscador en panel admin ──────────────────────────────── */
+.admin-search {
+  display: flex; gap: 8px; align-items: center;
+  margin-bottom: 14px;
+}
+.admin-search input.form-input {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.admin-search .btn { padding: 6px 12px; font-size: 14px; }
+
 /* ── Indicador de conexión ───────────────────────────────── */
 .conn-badge {
   display: inline-flex; align-items: center; gap: 6px;
