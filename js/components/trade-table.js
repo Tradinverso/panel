@@ -1,8 +1,8 @@
 import { formatDateShort } from '../utils/date-helpers.js';
 import { fmtPct } from '../utils/number-format-es.js';
-import { sortChrono } from '../utils/calculations.js';
+import { sortChrono, tradeRealPnl } from '../utils/calculations.js';
 import { openModal } from './modal.js';
-import { openEditTradeModal } from './trade-edit-modal.js';
+import { openViewTradeModal } from './trade-view-modal.js';
 import { state } from '../state.js';
 
 const STRAT_LABEL = { ZONAS: 'Zonas', LIQUIDEZ: 'Liquidez', NASDAQ: 'Nasdaq' };
@@ -140,6 +140,7 @@ export function renderTradeTable(container, trades, opts = {}) {
         <table class="trade-table">
           <thead>
             <tr>
+              <th></th>
               <th>Fecha</th>
               <th>Hora</th>
               <th>Estrategia</th>
@@ -151,10 +152,9 @@ export function renderTradeTable(container, trades, opts = {}) {
               <th>Cuentas</th>
               <th>Resultado</th>
               <th>Dur.</th>
-              <th>% P&L</th>
+              <th>% P&L sistema</th>
+              <th>% P&L real</th>
               <th>Links</th>
-              <th>📝</th>
-              <th></th>
               ${canDelete ? '<th></th>' : ''}
             </tr>
           </thead>
@@ -183,25 +183,12 @@ export function renderTradeTable(container, trades, opts = {}) {
   }
 
   function wireRowActions(filtered) {
-    container.querySelectorAll('.reflex-btn').forEach(b => {
+    container.querySelectorAll('.view-btn').forEach(b => {
       b.addEventListener('click', () => {
         const id = b.dataset.id;
         const t = filtered.find(x => x.id === id);
         if (!t) return;
-        openModal({
-          title: 'Reflexión del trade',
-          meta: `${formatDateShort(t.date)} · ${STRAT_LABEL[t.sheet]} · ${t.pair || ''}`,
-          body: t.reflexion || '<span style="color:var(--muted)">(sin reflexión registrada)</span>',
-        });
-      });
-    });
-
-    container.querySelectorAll('.edit-btn').forEach(b => {
-      b.addEventListener('click', () => {
-        const id = b.dataset.id;
-        const t = filtered.find(x => x.id === id);
-        if (!t) return;
-        openEditTradeModal(t);
+        openViewTradeModal(t);
       });
     });
 
@@ -242,15 +229,17 @@ function row(t, canDelete) {
     : '<span style="color:var(--dim)">–</span>';
   const dur = t.dur != null ? t.dur + 'm' : '–';
   const pct = t.result === 'BE' ? '<span style="color:var(--orange)">0.00%</span>' : `<span style="color:${t.pnl_pct >= 0 ? 'var(--green)' : 'var(--red)'}">${fmtPct(t.pnl_pct)}</span>`;
-  const reflexBtn = (t.reflexion || '').trim()
-    ? `<button class="reflex-btn" data-id="${t.id}" title="Ver reflexión">📝</button>`
-    : '<span style="color:var(--dim)">–</span>';
-  const editBtn = `<button class="edit-btn" data-id="${t.id}" title="Editar trade">✏️</button>`;
+  const realPnl = tradeRealPnl(t);
+  const pctReal = t.result === 'BE'
+    ? '<span style="color:var(--orange)">0.00%</span>'
+    : `<span style="color:${realPnl >= 0 ? 'var(--green)' : 'var(--red)'}">${fmtPct(realPnl)}</span>`;
+  const viewBtn = `<button class="view-btn" data-id="${t.id}" title="Ver trade completo">👁️</button>`;
   const delTd = canDelete
     ? `<td><button class="btn ghost danger del-btn" data-id="${t.id}" style="padding:4px 8px;font-size:11px;">×</button></td>`
     : '';
   return `
     <tr>
+      <td>${viewBtn}</td>
       <td>${formatDateShort(t.date)}</td>
       <td>${t.open_str || '–'}</td>
       <td><span class="strat-pill ${STRAT_CLS[t.sheet]}">${STRAT_LABEL[t.sheet] || t.sheet}</span></td>
@@ -263,9 +252,8 @@ function row(t, canDelete) {
       <td><span class="res-pill res-${t.result.toLowerCase()}">${t.result}</span></td>
       <td>${dur}</td>
       <td>${pct}</td>
+      <td>${pctReal}</td>
       <td>${links}</td>
-      <td>${reflexBtn}</td>
-      <td>${editBtn}</td>
       ${delTd}
     </tr>
   `;

@@ -33,7 +33,6 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
     cost: cuenta?.cost != null ? String(cuenta.cost) : '',
     targetUsd: cuenta?.targetUsd != null && cuenta.targetUsd > 0 ? String(cuenta.targetUsd) : '',
     maxDdUsd: cuenta?.maxDdUsd != null && cuenta.maxDdUsd > 0 ? String(cuenta.maxDdUsd) : '',
-    defaultRiskPct: cuenta?.defaultRiskPct != null ? String(cuenta.defaultRiskPct) : '1.0',
     fase: cuenta?.fase || 'challenge_1',
     status: cuenta?.status || 'activa',
     notes: cuenta?.notes || '',
@@ -102,15 +101,9 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
           </div>
         </div>
 
-        <div class="form-row">
-          <div class="form-field">
-            <label class="form-label">Coste de la cuenta ($)</label>
-            <input class="form-input" type="number" step="1" id="ce-cost" value="${esc(data.cost)}" placeholder="99 (challenge fee, resets…)">
-          </div>
-          <div class="form-field">
-            <label class="form-label">Riesgo por defecto (%)</label>
-            <input class="form-input" type="number" step="0.1" id="ce-risk" value="${esc(data.defaultRiskPct)}" placeholder="1.0">
-          </div>
+        <div class="form-field">
+          <label class="form-label">Coste de la cuenta ($)</label>
+          <input class="form-input" type="number" step="1" id="ce-cost" value="${esc(data.cost)}" placeholder="99 (challenge fee, resets…)">
         </div>
 
         <div class="form-field">
@@ -165,7 +158,6 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
     root.querySelector('#ce-empresa').addEventListener('input', e => data.empresa = e.target.value);
     root.querySelector('#ce-numero').addEventListener('input', e => data.numero = e.target.value);
     root.querySelector('#ce-cost').addEventListener('input', e => data.cost = e.target.value);
-    root.querySelector('#ce-risk').addEventListener('input', e => data.defaultRiskPct = e.target.value);
     root.querySelector('#ce-notes').addEventListener('input', e => data.notes = e.target.value);
 
     // Capital con aviso si ha cambiado y hay trades, y auto-sync de saldo inicial
@@ -213,8 +205,6 @@ function doSave(cuenta, data, close, onSaved) {
   if (isNaN(initialBalance) || initialBalance < 0) return showErr('El saldo inicial no puede ser negativo.');
   const cost = data.cost === '' ? 0 : parseFloat(data.cost);
   if (isNaN(cost) || cost < 0) return showErr('El coste no puede ser negativo.');
-  const risk = parseFloat(data.defaultRiskPct);
-  if (!risk || risk <= 0 || risk > 100) return showErr('El riesgo debe estar entre 0 y 100.');
   const targetUsd = data.targetUsd === '' || data.targetUsd == null ? 0 : parseFloat(data.targetUsd);
   if (isNaN(targetUsd) || targetUsd < 0) return showErr('El target no puede ser negativo.');
   const maxDdUsd = data.maxDdUsd === '' || data.maxDdUsd == null ? 0 : parseFloat(data.maxDdUsd);
@@ -230,7 +220,6 @@ function doSave(cuenta, data, close, onSaved) {
     cost,
     targetUsd,
     maxDdUsd,
-    defaultRiskPct: risk,
     fase: data.fase || 'challenge_1',
     status: data.status || 'activa',
     notes: String(data.notes || '').trim(),

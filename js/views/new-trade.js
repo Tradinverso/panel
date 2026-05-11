@@ -53,6 +53,7 @@ function init(sheet) {
     rr: '',
     pips: '',
     pnl_pct: '',
+    risk_real_pct: '1',
     sensacion: '',
     url1: '',
     url2: '',
@@ -107,8 +108,12 @@ function renderForm(wrap, sheet, data, getter) {
 
       <div class="form-row cols-3">
         <div class="form-field">
-          <label class="form-label">% P&L <span class="required">*</span></label>
+          <label class="form-label">% P&L sistema <span class="required">*</span></label>
           <input class="form-input" type="number" step="0.01" data-input="pnl_pct" value="${data.pnl_pct}" placeholder="2.00 = TP / -1.00 = SL">
+        </div>
+        <div class="form-field">
+          <label class="form-label">Riesgo real (%)</label>
+          <input class="form-input" type="number" step="0.01" min="0" data-input="risk_real_pct" value="${data.risk_real_pct}" placeholder="1.00">
         </div>
         ${meta.showRR ? `<div class="form-field">
           <label class="form-label">RR</label>
@@ -192,6 +197,11 @@ function renderForm(wrap, sheet, data, getter) {
   if (assignBox) {
     renderCuentaAssign(assignBox, data.accounts || [], (accs) => {
       data.accounts = accs;
+    }, {
+      getDefaultRisk: () => {
+        const n = parseFloat(data.risk_real_pct);
+        return isFinite(n) && n > 0 ? n : 1;
+      },
     });
   }
 
@@ -256,10 +266,13 @@ function validate(sheet, data) {
 function buildTrade(sheet, data) {
   const pnl_pct = +parseFloat(data.pnl_pct).toFixed(4);
   const result = pnl_pct > 0.2 ? 'TP' : pnl_pct < -0.2 ? 'SL' : 'BE';
+  const riskRawNum = parseFloat(data.risk_real_pct);
+  const risk_real_pct = isFinite(riskRawNum) && riskRawNum >= 0 ? +riskRawNum.toFixed(4) : 1;
   return {
     sheet,
     date: data.date,
     pnl_pct,
+    risk_real_pct,
     result,
     open_str: data.open_str,
     close_str: data.close_str,
@@ -300,7 +313,9 @@ function confirmBody(t) {
       ${t.entry ? `<dt>Entrada</dt><dd>${t.entry}</dd>` : ''}
       ${t.rr != null ? `<dt>RR</dt><dd>${t.rr}</dd>` : ''}
       ${t.pips != null ? `<dt>Pips</dt><dd>${t.pips}</dd>` : ''}
-      <dt>% P&L</dt><dd><strong style="color:${t.result === 'TP' ? 'var(--green)' : t.result === 'SL' ? 'var(--red)' : 'var(--orange)'};">${fmtPct(t.pnl_pct)}</strong> · <span class="res-pill res-${t.result.toLowerCase()}">${t.result}</span></dd>
+      <dt>% P&L sistema</dt><dd><strong style="color:${t.result === 'TP' ? 'var(--green)' : t.result === 'SL' ? 'var(--red)' : 'var(--orange)'};">${fmtPct(t.pnl_pct)}</strong> · <span class="res-pill res-${t.result.toLowerCase()}">${t.result}</span></dd>
+      <dt>Riesgo real</dt><dd>${fmtPct(t.risk_real_pct)}</dd>
+      <dt>% P&L real</dt><dd><strong style="color:${t.result === 'TP' ? 'var(--green)' : t.result === 'SL' ? 'var(--red)' : 'var(--orange)'};">${fmtPct(t.pnl_pct * t.risk_real_pct)}</strong></dd>
       <dt>Sensación</dt><dd><span class="sens-pill" data-s="${t.sensacion}">${t.sensacion}</span></dd>
       ${cuentasLine}
       ${t.reflexion ? `<dt>Reflexión</dt><dd style="white-space:pre-wrap;">${t.reflexion}</dd>` : ''}

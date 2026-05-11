@@ -2,6 +2,8 @@ import { state } from '../state.js';
 import { MONTHS_ES } from '../utils/date-helpers.js';
 import { fmtPct } from '../utils/number-format-es.js';
 import { renderTradeTable } from '../components/trade-table.js';
+import { tradeRealPnl } from '../utils/calculations.js';
+import { computeUsdPnl, fmtUsd } from '../utils/account-stats.js';
 
 let calYear = null, calMonth = null;
 let stratFilter = 'all';
@@ -23,7 +25,7 @@ function render(container) {
     if (stratFilter !== 'all' && t.sheet !== stratFilter) return false;
     return true;
   });
-  const dayIndex = buildDayIndex(monthTrades);
+  const dayIndex = buildDayIndex(monthTrades, state.cuentas);
 
   container.innerHTML = `
     <div class="page-header">
@@ -91,14 +93,27 @@ function navigate(container, dir) {
   render(container);
 }
 
-function buildDayIndex(trades) {
+function buildDayIndex(trades, cuentas = []) {
+  const cuentaMap = new Map(cuentas.map(c => [c.id, c]));
   const map = {};
   for (const t of trades) {
-    if (!map[t.date]) map[t.date] = { trades: [], pnl: 0, count: 0, tp: 0, sl: 0, be: 0 };
+    if (!map[t.date]) map[t.date] = { trades: [], pnl: 0, pnlReal: 0, usd: 0, count: 0, tp: 0, sl: 0, be: 0 };
     const d = map[t.date];
     d.trades.push(t);
     d.count++;
-    if (t.result !== 'BE') d.pnl += t.pnl_pct || 0;
+    if (t.result !== 'BE') {
+      d.pnl += t.pnl_pct || 0;
+      d.pnlReal += tradeRealPnl(t);
+      // USD real solo de cuentas FONDEADAS (las challenge no son dinero cobrable)
+      if (Array.isArray(t.accounts)) {
+        for (const a of t.accounts) {
+          const c = cuentaMap.get(a.accountId);
+          if (c && c.fase === 'fondeada') {
+            d.usd += computeUsdPnl(t.pnl_pct, a.riskPct, c.capital);
+          }
+        }
+      }
+    }
     if (t.result === 'TP') d.tp++;
     else if (t.result === 'SL') d.sl++;
     else d.be++;
@@ -113,7 +128,7 @@ function paintCalendar(container, dayIndex) {
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
   const prevLast = new Date(calYear, calMonth, 0).getDate();
   const today = new Date();
-  let mTrades = 0, mTp = 0, mSl = 0, mPnl = 0, mOver = 0;
+  let mTrades = 0, mTp = 0, mSl = 0, mPnl = 0, mPnlReal = 0, mUsd = 0, mOver = 0;
 
   for (let i = firstDow - 1; i >= 0; i--) {
     grid.appendChild(emptyCell(prevLast - i, 'other'));
@@ -126,16 +141,21 @@ function paintCalendar(container, dayIndex) {
     let cls = 'cal-cell';
     if (data) {
       cls += ' has-data ' + (data.pnl > 0 ? 'profit' : data.pnl < 0 ? 'loss' : 'be');
-      mTrades += data.count; mTp += data.tp; mSl += data.sl; mPnl += data.pnl;
+      mTrades += data.count; mTp += data.tp; mSl += data.sl; mPnl += data.pnl; mPnlReal += data.pnlReal; mUsd += data.usd;
       if (data.count >= 5) mOver++;
     }
     if (isToday) cls += ' cal-today';
     if (selectedDay === ds) cls += ' selected';
     cell.className = cls;
     if (data) {
+      const usdLine = data.usd !== 0
+        ? `<div class="cal-pnl-usd">${fmtUsd(data.usd, true)}</div>`
+        : '';
       cell.innerHTML = `
         <span class="cal-num">${d}</span>
         <div class="cal-pnl">${fmtPct(data.pnl)}</div>
+        <div class="cal-pnl-real">real ${fmtPct(data.pnlReal)}</div>
+        ${usdLine}
         <div class="cal-meta">${data.count} trade${data.count > 1 ? 's' : ''} · ${data.tp}T ${data.sl}S${data.be > 0 ? ' ' + data.be + 'BE' : ''}</div>
         ${data.count >= 5 ? `<div class="cal-warn">${data.count}</div>` : ''}
       `;
@@ -165,9 +185,19 @@ function paintCalendar(container, dayIndex) {
       <div class="cs-sub">del mes</div>
     </div>
     <div class="cs-card">
-      <div class="cs-label">P&L mes</div>
+      <div class="cs-label">P&L sistema</div>
       <div class="cs-val" style="color:${mPnl > 0 ? 'var(--green)' : mPnl < 0 ? 'var(--red)' : 'var(--orange)'};">${mTrades > 0 ? fmtPct(mPnl) : '–'}</div>
       <div class="cs-sub">% sistema 1R</div>
+    </div>
+    <div class="cs-card">
+      <div class="cs-label">P&L real</div>
+      <div class="cs-val" style="color:${mPnlReal > 0 ? 'var(--green)' : mPnlReal < 0 ? 'var(--red)' : 'var(--orange)'};">${mTrades > 0 ? fmtPct(mPnlReal) : '–'}</div>
+      <div class="cs-sub">según riesgo real</div>
+    </div>
+    <div class="cs-card">
+      <div class="cs-label">USD mes</div>
+      <div class="cs-val" style="color:${mUsd > 0 ? 'var(--green)' : mUsd < 0 ? 'var(--red)' : 'var(--orange)'};">${mUsd !== 0 ? fmtUsd(mUsd, true) : '–'}</div>
+      <div class="cs-sub">solo fondeadas</div>
     </div>
     <div class="cs-card">
       <div class="cs-label">Sobreoperar</div>

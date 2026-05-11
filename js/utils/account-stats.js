@@ -187,6 +187,98 @@ function buildEvents(account, items) {
   return events;
 }
 
+// ──────────────────────────────────────────────────────────────
+// Agregaciones a nivel cartera (portfolio): suma de múltiples cuentas.
+// Usadas en la vista "Mis cuentas" para mostrar KPIs globales y gráficos
+// combinados.
+// ──────────────────────────────────────────────────────────────
+
+// Devuelve los 6 totales clave de la cartera.
+//
+// - capitalFondeado / equityFondeado / profitFondeado:
+//     solo cuentas con fase='fondeada' && status='activa' (las que están
+//     "vivas" y generando dinero real).
+// - totalWithdrawn / totalCost / netToPocket:
+//     TODAS las cuentas del subset (incluye históricas pasadas/perdidas), porque
+//     los retiros y costes históricos cuentan para el neto real.
+//
+// El caller puede pre-filtrar `cuentas` por tipo (CFD/Futuros) antes de llamar.
+export function portfolioStats(cuentas, allTrades) {
+  const fondeadasActivas = cuentas.filter(c => c.fase === 'fondeada' && c.status === 'activa');
+  let capitalFondeado = 0;
+  let equityFondeado = 0;
+  let profitFondeado = 0;
+  for (const c of fondeadasActivas) {
+    const s = accountStats(c, allTrades);
+    capitalFondeado += s.capital;
+    equityFondeado += s.equityUsd;
+    profitFondeado += s.profitTotalUsd;
+  }
+  let totalWithdrawnAll = 0;
+  let totalCostAll = 0;
+  for (const c of cuentas) {
+    totalWithdrawnAll += totalWithdrawn(c);
+    totalCostAll += (c.cost || 0);
+  }
+  return {
+    capitalFondeado,
+    equityFondeado,
+    equityPct: capitalFondeado > 0 ? ((equityFondeado - capitalFondeado) / capitalFondeado) * 100 : 0,
+    profitFondeado,
+    totalWithdrawn: totalWithdrawnAll,
+    totalCost: totalCostAll,
+    netToPocket: totalWithdrawnAll - totalCostAll,
+    countActivasFondeadas: fondeadasActivas.length,
+    countTotal: cuentas.length,
+  };
+}
+
+// Curva combinada de equity de TODAS las cuentas fondeadas activas. Empieza
+// en la suma de los initialBalance y va acumulando eventos cronológicamente.
+export function portfolioEquityCurve(cuentas, allTrades) {
+  const subset = cuentas.filter(c => c.fase === 'fondeada' && c.status === 'activa');
+  if (!subset.length) return [];
+
+  const startBalance = subset.reduce((sum, c) => {
+    const init = c.initialBalance != null ? c.initialBalance : (c.capital || 0);
+    return sum + init;
+  }, 0);
+
+  const allEvents = [];
+  for (const c of subset) {
+    const items = tradesForAccount(c, allTrades);
+    for (const x of items) {
+      allEvents.push({ date: x.trade.date, delta: x.usdPnl, type: 'trade' });
+    }
+    for (const w of (c.withdrawals || [])) {
+      allEvents.push({ date: w.date, delta: -(w.amount || 0), type: 'withdrawal' });
+    }
+  }
+  allEvents.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+  let equity = startBalance;
+  const points = [{ x: 'inicio', y: +startBalance.toFixed(2), type: 'start' }];
+  for (const ev of allEvents) {
+    equity += ev.delta;
+    points.push({ x: ev.date, y: +equity.toFixed(2), type: ev.type });
+  }
+  return points;
+}
+
+// Suma de retiros por mes a lo largo de TODAS las cuentas (incl. históricas).
+// Devuelve [{ month: 'YYYY-MM', usd }].
+export function portfolioMonthlyWithdrawals(cuentas) {
+  const months = {};
+  for (const c of cuentas) {
+    for (const w of (c.withdrawals || [])) {
+      const m = (w.date || '').substring(0, 7);
+      if (!m) continue;
+      months[m] = (months[m] || 0) + (w.amount || 0);
+    }
+  }
+  return Object.keys(months).sort().map(m => ({ month: m, usd: months[m] }));
+}
+
 export function monthlyPnlUsd(account, allTrades) {
   const items = tradesForAccount(account, allTrades);
   const months = {};

@@ -35,6 +35,20 @@ export function pnlPct(trades) {
   return s;
 }
 
+// P&L real per trade = pnl_pct × risk_real_pct (default risk = 1)
+export function tradeRealPnl(t) {
+  if (!t || t.result === 'BE') return 0;
+  const r = typeof t.risk_real_pct === 'number' && isFinite(t.risk_real_pct) ? t.risk_real_pct : 1;
+  return (t.pnl_pct || 0) * r;
+}
+
+// Sum of real P&L excluding BE
+export function pnlPctReal(trades) {
+  let s = 0;
+  for (const t of trades) if (t.result !== 'BE') s += tradeRealPnl(t);
+  return s;
+}
+
 // PF = sum(TP pnl) / |sum(SL pnl)|
 export function profitFactor(trades) {
   let wins = 0, losses = 0;
@@ -64,6 +78,16 @@ export function equityCurve(trades) {
   let cum = 0;
   return sorted.map(t => {
     if (t.result !== 'BE') cum += t.pnl_pct || 0;
+    return { x: t.date, y: +cum.toFixed(2) };
+  });
+}
+
+// Cumulative equity curve usando P&L real (pnl_pct × risk_real_pct)
+export function equityCurveReal(trades) {
+  const sorted = sortChrono(trades);
+  let cum = 0;
+  return sorted.map(t => {
+    if (t.result !== 'BE') cum += tradeRealPnl(t);
     return { x: t.date, y: +cum.toFixed(2) };
   });
 }
@@ -176,6 +200,7 @@ export function statsByGroup(trades, keyFn) {
       be: c.be,
       wr: winrate(arr),
       pnl: pnlPct(arr),
+      pnlReal: pnlPctReal(arr),
       pf: profitFactor(arr),
       trades: arr,
     });
@@ -189,8 +214,11 @@ export function monthlyPnl(trades) {
   for (const t of trades) {
     const m = yearMonth(t.date);
     if (!m) continue;
-    if (!months[m]) months[m] = { pnl: 0, total: 0, tp: 0, sl: 0 };
-    if (t.result !== 'BE') months[m].pnl += t.pnl_pct || 0;
+    if (!months[m]) months[m] = { pnl: 0, pnlReal: 0, total: 0, tp: 0, sl: 0 };
+    if (t.result !== 'BE') {
+      months[m].pnl += t.pnl_pct || 0;
+      months[m].pnlReal += tradeRealPnl(t);
+    }
     if (t.result === 'TP') months[m].tp++;
     else if (t.result === 'SL') months[m].sl++;
     months[m].total++;

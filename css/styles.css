@@ -165,6 +165,12 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
 .section-title { font-size: 11px; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin: 28px 0 14px; display: flex; align-items: center; gap: 10px; }
 .section-title::after { content:''; flex:1; height:1px; background: var(--border); }
 
+.section-title-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 28px 0 14px; }
+.section-title-row .section-title { margin: 0; flex: 1; }
+.perf-toggle { display: inline-flex; }
+.perf-toggle.pill-group { gap: 4px; }
+.perf-toggle .pill { padding: 5px 12px; font-size: 11px; }
+
 /* ── Form controls (filters, selects) ────────────────────── */
 .select, select.select {
   background: var(--card); border: 1px solid var(--border); color: var(--text);

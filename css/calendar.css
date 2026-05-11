@@ -3,7 +3,7 @@
 .cal-btn { background: var(--card); border: 1px solid var(--border); color: var(--muted); padding: 6px 14px; border-radius: 8px; cursor: pointer; font-family: var(--mono); font-size: 13px; transition: all .12s; }
 .cal-btn:hover { background: var(--hover); color: var(--text); }
 .cal-month-label { font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--text); min-width: 150px; text-align: center; }
-.cal-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.cal-summary { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 20px; }
 .cs-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
 .cs-label { font-size: 10px; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 6px; }
 .cs-val { font-size: 20px; font-weight: 600; letter-spacing: -.5px; color: var(--text); }
@@ -29,6 +29,14 @@
 .profit .cal-pnl { color: var(--green); }
 .loss   .cal-pnl { color: var(--red); }
 .be     .cal-pnl { color: var(--orange); }
+.cal-pnl-real { font-size: 10px; font-family: var(--mono); font-weight: 500; line-height: 1; margin-top: 2px; opacity: .75; }
+.profit .cal-pnl-real { color: var(--green); }
+.loss   .cal-pnl-real { color: var(--red); }
+.be     .cal-pnl-real { color: var(--orange); }
+.cal-pnl-usd { font-size: 11px; font-family: var(--mono); font-weight: 600; line-height: 1; margin-top: 3px; }
+.profit .cal-pnl-usd { color: var(--green); }
+.loss   .cal-pnl-usd { color: var(--red); }
+.be     .cal-pnl-usd { color: var(--orange); }
 .cal-meta { font-size: 9px; font-family: var(--mono); color: var(--muted); }
 .cal-warn { position: absolute; top: 6px; right: 6px; width: 16px; height: 16px; border-radius: 50%; background: var(--orange); color: #000; font-size: 9px; font-weight: 600; font-family: var(--mono); display: flex; align-items: center; justify-content: center; }
 
@@ -74,6 +82,8 @@
 .trade-table .url-icon { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; background: var(--hover); color: var(--muted); text-decoration: none; font-size: 10px; margin-right: 4px; }
 .trade-table .url-icon:hover { background: var(--accent-bg); color: var(--accent); }
 .trade-table .reflex-btn,
+.trade-table .view-btn,
 .trade-table .edit-btn { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; cursor: pointer; background: var(--hover); color: var(--muted); border: none; font-size: 11px; }
 .trade-table .reflex-btn:hover { background: var(--zonas-bg); color: var(--zonas); }
+.trade-table .view-btn:hover { background: var(--accent-bg); color: var(--accent); }
 .trade-table .edit-btn:hover { background: var(--accent-bg); color: var(--accent); }

@@ -26,6 +26,7 @@ export function openEditTradeModal(trade) {
     rr: trade.rr != null ? String(trade.rr) : '',
     pips: trade.pips != null ? String(trade.pips) : '',
     pnl_pct: trade.pnl_pct != null ? String(trade.pnl_pct) : '',
+    risk_real_pct: trade.risk_real_pct != null ? String(trade.risk_real_pct) : '1',
     sensacion: trade.sensacion || '',
     url1: trade.url1 || '',
     url2: trade.url2 || '',
@@ -90,8 +91,12 @@ export function openEditTradeModal(trade) {
 
         <div class="form-row cols-3">
           <div class="form-field">
-            <label class="form-label">% P&L</label>
+            <label class="form-label">% P&L sistema</label>
             <input class="form-input" type="number" step="0.01" data-input="pnl_pct" value="${escapeAttr(data.pnl_pct)}">
+          </div>
+          <div class="form-field">
+            <label class="form-label">Riesgo real (%)</label>
+            <input class="form-input" type="number" step="0.01" min="0" data-input="risk_real_pct" value="${escapeAttr(data.risk_real_pct)}">
           </div>
           ${meta.showRR ? `<div class="form-field">
             <label class="form-label">RR</label>
@@ -190,6 +195,11 @@ export function openEditTradeModal(trade) {
     if (assignBox) {
       renderCuentaAssign(assignBox, data.accounts || [], (accs) => {
         data.accounts = accs;
+      }, {
+        getDefaultRisk: () => {
+          const n = parseFloat(data.risk_real_pct);
+          return isFinite(n) && n > 0 ? n : 1;
+        },
       });
     }
   }, 0);
@@ -208,10 +218,13 @@ function doSave(trade, data, close) {
 
   const pnl_pct = +pnl.toFixed(4);
   const result = pnl_pct > 0.2 ? 'TP' : pnl_pct < -0.2 ? 'SL' : 'BE';
+  const riskRawNum = parseFloat(data.risk_real_pct);
+  const risk_real_pct = isFinite(riskRawNum) && riskRawNum >= 0 ? +riskRawNum.toFixed(4) : 1;
 
   const patch = {
     date: data.date,
     pnl_pct,
+    risk_real_pct,
     result,
     open_str: data.open_str || '',
     close_str: data.close_str || '',

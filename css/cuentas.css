@@ -1,3 +1,22 @@
+/* ── Cuentas: tabs de tipo + hint ────────────────────────── */
+.type-tabs { display: inline-flex; }
+.type-tabs.pill-group { gap: 4px; }
+.type-tabs .pill { padding: 5px 12px; font-size: 11px; }
+
+.cuentas-hint {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--muted);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+.cuentas-hint b { color: var(--text); font-weight: 600; }
+
 /* ── Cuentas: lista de cards ─────────────────────────────── */
 .cuenta-grid {
   display: grid;

@@ -1,7 +1,7 @@
 import { state } from '../state.js';
 import {
-  winrate, pnlPct, profitFactor, maxDrawdown, maxStreak, bestTpStreakPnl,
-  equityCurve, monthlyPnl, tradeCounts, durationStats,
+  winrate, pnlPct, pnlPctReal, profitFactor, maxDrawdown, maxStreak, bestTpStreakPnl,
+  equityCurve, equityCurveReal, monthlyPnl, tradeCounts, durationStats,
   wrByHour, wrByDay, statsByGroup, longVsShort,
 } from '../utils/calculations.js';
 import { fmtPct, fmtPctNoSign, fmtNum } from '../utils/number-format-es.js';
@@ -10,8 +10,11 @@ import { kpiCard } from '../components/kpi-card.js';
 import { createEquity, createDonut, createBar, createHourBar, createDayBar, createLongShort } from '../components/charts.js';
 import { renderHeatmap } from '../components/heatmap.js';
 import { renderTradeTable } from '../components/trade-table.js';
+import { renderPills } from '../components/pills.js';
 
 import { STRATEGIES as STRAT_META } from '../utils/strategy-config.js';
+
+let perfMode = 'sistema'; // 'sistema' | 'real'
 
 function render(container, sheet) {
   const meta = STRAT_META[sheet];
@@ -37,6 +40,7 @@ function render(container, sheet) {
   const c = tradeCounts(all);
   const wr = winrate(all);
   const pnl = pnlPct(all);
+  const pnlReal = pnlPctReal(all);
   const pf = profitFactor(all);
   const dd = maxDrawdown(all);
   const tpS = maxStreak(all, 'TP');
@@ -56,16 +60,20 @@ function render(container, sheet) {
     <div class="kpi-grid">
       ${kpiCard({ label: 'Trades', value: c.total, sub: `${c.tp} TP · ${c.sl} SL · ${c.be} BE`, tone: 'blue' })}
       ${kpiCard({ label: 'Winrate', value: fmtPctNoSign(wr), sub: 'TP / (TP+SL)', tone: 'orange' })}
-      ${kpiCard({ label: 'P&L', value: fmtPct(pnl, 1), sub: 'Sistema 1R', tone: pnl >= 0 ? 'green' : 'red' })}
+      ${kpiCard({ label: 'P&L sistema', value: fmtPct(pnl, 1), sub: 'Sistema 1R', tone: pnl >= 0 ? 'green' : 'red' })}
+      ${kpiCard({ label: 'P&L real', value: fmtPct(pnlReal, 1), sub: 'según riesgo real', tone: pnlReal >= 0 ? 'green' : 'red' })}
       ${kpiCard({ label: 'Profit Factor', value: isFinite(pf) ? pf.toFixed(2) : '∞', sub: 'wins / |losses|', tone: 'purple' })}
       ${kpiCard({ label: 'DD máximo', value: '-' + dd.toFixed(1) + '%', sub: `Racha SL ${slS}`, tone: 'red' })}
     </div>
 
-    <div class="section-title">Rendimiento</div>
+    <div class="section-title-row">
+      <div class="section-title" style="margin:0;">Rendimiento</div>
+      <div class="perf-toggle" id="perfToggle"></div>
+    </div>
     <div class="grid-2-1">
       <div class="card">
         <div class="card-title">Curva de equity</div>
-        <div class="card-sub">P&L acumulado · Sistema 1R</div>
+        <div class="card-sub">P&L acumulado · ${perfMode === 'real' ? 'Real (riesgo aplicado)' : 'Sistema 1R'}</div>
         <div class="chart-wrap" style="height:220px;"><canvas id="equityChart"></canvas></div>
       </div>
       <div class="card">
@@ -82,7 +90,7 @@ function render(container, sheet) {
 
     <div class="card" style="margin-bottom:24px;">
       <div class="card-title">P&L mensual</div>
-      <div class="card-sub">Por mes · Sistema 1R</div>
+      <div class="card-sub">Por mes · ${perfMode === 'real' ? 'Real (riesgo aplicado)' : 'Sistema 1R'}</div>
       <div class="chart-wrap" style="height:180px;"><canvas id="monthlyChart"></canvas></div>
     </div>
 
@@ -91,7 +99,7 @@ function render(container, sheet) {
     <div class="card" style="margin-bottom:24px;">
       <div class="card-title">Rendimiento por par</div>
       <table class="data-table"><thead><tr>
-        <th>Par</th><th>Trades</th><th>WR</th><th>P&L</th><th>PF</th><th>Racha TP</th><th>DD</th>
+        <th>Par</th><th>Trades</th><th>WR</th><th>P&L sist.</th><th>P&L real</th><th>PF</th><th>Racha TP</th><th>DD</th>
       </tr></thead><tbody id="pairsTbody"></tbody></table>
     </div>` : ''}
 
@@ -99,7 +107,7 @@ function render(container, sheet) {
     <div class="card" style="margin-bottom:24px;">
       <div class="card-title">Rendimiento por zona</div>
       <table class="data-table"><thead><tr>
-        <th>Zona</th><th>Trades</th><th>WR</th><th>P&L</th><th>PF</th>
+        <th>Zona</th><th>Trades</th><th>WR</th><th>P&L sist.</th><th>P&L real</th><th>PF</th>
       </tr></thead><tbody id="zonesTbody"></tbody></table>
     </div>
 
@@ -108,7 +116,7 @@ function render(container, sheet) {
     <div class="card" style="margin-bottom:24px;">
       <div class="card-title">Rendimiento por entrada</div>
       <table class="data-table"><thead><tr>
-        <th>Entrada</th><th>Trades</th><th>WR</th><th>P&L</th><th>PF</th>
+        <th>Entrada</th><th>Trades</th><th>WR</th><th>P&L sist.</th><th>P&L real</th><th>PF</th>
       </tr></thead><tbody id="entriesTbody"></tbody></table>
     </div>` : ''}
 
@@ -123,7 +131,7 @@ function render(container, sheet) {
         <div class="card-title">Detalle</div>
         <div class="card-sub">Métricas por dirección</div>
         <table class="data-table"><thead><tr>
-          <th>Dirección</th><th>Trades</th><th>WR</th><th>P&L</th>
+          <th>Dirección</th><th>Trades</th><th>WR</th><th>P&L sist.</th><th>P&L real</th>
         </tr></thead><tbody id="lsTbody"></tbody></table>
       </div>
     </div>
@@ -161,15 +169,27 @@ function render(container, sheet) {
     <div id="tradeTable"></div>
   `;
 
+  // Toggle Sistema/Real
+  const perfToggleEl = container.querySelector('#perfToggle');
+  if (perfToggleEl) {
+    renderPills(perfToggleEl, {
+      name: 'perfMode',
+      options: [{ value: 'sistema', label: 'Sistema' }, { value: 'real', label: 'Real' }],
+      value: perfMode,
+      onChange: v => { perfMode = v; render(container, sheet); },
+    });
+  }
+
   // Charts
+  const eqCurve = perfMode === 'real' ? equityCurveReal : equityCurve;
   createEquity(container.querySelector('#equityChart'),
-    [{ key: sheet, label: meta.label, data: equityCurve(all) },
-     { key: 'ALL', label: 'Global', data: equityCurve(all) }].slice(0, 1));
+    [{ key: sheet, label: meta.label, data: eqCurve(all) },
+     { key: 'ALL', label: 'Global', data: eqCurve(all) }].slice(0, 1));
   createDonut(container.querySelector('#donut'), c.tp, c.sl, c.be);
   const m = monthlyPnl(all);
   createBar(container.querySelector('#monthlyChart'),
     m.map(d => MONTHS_ES_SHORT[+d.month.split('-')[1] - 1] + ' ' + d.month.substring(2, 4)),
-    m.map(d => +d.pnl.toFixed(2)));
+    m.map(d => +(perfMode === 'real' ? d.pnlReal : d.pnl).toFixed(2)));
 
   // Pairs (only ZONAS)
   if (meta.pairs.length > 1) {
@@ -181,6 +201,7 @@ function render(container, sheet) {
         p.key, p.total,
         coloredPct(p.wr, 50),
         coloredSignedPct(p.pnl),
+        coloredSignedPct(p.pnlReal),
         coloredPF(p.pf),
         `${tpStreak} TP`,
         `<span style="color:var(--red)">-${ddP.toFixed(1)}%</span>`,
@@ -191,23 +212,26 @@ function render(container, sheet) {
   // Zones
   const zs = statsByGroup(all, t => t.zone || '–').sort((a, b) => b.total - a.total);
   container.querySelector('#zonesTbody').innerHTML = zs.map(z => tableRow([
-    z.key, z.total, coloredPct(z.wr, 50), coloredSignedPct(z.pnl), coloredPF(z.pf),
-  ])).join('') || '<tr><td colspan="5" class="empty">Sin datos</td></tr>';
+    z.key, z.total, coloredPct(z.wr, 50), coloredSignedPct(z.pnl), coloredSignedPct(z.pnlReal), coloredPF(z.pf),
+  ])).join('') || '<tr><td colspan="6" class="empty">Sin datos</td></tr>';
 
   // Entries
   if (meta.entries) {
     const es = statsByGroup(all, t => t.entry || '–').sort((a, b) => b.total - a.total);
     container.querySelector('#entriesTbody').innerHTML = es.map(e => tableRow([
-      e.key, e.total, coloredPct(e.wr, 50), coloredSignedPct(e.pnl), coloredPF(e.pf),
-    ])).join('') || '<tr><td colspan="5" class="empty">Sin datos</td></tr>';
+      e.key, e.total, coloredPct(e.wr, 50), coloredSignedPct(e.pnl), coloredSignedPct(e.pnlReal), coloredPF(e.pf),
+    ])).join('') || '<tr><td colspan="6" class="empty">Sin datos</td></tr>';
   }
 
   // L/S
   createLongShort(container.querySelector('#lsChart'), [{ label: meta.label, ...longVsShort(all) }]);
   const ls = longVsShort(all);
+  const longSub = all.filter(t => t.setup === 'LONG');
+  const shortSub = all.filter(t => t.setup === 'SHORT');
+  const lsReal = { long: pnlPctReal(longSub), short: pnlPctReal(shortSub) };
   container.querySelector('#lsTbody').innerHTML = ['long', 'short'].map(d => {
     const x = ls[d];
-    return tableRow([d.toUpperCase(), x.n, coloredPct(x.wr, 50), coloredSignedPct(x.pnl)]);
+    return tableRow([d.toUpperCase(), x.n, coloredPct(x.wr, 50), coloredSignedPct(x.pnl), coloredSignedPct(lsReal[d])]);
   }).join('');
 
   // Timing

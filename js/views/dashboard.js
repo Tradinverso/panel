@@ -2,8 +2,8 @@ import { state } from '../state.js';
 import { auth } from '../auth.js';
 import { router } from '../router.js';
 import {
-  winrate, pnlPct, profitFactor, maxDrawdown, maxStreak, bestTpStreakPnl,
-  equityCurve, monthlyPnl, activeDays, tradeCounts, durationStats,
+  winrate, pnlPct, pnlPctReal, profitFactor, maxDrawdown, maxStreak, bestTpStreakPnl,
+  equityCurve, equityCurveReal, monthlyPnl, activeDays, tradeCounts, durationStats,
   wrByHour, wrByDay, statsByGroup, longVsShort,
 } from '../utils/calculations.js';
 import { fmtPct, fmtPctNoSign, fmtNum } from '../utils/number-format-es.js';
@@ -14,11 +14,13 @@ import { kpiCard, kpiCardComposite } from '../components/kpi-card.js';
 import { createEquity, createDonut, createBar, createHourBar, createDayBar, createLongShort } from '../components/charts.js';
 import { renderHeatmap } from '../components/heatmap.js';
 import { renderConnectionBadge, cleanupConnectionBadge } from '../components/connection-badge.js';
+import { renderPills } from '../components/pills.js';
 
 const STRAT_LABELS = { ZONAS: 'Forex + Oro', LIQUIDEZ: 'EUR/USD', NASDAQ: 'NQ Futuros' };
 
 let monthFilter = 'all';
 let yearFilter = 'all';
+let perfMode = 'sistema'; // 'sistema' | 'real'
 
 function render(container) {
   const allTrades = state.trades;
@@ -41,6 +43,17 @@ function render(container) {
   // Connection badge (live)
   const connEl = container.querySelector('#connBadge');
   if (connEl) renderConnectionBadge(connEl);
+
+  // Toggle Sistema/Real
+  const perfToggleEl = container.querySelector('#perfToggle');
+  if (perfToggleEl) {
+    renderPills(perfToggleEl, {
+      name: 'perfMode',
+      options: [{ value: 'sistema', label: 'Sistema' }, { value: 'real', label: 'Real' }],
+      value: perfMode,
+      onChange: v => { perfMode = v; render(container); },
+    });
+  }
 
   paintKpis(container, filtered);
   paintEquity(container, filtered);
@@ -159,13 +172,16 @@ function renderShell(allTrades, filtered) {
 
     <div class="kpi-grid" id="kpis"></div>
 
-    <div class="section-title">Rendimiento</div>
+    <div class="section-title-row">
+      <div class="section-title" style="margin:0;">Rendimiento</div>
+      <div class="perf-toggle" id="perfToggle"></div>
+    </div>
     <div class="grid-2-1">
       <div class="card">
         <div class="card-head">
           <div>
             <div class="card-title">Curva de equity (P&L acumulado)</div>
-            <div class="card-sub">Por estrategia · Sistema 1R normalizado</div>
+            <div class="card-sub">Por estrategia · ${perfMode === 'real' ? 'P&L real (riesgo aplicado)' : 'Sistema 1R normalizado'}</div>
           </div>
           <div style="display:flex;gap:6px;">
             <span class="strat-pill zonas">Zonas</span>
@@ -177,7 +193,7 @@ function renderShell(allTrades, filtered) {
       </div>
       <div class="card">
         <div class="card-title">P&L mensual</div>
-        <div class="card-sub">Porcentaje sistema 1R</div>
+        <div class="card-sub">${perfMode === 'real' ? 'Porcentaje según riesgo real' : 'Porcentaje sistema 1R'}</div>
         <div class="chart-wrap" style="height:220px;"><canvas id="monthlyChart"></canvas></div>
       </div>
     </div>
@@ -219,7 +235,7 @@ function renderShell(allTrades, filtered) {
         <div class="card-title">Rendimiento por par</div>
         <div class="card-sub">Pares con ≥1 trade</div>
         <table class="data-table"><thead><tr>
-          <th>Par</th><th>Trades</th><th>WR</th><th>P&L</th><th>PF</th><th>Señal</th>
+          <th>Par</th><th>Trades</th><th>WR</th><th>P&L sist.</th><th>P&L real</th><th>PF</th><th>Señal</th>
         </tr></thead><tbody id="pairsTbody"></tbody></table>
       </div>
     </div>
@@ -256,7 +272,8 @@ function stratCardShell(s) {
       <div class="card-sub" data-field="sub">– trades</div>
       <div class="mini-stats">
         <div><div class="mini-stat-val" data-field="wr" style="color:var(--${cls});">–</div><div class="mini-stat-lbl">Winrate</div></div>
-        <div><div class="mini-stat-val" data-field="pnl" style="color:var(--green);">–</div><div class="mini-stat-lbl">P&L</div></div>
+        <div><div class="mini-stat-val" data-field="pnl" style="color:var(--green);">–</div><div class="mini-stat-lbl">P&L sist.</div></div>
+        <div><div class="mini-stat-val" data-field="pnlReal" style="color:var(--green);">–</div><div class="mini-stat-lbl">P&L real</div></div>
         <div><div class="mini-stat-val" data-field="pf" style="color:var(--orange);">–</div><div class="mini-stat-lbl">Profit Factor</div></div>
       </div>
       <div class="chart-wrap" style="height:130px;"><canvas data-field="donut"></canvas></div>
@@ -269,6 +286,7 @@ function paintKpis(container, trades) {
   const c = tradeCounts(trades);
   const wr = winrate(trades);
   const pnl = pnlPct(trades);
+  const pnlReal = pnlPctReal(trades);
   const dd = maxDrawdown(trades);
   const tpStreak = maxStreak(trades, 'TP');
   const tpStreakPct = bestTpStreakPnl(trades);
@@ -276,7 +294,8 @@ function paintKpis(container, trades) {
   const avgPerDay = days > 0 ? (c.total / days).toFixed(1) : '0';
   container.querySelector('#kpis').innerHTML = [
     kpiCard({ label: 'Winrate global', value: wr.toFixed(1) + '%', sub: `${c.tp} TP · ${c.sl} SL · ${c.be} BE`, tone: 'orange' }),
-    kpiCard({ label: 'P&L sistema', value: fmtPct(pnl, 1), sub: 'trades al 1%', tone: 'green' }),
+    kpiCard({ label: 'P&L sistema', value: fmtPct(pnl, 1), sub: 'trades al 1%', tone: pnl >= 0 ? 'green' : 'red' }),
+    kpiCard({ label: 'P&L real', value: fmtPct(pnlReal, 1), sub: 'según riesgo real', tone: pnlReal >= 0 ? 'green' : 'red' }),
     kpiCard({ label: 'DD máximo', value: '-' + dd.toFixed(1) + '%', sub: 'equity combinada', tone: 'red' }),
     kpiCardComposite({ label: 'Racha TP máx', primary: tpStreak, secondary: 'TP · ' + fmtPct(tpStreakPct, 1), sub: 'consecutivos · acumulado', tone: 'green' }),
     kpiCard({ label: 'Días activos', value: days, sub: `${c.total} trades · ${avgPerDay}/día`, tone: 'purple' }),
@@ -284,11 +303,12 @@ function paintKpis(container, trades) {
 }
 
 function paintEquity(container, trades) {
+  const curve = perfMode === 'real' ? equityCurveReal : equityCurve;
   const datasets = [
-    { key: 'ALL', label: 'Global', data: equityCurve(trades) },
-    { key: 'ZONAS', label: 'Zonas', data: equityCurve(trades.filter(t => t.sheet === 'ZONAS')) },
-    { key: 'LIQUIDEZ', label: 'Liquidez', data: equityCurve(trades.filter(t => t.sheet === 'LIQUIDEZ')) },
-    { key: 'NASDAQ', label: 'Nasdaq', data: equityCurve(trades.filter(t => t.sheet === 'NASDAQ')) },
+    { key: 'ALL', label: 'Global', data: curve(trades) },
+    { key: 'ZONAS', label: 'Zonas', data: curve(trades.filter(t => t.sheet === 'ZONAS')) },
+    { key: 'LIQUIDEZ', label: 'Liquidez', data: curve(trades.filter(t => t.sheet === 'LIQUIDEZ')) },
+    { key: 'NASDAQ', label: 'Nasdaq', data: curve(trades.filter(t => t.sheet === 'NASDAQ')) },
   ];
   createEquity(container.querySelector('#equityChart'), datasets);
 }
@@ -296,7 +316,7 @@ function paintEquity(container, trades) {
 function paintMonthly(container, allTrades) {
   const data = monthlyPnl(allTrades);
   const labels = data.map(d => MONTHS_ES_SHORT[+d.month.split('-')[1] - 1]);
-  const values = data.map(d => +d.pnl.toFixed(2));
+  const values = data.map(d => +(perfMode === 'real' ? d.pnlReal : d.pnl).toFixed(2));
   createBar(container.querySelector('#monthlyChart'), labels, values);
 }
 
@@ -305,8 +325,15 @@ function paintStrategy(container, sheet, trades) {
   const card = container.querySelector(`[data-strat="${sheet}"]`);
   if (!card) return;
   const c = tradeCounts(sub);
+  const subPnl = pnlPct(sub);
+  const subPnlReal = pnlPctReal(sub);
   card.querySelector('[data-field="wr"]').textContent = fmtPctNoSign(winrate(sub));
-  card.querySelector('[data-field="pnl"]').textContent = fmtPct(pnlPct(sub), 1);
+  const pnlEl = card.querySelector('[data-field="pnl"]');
+  pnlEl.textContent = fmtPct(subPnl, 1);
+  pnlEl.style.color = subPnl >= 0 ? 'var(--green)' : 'var(--red)';
+  const pnlRealEl = card.querySelector('[data-field="pnlReal"]');
+  pnlRealEl.textContent = fmtPct(subPnlReal, 1);
+  pnlRealEl.style.color = subPnlReal >= 0 ? 'var(--green)' : 'var(--red)';
   card.querySelector('[data-field="pf"]').textContent = fmtNum(profitFactor(sub));
   card.querySelector('[data-field="sub"]').textContent = `${sub.length} trades · ${STRAT_LABELS[sheet]}`;
   createDonut(card.querySelector('[data-field="donut"]'), c.tp, c.sl, c.be);
@@ -336,6 +363,7 @@ function paintDirectionAndPairs(container, trades) {
   container.querySelector('#pairsTbody').innerHTML = stats.map(p => {
     const wrColor = p.wr >= 50 ? 'var(--green)' : 'var(--red)';
     const pnlColor = p.pnl >= 0 ? 'var(--green)' : 'var(--red)';
+    const pnlRealColor = p.pnlReal >= 0 ? 'var(--green)' : 'var(--red)';
     const pfColor = p.pf >= 2.0 ? 'var(--green)' : p.pf >= 1.5 ? 'var(--orange)' : 'var(--red)';
     const signal = p.wr >= 50 ? '<span style="color:var(--green)">✓</span>' : '<span style="color:var(--red)">!</span>';
     return `<tr>
@@ -343,11 +371,12 @@ function paintDirectionAndPairs(container, trades) {
       <td>${p.total}</td>
       <td style="color:${wrColor}">${p.wr.toFixed(0)}%</td>
       <td style="color:${pnlColor}">${fmtPct(p.pnl, 1)}</td>
+      <td style="color:${pnlRealColor}">${fmtPct(p.pnlReal, 1)}</td>
       <td style="color:${pfColor};font-weight:500;">${isFinite(p.pf) ? p.pf.toFixed(2) : '∞'}</td>
       <td>${signal}</td>
     </tr>`;
   }).join('') + `<tr style="border-top:1px solid var(--border);">
-    <td colspan="6" style="color:var(--muted);font-size:10px;font-family:var(--mono);line-height:1.8;">
+    <td colspan="7" style="color:var(--muted);font-size:10px;font-family:var(--mono);line-height:1.8;">
       PF: <span style="color:var(--green);font-weight:600;">&gt;2.0 muy bueno</span> ·
       <span style="color:var(--orange);font-weight:600;">1.5–2.0 bueno</span> ·
       <span style="color:var(--red);font-weight:600;">&lt;1.5 mejorable</span>

@@ -9,7 +9,7 @@
 
 import { state } from '../state.js';
 
-export function renderCuentaAssign(container, initial = [], onChange = () => {}) {
+export function renderCuentaAssign(container, initial = [], onChange = () => {}, opts = {}) {
   // Mantenemos una copia mutable
   let assigned = (Array.isArray(initial) ? initial : [])
     .filter(a => a && a.accountId)
@@ -101,7 +101,9 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {})
         if (!id) return;
         const c = cuentas.find(x => x.id === id);
         if (!c) return;
-        assigned.push({ accountId: id, riskPct: c.defaultRiskPct || 1.0 });
+        const def = typeof opts.getDefaultRisk === 'function' ? opts.getDefaultRisk() : 1;
+        const risk = isFinite(def) && def > 0 ? def : 1;
+        assigned.push({ accountId: id, riskPct: risk });
         onChange(currentArray());
         paint();
       });

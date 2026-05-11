@@ -27,6 +27,10 @@ function deriveResult(pnl_pct) {
 function sanitizeTrade(t) {
   if (!t) return null;
   const pnl_pct = typeof t.pnl_pct === 'number' ? t.pnl_pct : (parseFloat(t.pnl_pct) || 0);
+  const risk_real_raw = typeof t.risk_real_pct === 'number'
+    ? t.risk_real_pct
+    : (t.risk_real_pct != null && t.risk_real_pct !== '' ? parseFloat(t.risk_real_pct) : NaN);
+  const risk_real_pct = isFinite(risk_real_raw) && risk_real_raw >= 0 ? risk_real_raw : 1;
   const open_str = t.open_str || '';
   const close_str = t.close_str || '';
   // accounts: [{accountId, riskPct}] — el balance de la cuenta se ajusta
@@ -45,6 +49,7 @@ function sanitizeTrade(t) {
     date: t.date,
     result: t.result || deriveResult(pnl_pct),
     pnl_pct,
+    risk_real_pct,
     open_hour: t.open_hour != null ? t.open_hour : parseTime(open_str),
     open_str,
     close_str,
@@ -52,7 +57,7 @@ function sanitizeTrade(t) {
     setup: t.setup || '',
     pair: t.pair || '',
     zone: t.zone || '',
-    entry: t.entry || '',
+    entry: t.entry ? String(t.entry).toUpperCase() : '',
     rr: t.rr != null ? t.rr : null,
     pips: t.pips != null ? t.pips : null,
     sensacion: SENS_VALID.has(t.sensacion) ? t.sensacion : '',
@@ -86,7 +91,6 @@ function sanitizeCuenta(c) {
     cost: typeof c.cost === 'number' ? c.cost : (parseFloat(c.cost) || 0),
     targetUsd: c.targetUsd != null ? (typeof c.targetUsd === 'number' ? c.targetUsd : parseFloat(c.targetUsd) || 0) : 0,
     maxDdUsd: c.maxDdUsd != null ? (typeof c.maxDdUsd === 'number' ? c.maxDdUsd : parseFloat(c.maxDdUsd) || 0) : 0,
-    defaultRiskPct: typeof c.defaultRiskPct === 'number' && c.defaultRiskPct > 0 ? c.defaultRiskPct : 1.0,
     status: VALID_STATUS.has(c.status) ? c.status : 'activa',
     fase: VALID_FASE.has(c.fase) ? c.fase : 'challenge_1',
     withdrawals: Array.isArray(c.withdrawals)

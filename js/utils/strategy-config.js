@@ -22,7 +22,7 @@ export const STRATEGIES = {
     pairs: ['EUR/USD', 'GBP/USD', 'XAU/USD'],
     pairFixed: false,
     zones: ['< 7 días', '> 7 días', 'Retest'],
-    entries: ['STOP LIMIT'],
+    entries: ['STOP LIMIT', 'VOL'],
     showRR: false,
     showPip: false,
     showEntry: true,
