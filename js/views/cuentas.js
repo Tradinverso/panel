@@ -34,12 +34,28 @@ function render(container) {
     (filterFase === 'all' || c.fase === filterFase)
   );
 
+  // Última actividad por cuenta = fecha del trade más reciente asignado.
+  // Si no tiene trades, cae a la fecha de creación.
+  const lastActivity = new Map();
+  for (const c of all) {
+    let maxDate = '';
+    for (const t of state.trades) {
+      if (Array.isArray(t.accounts) && t.accounts.some(a => a.accountId === c.id)) {
+        if (t.date && t.date > maxDate) maxDate = t.date;
+      }
+    }
+    lastActivity.set(c.id, maxDate);
+  }
+
   const sortedFiltered = [...filtered].sort((a, b) => {
-    // Activas primero, luego por fecha de creación
+    // Activas primero, luego por actividad reciente (trade más nuevo)
     if (a.status !== b.status) {
       const order = { activa: 0, pausada: 1, pasada: 2, perdida: 3 };
       return (order[a.status] || 9) - (order[b.status] || 9);
     }
+    const la = lastActivity.get(a.id) || '';
+    const lb = lastActivity.get(b.id) || '';
+    if (la !== lb) return lb.localeCompare(la); // más reciente primero
     return (b.createdAt || 0) - (a.createdAt || 0);
   });
 
@@ -125,20 +141,26 @@ function render(container) {
     // KPIs globales sobre el subset filtrado por tipo
     paintPortfolioKpis(container, byType);
 
-    // Charts
+    // Charts — formateados en USD (compactos en eje, completos en tooltip)
+    const usdAxis = v => {
+      if (v == null || isNaN(v)) return '$0';
+      const abs = Math.abs(v);
+      if (abs >= 1000) return (v < 0 ? '-' : '') + '$' + (abs / 1000).toFixed(abs >= 10000 ? 0 : 1) + 'K';
+      return (v < 0 ? '-' : '') + '$' + abs.toFixed(0);
+    };
     const equityCanvas = container.querySelector('#portfolioEquity');
     if (equityCanvas) {
       const curve = portfolioEquityCurve(byType, state.trades);
       createEquity(equityCanvas, [
         { key: 'PORT', label: 'Equity cartera', data: curve },
-      ]);
+      ], { formatter: usdAxis });
     }
     const payoutsCanvas = container.querySelector('#portfolioPayouts');
     if (payoutsCanvas) {
       const data = portfolioMonthlyWithdrawals(byType);
       const labels = data.map(d => MONTHS_ES_SHORT[+d.month.split('-')[1] - 1] + ' ' + d.month.substring(2, 4));
       const values = data.map(d => +d.usd.toFixed(2));
-      createBar(payoutsCanvas, labels, values);
+      createBar(payoutsCanvas, labels, values, { formatter: usdAxis });
     }
 
     const faseEl = container.querySelector('#cf-fase');
@@ -178,21 +200,18 @@ function paintPortfolioKpis(container, cuentas) {
   const s = portfolioStats(cuentas, state.trades);
   const kpisEl = container.querySelector('#portfolioKpis');
   if (!kpisEl) return;
-  const equityPctText = s.capitalFondeado > 0
-    ? ` (${s.equityPct >= 0 ? '+' : ''}${s.equityPct.toFixed(2)}%)`
-    : '';
   kpisEl.innerHTML = [
     kpiCard({
       label: 'Capital fondeado',
       value: fmtUsd(s.capitalFondeado),
-      sub: `${s.countActivasFondeadas} cuenta${s.countActivasFondeadas !== 1 ? 's' : ''} fondeada${s.countActivasFondeadas !== 1 ? 's' : ''} activas`,
+      sub: `${s.countActivasFondeadas} cuenta${s.countActivasFondeadas !== 1 ? 's' : ''} activa${s.countActivasFondeadas !== 1 ? 's' : ''}`,
       tone: 'blue',
     }),
     kpiCard({
-      label: 'Equity actual',
-      value: fmtUsd(s.equityFondeado),
-      sub: 'valor actual' + equityPctText,
-      tone: s.equityFondeado >= s.capitalFondeado ? 'green' : 'red',
+      label: 'Capital en challenge',
+      value: fmtUsd(s.capitalChallenge),
+      sub: `${s.countActivasChallenge} challenge${s.countActivasChallenge !== 1 ? 's' : ''} activa${s.countActivasChallenge !== 1 ? 's' : ''}`,
+      tone: 'purple',
     }),
     kpiCard({
       label: 'Profit fondeado',

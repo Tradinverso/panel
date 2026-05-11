@@ -130,7 +130,8 @@ export function renderTradeTable(container, trades, opts = {}) {
   }
 
   function renderTable(filtered) {
-    const sorted = sortChrono(filtered);
+    // Más reciente arriba: ordenamos cronológicamente y luego invertimos.
+    const sorted = sortChrono(filtered).reverse();
     const colspan = canDelete ? 16 : 15;
     const bodyContent = sorted.length
       ? sorted.map(t => row(t, canDelete)).join('')

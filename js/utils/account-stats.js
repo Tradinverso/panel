@@ -205,6 +205,9 @@ function buildEvents(account, items) {
 // El caller puede pre-filtrar `cuentas` por tipo (CFD/Futuros) antes de llamar.
 export function portfolioStats(cuentas, allTrades) {
   const fondeadasActivas = cuentas.filter(c => c.fase === 'fondeada' && c.status === 'activa');
+  const challengeActivas = cuentas.filter(
+    c => (c.fase === 'challenge_1' || c.fase === 'challenge_2') && c.status === 'activa'
+  );
   let capitalFondeado = 0;
   let equityFondeado = 0;
   let profitFondeado = 0;
@@ -214,6 +217,10 @@ export function portfolioStats(cuentas, allTrades) {
     equityFondeado += s.equityUsd;
     profitFondeado += s.profitTotalUsd;
   }
+  let capitalChallenge = 0;
+  for (const c of challengeActivas) {
+    capitalChallenge += c.capital || 0;
+  }
   let totalWithdrawnAll = 0;
   let totalCostAll = 0;
   for (const c of cuentas) {
@@ -222,6 +229,7 @@ export function portfolioStats(cuentas, allTrades) {
   }
   return {
     capitalFondeado,
+    capitalChallenge,
     equityFondeado,
     equityPct: capitalFondeado > 0 ? ((equityFondeado - capitalFondeado) / capitalFondeado) * 100 : 0,
     profitFondeado,
@@ -229,6 +237,7 @@ export function portfolioStats(cuentas, allTrades) {
     totalCost: totalCostAll,
     netToPocket: totalWithdrawnAll - totalCostAll,
     countActivasFondeadas: fondeadasActivas.length,
+    countActivasChallenge: challengeActivas.length,
     countTotal: cuentas.length,
   };
 }

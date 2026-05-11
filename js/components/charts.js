@@ -10,11 +10,13 @@ function defaults() {
   Chart.defaults.font.size = 11;
 }
 
-export function createEquity(canvas, datasets) {
+export function createEquity(canvas, datasets, opts = {}) {
   defaults();
   Chart.getChart(canvas)?.destroy();
   const GREEN = READ('--green'), Z = READ('--zonas'), L = READ('--liquidez'), N = READ('--nasdaq');
   const palette = { ALL: GREEN, ZONAS: Z, LIQUIDEZ: L, NASDAQ: N };
+  // Default: porcentaje. Para mostrar USD, pasar opts.formatter = v => fmtUsd(v).
+  const fmt = typeof opts.formatter === 'function' ? opts.formatter : (v => v.toFixed(1) + '%');
   return new Chart(canvas, {
     type: 'line',
     data: {
@@ -22,20 +24,26 @@ export function createEquity(canvas, datasets) {
         label: d.label,
         data: d.data,
         borderColor: palette[d.key] || GREEN,
-        backgroundColor: d.key === 'ALL' ? 'rgba(0,212,170,0.06)' : 'transparent',
+        backgroundColor: d.key === 'ALL' || d.key === 'PORT' ? 'rgba(0,212,170,0.06)' : 'transparent',
         tension: 0.3,
         pointRadius: 0,
-        borderWidth: d.key === 'ALL' ? 2 : 1.5,
-        borderDash: d.key === 'ALL' ? [] : [4, 3],
-        fill: d.key === 'ALL',
+        borderWidth: d.key === 'ALL' || d.key === 'PORT' ? 2 : 1.5,
+        borderDash: d.key === 'ALL' || d.key === 'PORT' ? [] : [4, 3],
+        fill: d.key === 'ALL' || d.key === 'PORT',
       })),
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          mode: 'index', intersect: false,
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` },
+        },
+      },
       scales: {
         x: { type: 'category', ticks: { maxTicksLimit: 8, autoSkip: true }, grid: { color: READ('--border') } },
-        y: { ticks: { callback: v => v.toFixed(1) + '%' }, grid: { color: READ('--border') } },
+        y: { ticks: { callback: fmt }, grid: { color: READ('--border') } },
       },
     },
   });
@@ -67,17 +75,23 @@ export function createBar(canvas, labels, data, opts = {}) {
   Chart.getChart(canvas)?.destroy();
   const GREEN = READ('--green'), RED = READ('--red');
   const colors = data.map(v => v >= 0 ? GREEN : RED);
+  // Default: porcentaje. Para USD u otra unidad, pasar opts.formatter.
+  const fmt = typeof opts.formatter === 'function' ? opts.formatter : (v => v + '%');
+  const { formatter, ...restOpts } = opts;
   return new Chart(canvas, {
     type: 'bar',
     data: { labels, datasets: [{ data, backgroundColor: colors, borderRadius: 6, borderSkipped: false }] },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${fmt(ctx.parsed.y)}` } },
+      },
       scales: {
         x: { grid: { color: READ('--border') } },
-        y: { ticks: { callback: v => v + '%' }, grid: { color: READ('--border') } },
+        y: { ticks: { callback: fmt }, grid: { color: READ('--border') } },
       },
-      ...opts,
+      ...restOpts,
     },
   });
 }
