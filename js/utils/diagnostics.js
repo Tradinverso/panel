@@ -116,12 +116,31 @@ export function buildAlerts(trades) {
       `Solo opera el siguiente si es un setup A+, sin compromiso.`));
   }
 
-  // ── HOY: ≥2 SL ──
+  // ── HOY: más de 3 SL ──
   const todaySL = todays.filter(t => t.result === 'SL').length;
-  if (todaySL >= 2) {
+  if (todaySL >= 4) {
     tecAlertas.push(danger('🛑',
       `HOY ya ${todaySL} SL — para`,
-      `Tu regla: máx 2 SL/día. Cierra plataforma y revisa journaling.`));
+      `Más de 3 SL en el día. Cierra plataforma y revisa journaling.`));
+  }
+
+  // ── HOY: sensación negativa de alto riesgo (FOMO / Venganza / Miedo) ──
+  const BAD_EMOTIONS = new Set(['Fomo - Acelerado', 'Venganza - Rabia', 'Miedo - Parálisis']);
+  const todayBadEmotion = todays.filter(t => BAD_EMOTIONS.has(t.sensacion));
+  if (todayBadEmotion.length) {
+    const sensList = [...new Set(todayBadEmotion.map(t => t.sensacion))].join(' / ');
+    tecAlertas.push(danger('🚨',
+      `HOY operando con "${sensList}" — para`,
+      `Detectada sensación negativa de alto riesgo. Cierra plataforma antes de seguir; no es momento de operar.`));
+  }
+
+  // ── HOY: límite de drawdown diario (P&L sistema acumulado del día) ──
+  const DAILY_DD_LIMIT = -3; // % sistema acumulado en el día
+  const todayPnl = todays.reduce((s, t) => s + (t.result !== 'BE' ? (t.pnl_pct || 0) : 0), 0);
+  if (todayPnl <= DAILY_DD_LIMIT) {
+    tecAlertas.push(danger('📉',
+      `HOY ${todayPnl.toFixed(1)}% acumulado — para`,
+      `Has alcanzado el límite diario de drawdown (${DAILY_DD_LIMIT}%). Cierra plataforma y revisa journaling.`));
   }
 
   // ── Racha de DÍAS operados negativos seguidos (activa) ──

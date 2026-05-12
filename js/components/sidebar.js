@@ -21,6 +21,9 @@ const NAV_BASE = [
   { section: 'Análisis' },
   { path: '#/diagnostico', label: 'Diagnóstico', icon: '🩺', class: '' },
 
+  { section: 'Psicología' },
+  { path: '#/psicologia', label: 'Reflexiones', icon: '🧘', class: '' },
+
   { section: 'Datos' },
   { path: '#/importar', label: 'Importar', icon: '📥', class: '' },
   { path: '#/tabla',    label: 'Tabla',    icon: '📋', class: '' },

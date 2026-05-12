@@ -71,6 +71,7 @@ function sanitizeTrade(t) {
 
 const VALID_FASE = new Set(['challenge_1', 'challenge_2', 'fondeada']);
 const VALID_STATUS = new Set(['activa', 'pausada', 'pasada', 'perdida']);
+const VALID_REFL_TYPE = new Set(['daily', 'weekly', 'monthly']);
 
 function sanitizeCuenta(c) {
   if (!c) return null;
@@ -108,6 +109,20 @@ function sanitizeCuenta(c) {
   };
 }
 
+function sanitizeReflection(r) {
+  if (!r) return null;
+  if (!VALID_REFL_TYPE.has(r.type)) return null;
+  const period = String(r.period || '').trim();
+  if (!period) return null;
+  return {
+    id: r.id || `${r.type}-${period}`,
+    type: r.type,
+    period,
+    content: String(r.content || ''),
+    updatedAt: typeof r.updatedAt === 'number' ? r.updatedAt : Date.now(),
+  };
+}
+
 const listeners = new Set();
 
 function targetUid() {
@@ -129,6 +144,7 @@ function fireAndForget(p, label) {
 export const state = {
   trades: [],
   cuentas: [],
+  reflections: [],
   viewAsUid: null,    // null = ves tus propios trades; uid = admin viendo a alumno
   viewAsProfile: null,// perfil del alumno que se está viendo (banner)
   readOnly: false,    // true cuando viewAsUid != null
@@ -140,22 +156,26 @@ export const state = {
     if (!uid) {
       this.trades = [];
       this.cuentas = [];
+      this.reflections = [];
       this.emit();
       return;
     }
     this.loading = true;
     this.emit();
     try {
-      const [trades, cuentas] = await Promise.all([
+      const [trades, cuentas, reflections] = await Promise.all([
         sync.loadTrades(uid),
         sync.loadCuentas(uid),
+        sync.loadReflections(uid),
       ]);
       this.trades = trades.map(sanitizeTrade).filter(Boolean);
       this.cuentas = cuentas.map(sanitizeCuenta).filter(Boolean);
+      this.reflections = reflections.map(sanitizeReflection).filter(Boolean);
     } catch (e) {
       console.error('[state] Error cargando datos:', e);
       this.trades = [];
       this.cuentas = [];
+      this.reflections = [];
     }
     this.loading = false;
     this.viewAsUid = null;
@@ -170,12 +190,14 @@ export const state = {
     this.loading = true;
     this.emit();
     try {
-      const [trades, cuentas] = await Promise.all([
+      const [trades, cuentas, reflections] = await Promise.all([
         sync.loadStudentTrades(studentUid),
         sync.loadCuentas(studentUid),
+        sync.loadReflections(studentUid),
       ]);
       this.trades = trades.map(sanitizeTrade).filter(Boolean);
       this.cuentas = cuentas.map(sanitizeCuenta).filter(Boolean);
+      this.reflections = reflections.map(sanitizeReflection).filter(Boolean);
       this.viewAsUid = studentUid;
       this.viewAsProfile = profile;
       this.readOnly = true;
@@ -183,6 +205,7 @@ export const state = {
       console.error('[state] Error cargando alumno:', e);
       this.trades = [];
       this.cuentas = [];
+      this.reflections = [];
     }
     this.loading = false;
     this.emit();
@@ -330,6 +353,28 @@ export const state = {
     return this.updateCuenta(cuentaId, {
       withdrawals: (cuenta.withdrawals || []).filter(w => w.id !== withdrawalId),
     });
+  },
+
+  // ── Reflexiones de psicología ────────────────────────────
+  saveReflection(type, period, content) {
+    if (!VALID_REFL_TYPE.has(type) || !period) return null;
+    const id = `${type}-${period}`;
+    const r = sanitizeReflection({ id, type, period, content, updatedAt: Date.now() });
+    if (!r) return null;
+    const i = this.reflections.findIndex(x => x.id === id);
+    if (i >= 0) this.reflections[i] = r;
+    else this.reflections.push(r);
+    this.emit();
+    fireAndForget(sync.saveReflection(targetUid(), r), 'saveReflection');
+    return r;
+  },
+
+  deleteReflection(id) {
+    const before = this.reflections.length;
+    this.reflections = this.reflections.filter(r => r.id !== id);
+    if (this.reflections.length === before) return;
+    this.emit();
+    fireAndForget(sync.deleteReflection(targetUid(), id), 'deleteReflection');
   },
 
   // ── Bus de eventos ───────────────────────────────────────

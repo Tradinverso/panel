@@ -105,6 +105,21 @@ export const sync = {
     await deleteDoc(doc(db, 'users', uid, 'cuentas', cuentaId));
   },
 
+  // ── Reflexiones de psicología (diaria/semanal/mensual) ─────
+  async loadReflections(uid) {
+    const snap = await getDocs(collection(db, 'users', uid, 'reflections'));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  },
+
+  async saveReflection(uid, r) {
+    if (!r.id) throw new Error('Reflection necesita id');
+    await setDoc(doc(db, 'users', uid, 'reflections', r.id), r);
+  },
+
+  async deleteReflection(uid, id) {
+    await deleteDoc(doc(db, 'users', uid, 'reflections', id));
+  },
+
   // ── Admin: listado de alumnos + sus métricas ──────────────
   async listStudents() {
     const usersSnap = await getDocs(collection(db, 'users'));

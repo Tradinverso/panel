@@ -2,12 +2,13 @@
 
 const root = () => document.getElementById('modal-root');
 
-export function openModal({ title = '', meta = '', body = '', actions = [] }) {
+export function openModal({ title = '', meta = '', body = '', actions = [], size = '' }) {
   closeModal();
   const el = document.createElement('div');
   el.className = 'modal-overlay active';
+  const sizeClass = size === 'lg' ? ' modal-lg' : (size === 'xl' ? ' modal-xl' : '');
   el.innerHTML = `
-    <div class="modal">
+    <div class="modal${sizeClass}">
       <button class="modal-close" data-close>×</button>
       ${title ? `<div class="modal-title">${title}</div>` : ''}
       ${meta ? `<div class="modal-meta">${meta}</div>` : ''}
