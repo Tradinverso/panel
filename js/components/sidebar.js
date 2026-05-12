@@ -23,6 +23,7 @@ const NAV_BASE = [
 
   { section: 'Datos' },
   { path: '#/importar', label: 'Importar', icon: '📥', class: '' },
+  { path: '#/tabla',    label: 'Tabla',    icon: '📋', class: '' },
   { path: '#/ajustes',  label: 'Ajustes',  icon: '⚙️', class: '' },
 ];
 

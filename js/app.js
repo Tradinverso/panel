@@ -14,6 +14,7 @@ import { strategyView } from './views/strategy.js';
 import { calendarView } from './views/calendar.js';
 import { diagnosticView } from './views/diagnostic.js';
 import { importView } from './views/import-table.js';
+import { tablaDatosView } from './views/tabla-datos.js';
 import { settingsView } from './views/settings.js';
 import { loginView } from './views/login.js';
 import { adminView } from './views/admin.js';
@@ -39,6 +40,7 @@ router
   .add('#/calendario',  (_, c) => calendarView(c))
   .add('#/diagnostico', (_, c) => diagnosticView(c))
   .add('#/importar',    (_, c) => importView(c))
+  .add('#/tabla',       (_, c) => tablaDatosView(c))
   .add('#/ajustes',     (_, c) => settingsView(c))
   .add('#/admin',       (_, c) => adminView(c))
   .add('#/cuentas',     (_, c) => cuentasListView(c))

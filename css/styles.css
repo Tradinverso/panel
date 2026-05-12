@@ -305,3 +305,126 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
   .grid-3, .grid-2, .grid-2-1, .grid-1-2 { grid-template-columns: 1fr; }
   #view { padding: 20px 16px; }
 }
+
+/* ── Tabla de datos (editor inline tipo Excel) ────────────── */
+.td-filters {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.td-filters .form-input { flex: 1; min-width: 240px; padding: 7px 12px; font-size: 12px; }
+.td-filters .select { padding: 6px 26px 6px 10px; font-size: 12px; }
+
+.td-table-wrap {
+  overflow-x: auto;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.td-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  min-width: 1900px;
+}
+.td-table th {
+  padding: 8px 8px;
+  text-align: left;
+  font-size: 9px;
+  font-family: var(--mono);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  background: var(--card2);
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  font-weight: 400;
+  white-space: nowrap;
+  position: sticky; top: 0; z-index: 1;
+}
+.td-table th:last-child { border-right: none; }
+.td-table td {
+  padding: 3px 5px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.td-table td:last-child { border-right: none; }
+.td-table tr:last-child td { border-bottom: none; }
+.td-table tr:hover td { background: var(--hover); }
+
+/* Inputs y selects dentro de la tabla: compactos, integrados, sin chrome */
+.td-table input,
+.td-table select {
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 11px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  outline: none;
+  transition: background .12s, border-color .12s;
+}
+.td-table input:hover,
+.td-table select:hover {
+  background: var(--hover);
+}
+.td-table input:focus,
+.td-table select:focus {
+  background: var(--card2);
+  border-color: var(--accent);
+}
+.td-table input[type="date"],
+.td-table input[type="time"] {
+  width: auto;
+  min-width: 105px;
+  font-family: var(--mono);
+}
+.td-table input[type="number"] {
+  font-family: var(--mono);
+  text-align: right;
+}
+
+/* Anchos específicos por columna (ayuda al layout) */
+.td-w-60  { width: 60px !important; }
+.td-w-70  { width: 70px !important; }
+.td-w-80  { width: 80px !important; }
+.td-w-100 { width: 100px !important; }
+.td-w-140 { width: 140px !important; }
+.td-w-240 { width: 240px !important; }
+
+/* Feedback visual al guardar/error */
+.td-table input.td-saved,
+.td-table select.td-saved {
+  background: rgba(0,212,170,0.18);
+  border-color: var(--green);
+  transition: background .9s, border-color .9s;
+}
+.td-table input.td-error,
+.td-table select.td-error {
+  background: rgba(255,71,87,0.18);
+  border-color: var(--red);
+}
+
+/* Botones de acción (👁️ 🗑) */
+.td-action {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  background: var(--hover);
+  color: var(--muted);
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+}
+.td-action.view:hover { background: var(--accent-bg); color: var(--accent); }
+.td-action.del:hover  { background: var(--red-bg); color: var(--red); }
+
+.td-accs {
+  text-align: center;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+.td-result { text-align: center; }
