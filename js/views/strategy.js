@@ -209,15 +209,15 @@ function render(container, sheet) {
     }).join('');
   }
 
-  // Zones
-  const zs = statsByGroup(all, t => t.zone || '–').sort((a, b) => b.total - a.total);
+  // Zones (cuenta por la PRIMARIA — la primera del array si hay varias)
+  const zs = statsByGroup(all, t => (Array.isArray(t.zone) ? t.zone[0] : t.zone) || '–').sort((a, b) => b.total - a.total);
   container.querySelector('#zonesTbody').innerHTML = zs.map(z => tableRow([
     z.key, z.total, coloredPct(z.wr, 50), coloredSignedPct(z.pnl), coloredSignedPct(z.pnlReal), coloredPF(z.pf),
   ])).join('') || '<tr><td colspan="6" class="empty">Sin datos</td></tr>';
 
-  // Entries
+  // Entries (cuenta por la PRIMARIA — la primera del array si hay varias)
   if (meta.entries) {
-    const es = statsByGroup(all, t => t.entry || '–').sort((a, b) => b.total - a.total);
+    const es = statsByGroup(all, t => (Array.isArray(t.entry) ? t.entry[0] : t.entry) || '–').sort((a, b) => b.total - a.total);
     container.querySelector('#entriesTbody').innerHTML = es.map(e => tableRow([
       e.key, e.total, coloredPct(e.wr, 50), coloredSignedPct(e.pnl), coloredSignedPct(e.pnlReal), coloredPF(e.pf),
     ])).join('') || '<tr><td colspan="6" class="empty">Sin datos</td></tr>';

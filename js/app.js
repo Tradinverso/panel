@@ -19,6 +19,7 @@ import { settingsView } from './views/settings.js';
 import { psicologiaView } from './views/psicologia.js';
 import { loginView } from './views/login.js';
 import { adminView } from './views/admin.js';
+import { grupoView } from './views/grupo.js';
 import { cuentasListView } from './views/cuentas.js';
 import { cuentaDetailView } from './views/cuenta.js';
 
@@ -45,6 +46,7 @@ router
   .add('#/tabla',       (_, c) => tablaDatosView(c))
   .add('#/ajustes',     (_, c) => settingsView(c))
   .add('#/admin',       (_, c) => adminView(c))
+  .add('#/grupo',       (_, c) => grupoView(c))
   .add('#/cuentas',     (_, c) => cuentasListView(c))
   .add('#/cuenta',      (params, c) => cuentaDetailView(c, params.id));
 

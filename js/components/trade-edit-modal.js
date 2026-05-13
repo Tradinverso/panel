@@ -21,8 +21,8 @@ export function openEditTradeModal(trade) {
     close_str: trade.close_str || '',
     pair: trade.pair || (meta.pairs.length === 1 ? meta.pairs[0] : ''),
     setup: trade.setup || '',
-    zone: trade.zone || '',
-    entry: trade.entry || '',
+    zone: Array.isArray(trade.zone) ? [...trade.zone] : (trade.zone ? [trade.zone] : []),
+    entry: Array.isArray(trade.entry) ? [...trade.entry] : (trade.entry ? [trade.entry] : []),
     rr: trade.rr != null ? String(trade.rr) : '',
     pips: trade.pips != null ? String(trade.pips) : '',
     pnl_pct: trade.pnl_pct != null ? String(trade.pnl_pct) : '',
@@ -57,19 +57,19 @@ export function openEditTradeModal(trade) {
 
         <div class="form-row">
           <div class="form-field">
-            <label class="form-label">Zona</label>
+            <label class="form-label">Zona${meta.zonesMulti ? ' <span style="color:var(--muted);font-size:11px;">(varias permitidas)</span>' : ''}</label>
             <div data-field="zone"></div>
-            ${data.zone && !meta.zones.includes(data.zone) ? `
+            ${data.zone.some(z => !meta.zones.includes(z)) ? `
               <div style="font-size:10px;color:var(--orange);font-family:var(--mono);margin-top:4px;">
-                Valor actual "${escapeHtml(data.zone)}" no está en la lista (legacy). Mantenido si no eliges otro.
+                Valor(es) actual(es) "${escapeHtml(data.zone.filter(z => !meta.zones.includes(z)).join(', '))}" no están en la lista (legacy). Mantenidos si no eliges otro.
               </div>` : ''}
           </div>
           ${meta.showEntry ? `<div class="form-field">
-            <label class="form-label">Entrada</label>
+            <label class="form-label">Entrada${meta.entriesMulti ? ' <span style="color:var(--muted);font-size:11px;">(varias permitidas)</span>' : ''}</label>
             <div data-field="entry"></div>
-            ${data.entry && !meta.entries.includes(data.entry) ? `
+            ${data.entry.some(e => !meta.entries.includes(e)) ? `
               <div style="font-size:10px;color:var(--orange);font-family:var(--mono);margin-top:4px;">
-                Valor actual "${escapeHtml(data.entry)}" no está en la lista (legacy).
+                Valor(es) actual(es) "${escapeHtml(data.entry.filter(e => !meta.entries.includes(e)).join(', '))}" no están en la lista (legacy).
               </div>` : ''}
           </div>` : ''}
         </div>
@@ -165,14 +165,16 @@ export function openEditTradeModal(trade) {
     const zoneEl = root.querySelector('[data-field="zone"]');
     if (zoneEl) renderPills(zoneEl, {
       name: 'zone', options: meta.zones, value: data.zone,
-      onChange: v => data.zone = v,
+      multi: !!meta.zonesMulti,
+      onChange: v => { data.zone = meta.zonesMulti ? v : (v ? [v] : []); },
     });
 
     if (meta.showEntry) {
       const entryEl = root.querySelector('[data-field="entry"]');
       if (entryEl) renderPills(entryEl, {
         name: 'entry', options: meta.entries, value: data.entry,
-        onChange: v => data.entry = v,
+        multi: !!meta.entriesMulti,
+        onChange: v => { data.entry = meta.entriesMulti ? v : (v ? [v] : []); },
       });
     }
 
@@ -232,8 +234,8 @@ function doSave(trade, data, close) {
     dur: durationMinutes(data.open_str, data.close_str),
     setup: data.setup,
     pair: data.pair || trade.pair,
-    zone: data.zone || trade.zone,
-    entry: data.entry || trade.entry,
+    zone: Array.isArray(data.zone) ? data.zone : (data.zone ? [data.zone] : []),
+    entry: Array.isArray(data.entry) ? data.entry : (data.entry ? [data.entry] : []),
     rr: data.rr ? parseFloat(data.rr) : null,
     pips: data.pips ? parseFloat(data.pips) : null,
     sensacion: data.sensacion || '',

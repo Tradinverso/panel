@@ -32,7 +32,8 @@ const NAV_BASE = [
 
 const NAV_ADMIN = [
   { section: 'Admin' },
-  { path: '#/admin', label: 'Mis Alumnos', icon: '👥', class: '' },
+  { path: '#/admin', label: 'Mis Alumnos',    icon: '👥', class: '' },
+  { path: '#/grupo', label: 'Stats grupales', icon: '📊', class: '' },
 ];
 
 let unsubAuth = null;

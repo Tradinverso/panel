@@ -699,3 +699,62 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
 .psico-textarea-wrap {
   display: flex; flex-direction: column;
 }
+
+/* ── Stats grupales (admin) ──────────────────────────────── */
+.grupo-tabs-wrap {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 18px; padding: 12px 16px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius);
+  flex-wrap: wrap;
+}
+.grupo-tabs-label {
+  font-size: 10px; font-family: var(--mono);
+  color: var(--muted); text-transform: uppercase; letter-spacing: .08em;
+}
+.grupo-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.grupo-tabs.pill-group { gap: 6px; }
+.grupo-tabs .pill { padding: 6px 14px; font-size: 12px; }
+
+/* Selector de nivel inline en la tabla admin */
+.admin-level-select {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 22px 4px 8px;
+  border-radius: 5px;
+  font-family: var(--mono);
+  font-size: 11px;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%238b97a8' fill='none' stroke-width='1.5'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+}
+.admin-level-select:hover { border-color: var(--accent); }
+.admin-level-select:focus { border-color: var(--accent); }
+
+/* Ranking grupales: cabecera ordenable */
+.grupo-ranking-table th.grupo-rank-th {
+  cursor: pointer;
+  user-select: none;
+}
+.grupo-ranking-table th.grupo-rank-th:hover { color: var(--text); }
+.grupo-ranking-table th.grupo-rank-th.active { color: var(--accent); }
+
+/* Píldoras de nivel en el ranking */
+.grupo-level-pill {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-family: var(--mono);
+  font-weight: 500;
+  border: 1px solid;
+}
+.grupo-level-pill.l-avanzado     { background: rgba(0,212,170,.15);  color: var(--green);    border-color: rgba(0,212,170,.4); }
+.grupo-level-pill.l-intermedio   { background: rgba(91,141,239,.15); color: var(--accent);   border-color: rgba(91,141,239,.4); }
+.grupo-level-pill.l-principiante { background: rgba(255,165,2,.12);  color: var(--orange);   border-color: rgba(255,165,2,.3); }
+.grupo-level-pill.l-none         { background: transparent;          color: var(--muted);    border-color: var(--border); }

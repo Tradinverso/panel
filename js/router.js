@@ -7,7 +7,7 @@ let currentCleanup = null;
 let onChange = null;
 
 const PUBLIC_ROUTES = new Set(['#/login']);
-const ADMIN_ROUTES = new Set(['#/admin']);
+const ADMIN_ROUTES = new Set(['#/admin', '#/grupo']);
 
 export const router = {
   add(path, handler) { routes.set(path, handler); return this; },

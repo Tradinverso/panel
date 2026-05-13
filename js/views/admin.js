@@ -137,6 +137,7 @@ function paintStudents(container, students) {
           <thead><tr>
             <th>Nombre</th>
             <th>Email</th>
+            <th>Nivel</th>
             <th>Trades</th>
             <th>WR <span style="color:var(--muted);font-weight:400;">(global · estrategias)</span></th>
             <th>P&L acum. <span style="color:var(--muted);font-weight:400;">(sist · real)</span></th>
@@ -187,6 +188,26 @@ function paintStudents(container, students) {
       }
     });
   });
+
+  // Cambio de nivel (Principiante / Intermedio / Avanzado / Sin asignar).
+  content.querySelectorAll('[data-level-uid]').forEach(sel => {
+    sel.addEventListener('change', async e => {
+      const uid = sel.dataset.levelUid;
+      const newLevel = e.target.value;
+      const stu = students.find(s => s.uid === uid);
+      if (!stu) return;
+      try {
+        await sync.updateProfile(uid, { level: newLevel });
+        // Actualizar cache local del listado sin recargar
+        stu.profile = { ...stu.profile, level: newLevel };
+      } catch (err) {
+        console.error('No se pudo actualizar el nivel:', err);
+        alert('No se pudo guardar el nivel: ' + (err.message || err));
+        // Revertir el select al valor anterior
+        e.target.value = stu.profile?.level || '';
+      }
+    });
+  });
 }
 
 function escAttr(s) {
@@ -234,10 +255,21 @@ function row(s) {
     ? `<strong>${escapeHtml(s.profile.nombre || '–')}</strong> <span style="color:var(--orange);font-family:var(--mono);font-size:10px;">📍 viendo</span>`
     : `<strong>${escapeHtml(s.profile.nombre || '–')}</strong>`;
 
+  const level = s.profile?.level || '';
+  const levelSel = `
+    <select class="admin-level-select" data-level-uid="${s.uid}">
+      <option value=""              ${level === ''              ? 'selected' : ''}>— Sin asignar —</option>
+      <option value="principiante"  ${level === 'principiante'  ? 'selected' : ''}>Principiante</option>
+      <option value="intermedio"    ${level === 'intermedio'    ? 'selected' : ''}>Intermedio</option>
+      <option value="avanzado"      ${level === 'avanzado'      ? 'selected' : ''}>Avanzado</option>
+    </select>
+  `;
+
   return `
     <tr${trClass}>
       <td>${nameCell}</td>
       <td style="font-family:var(--mono);font-size:11px;color:var(--muted);">${escapeHtml(s.profile.email)}</td>
+      <td>${levelSel}</td>
       <td>${counts.total} <span style="color:var(--muted);font-size:10px;">(${counts.tp}T·${counts.sl}S)</span></td>
       <td>
         <div style="color:${wrColor};font-weight:600;">${counts.total ? fmtPctNoSign(wr, 0) : '–'}</div>

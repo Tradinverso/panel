@@ -46,10 +46,9 @@ function init(sheet) {
     close_str: '',
     pair: meta.pairs.length === 1 ? meta.pairs[0] : '',
     setup: '',
-    zone: '',
+    zone: [],
     // Si la estrategia tiene una sola entrada posible, autoseleccionar.
-    // (ej. ZONAS con 'STOP LIMIT' como única opción)
-    entry: meta.entries && meta.entries.length === 1 ? meta.entries[0] : '',
+    entry: meta.entries && meta.entries.length === 1 ? [meta.entries[0]] : [],
     rr: '',
     pips: '',
     pnl_pct: '',
@@ -170,12 +169,14 @@ function renderForm(wrap, sheet, data, getter) {
   });
   renderPills(wrap.querySelector('[data-field="zone"]'), {
     name: 'zone', options: meta.zones, value: data.zone,
-    onChange: v => data.zone = v,
+    multi: !!meta.zonesMulti,
+    onChange: v => { data.zone = meta.zonesMulti ? v : (v ? [v] : []); },
   });
   if (meta.showEntry) {
     renderPills(wrap.querySelector('[data-field="entry"]'), {
       name: 'entry', options: meta.entries, value: data.entry,
-      onChange: v => data.entry = v,
+      multi: !!meta.entriesMulti,
+      onChange: v => { data.entry = meta.entriesMulti ? v : (v ? [v] : []); },
     });
   }
   renderPills(wrap.querySelector('[data-field="sensacion"]'), {
@@ -253,8 +254,8 @@ function validate(sheet, data) {
   const errs = [];
   if (!meta.pairFixed && !data.pair) errs.push({ field: 'pair', msg: 'Selecciona el par' });
   if (!data.setup) errs.push({ field: 'setup', msg: 'Selecciona LONG o SHORT' });
-  if (!data.zone) errs.push({ field: 'zone', msg: 'Selecciona la zona' });
-  if (meta.showEntry && !data.entry) errs.push({ field: 'entry', msg: 'Selecciona el tipo de entrada' });
+  if (!data.zone || !data.zone.length) errs.push({ field: 'zone', msg: 'Selecciona la zona' });
+  if (meta.showEntry && (!data.entry || !data.entry.length)) errs.push({ field: 'entry', msg: 'Selecciona el tipo de entrada' });
   if (!data.date) errs.push({ field: 'date', msg: 'Fecha obligatoria' });
   if (!data.open_str) errs.push({ field: 'open_str', msg: 'Hora apertura obligatoria' });
   const pnl = parseFloat(data.pnl_pct);
@@ -280,8 +281,8 @@ function buildTrade(sheet, data) {
     dur: durationMinutes(data.open_str, data.close_str),
     setup: data.setup,
     pair: data.pair,
-    zone: data.zone,
-    entry: data.entry || '',
+    zone: Array.isArray(data.zone) ? data.zone : (data.zone ? [data.zone] : []),
+    entry: Array.isArray(data.entry) ? data.entry : (data.entry ? [data.entry] : []),
     rr: data.rr ? parseFloat(data.rr) : null,
     pips: data.pips ? parseFloat(data.pips) : null,
     sensacion: data.sensacion,
@@ -309,8 +310,8 @@ function confirmBody(t) {
       <dt>Hora</dt><dd>${t.open_str}${t.close_str ? ' → ' + t.close_str : ''}${t.dur != null ? ` (${t.dur} min)` : ''}</dd>
       <dt>Par</dt><dd>${t.pair}</dd>
       <dt>Setup</dt><dd>${t.setup}</dd>
-      <dt>Zona</dt><dd>${t.zone}</dd>
-      ${t.entry ? `<dt>Entrada</dt><dd>${t.entry}</dd>` : ''}
+      <dt>Zona</dt><dd>${(t.zone || []).join(' · ')}</dd>
+      ${t.entry && t.entry.length ? `<dt>Entrada</dt><dd>${t.entry.join(' · ')}</dd>` : ''}
       ${t.rr != null ? `<dt>RR</dt><dd>${t.rr}</dd>` : ''}
       ${t.pips != null ? `<dt>Pips</dt><dd>${t.pips}</dd>` : ''}
       <dt>% P&L sistema</dt><dd><strong style="color:${t.result === 'TP' ? 'var(--green)' : t.result === 'SL' ? 'var(--red)' : 'var(--orange)'};">${fmtPct(t.pnl_pct)}</strong> · <span class="res-pill res-${t.result.toLowerCase()}">${t.result}</span></dd>

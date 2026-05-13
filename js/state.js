@@ -24,6 +24,54 @@ function deriveResult(pnl_pct) {
   return 'BE';
 }
 
+// Migración/normalización de valores legacy del campo `entry`. Mapea a la
+// forma canónica actual usada en pills (case-insensitive).
+const ENTRY_CANONICAL = {
+  // ZONAS: legacy → nuevo
+  'stop limit': 'Clásica',
+  'vol': 'Volumen',
+  // ZONAS: case variants del nuevo set
+  'clasica': 'Clásica',
+  'clásica': 'Clásica',
+  'otras': 'Otras',
+  'volumen': 'Volumen',
+  // LIQ/NAS: case variants
+  'bpr': 'BPR',
+  'fvg': 'FVG',
+  'ifvg': 'IFVG',
+  'envol': 'ENVOL',
+  'market': 'MARKET',
+  'limit': 'LIMIT',
+  'choch': 'CHOCH',
+};
+
+function canonicalEntry(s) {
+  const trimmed = String(s || '').trim();
+  if (!trimmed) return '';
+  return ENTRY_CANONICAL[trimmed.toLowerCase()] || trimmed;
+}
+
+// Migración/normalización del campo `zone`. Mapea valores legacy a la
+// forma canónica actual (case-insensitive).
+const ZONE_CANONICAL = {
+  // ZONAS: legacy '< 7 días' → 'Entre 2 y 7 días' (decisión del usuario)
+  '< 7 días': 'Entre 2 y 7 días',
+  '<7 días':  'Entre 2 y 7 días',
+};
+
+function canonicalZone(s) {
+  const trimmed = String(s || '').trim();
+  if (!trimmed) return '';
+  return ZONE_CANONICAL[trimmed.toLowerCase()] || ZONE_CANONICAL[trimmed] || trimmed;
+}
+
+// Convierte un valor (string, array, null) a array de strings no vacíos.
+function toStrArr(v) {
+  if (Array.isArray(v)) return v.map(x => String(x || '').trim()).filter(Boolean);
+  if (typeof v === 'string' && v.trim()) return [v.trim()];
+  return [];
+}
+
 function sanitizeTrade(t) {
   if (!t) return null;
   const pnl_pct = typeof t.pnl_pct === 'number' ? t.pnl_pct : (parseFloat(t.pnl_pct) || 0);
@@ -56,8 +104,8 @@ function sanitizeTrade(t) {
     dur: t.dur != null ? t.dur : durationMinutes(open_str, close_str),
     setup: t.setup || '',
     pair: t.pair || '',
-    zone: t.zone || '',
-    entry: t.entry ? String(t.entry).toUpperCase() : '',
+    zone: toStrArr(t.zone).map(canonicalZone),
+    entry: toStrArr(t.entry).map(canonicalEntry),
     rr: t.rr != null ? t.rr : null,
     pips: t.pips != null ? t.pips : null,
     sensacion: SENS_VALID.has(t.sensacion) ? t.sensacion : '',

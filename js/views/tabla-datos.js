@@ -40,7 +40,9 @@ function render(container) {
     if (filterSheet !== 'all' && t.sheet !== filterSheet) return false;
     if (filterResult !== 'all' && t.result !== filterResult) return false;
     if (q) {
-      const haystack = `${t.pair || ''} ${t.zone || ''} ${t.entry || ''} ${t.reflexion || ''} ${t.sensacion || ''}`.toLowerCase();
+      const zoneStr = Array.isArray(t.zone) ? t.zone.join(' ') : (t.zone || '');
+      const entryStr = Array.isArray(t.entry) ? t.entry.join(' ') : (t.entry || '');
+      const haystack = `${t.pair || ''} ${zoneStr} ${entryStr} ${t.reflexion || ''} ${t.sensacion || ''}`.toLowerCase();
       if (!haystack.includes(q)) return false;
     }
     return true;
@@ -164,8 +166,8 @@ function renderRow(t) {
           <option value="SHORT" ${t.setup === 'SHORT' ? 'selected' : ''}>SHORT</option>
         </select>
       </td>
-      <td><input type="text" data-field="zone" value="${escAttr(t.zone || '')}" class="td-w-100"></td>
-      <td><input type="text" data-field="entry" value="${escAttr(t.entry || '')}" class="td-w-100"></td>
+      <td><input type="text" data-field="zone" value="${escAttr(Array.isArray(t.zone) ? t.zone.join(', ') : (t.zone || ''))}" class="td-w-100" title="Separar varios con coma"></td>
+      <td><input type="text" data-field="entry" value="${escAttr(Array.isArray(t.entry) ? t.entry.join(', ') : (t.entry || ''))}" class="td-w-100" title="Separar varios con coma"></td>
       <td>
         <select data-field="sensacion">
           <option value="">—</option>
@@ -196,6 +198,11 @@ function handleCellChange(e) {
 
   const field = el.dataset.field;
   let value = el.value;
+
+  // Parse arrays (zone, entry) — separados por coma
+  if (field === 'zone' || field === 'entry') {
+    value = String(value).split(',').map(s => s.trim()).filter(Boolean);
+  }
 
   // Parse números
   const numericFields = ['pnl_pct', 'risk_real_pct', 'rr', 'pips'];

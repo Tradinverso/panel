@@ -383,9 +383,9 @@ function formatCell(key, t, idx, sheet) {
     case 'pips':
     case 'pip':
     case 'ticks':   return numEs(t.pips);
-    case 'zone':    return t.zone || '';
+    case 'zone':    return Array.isArray(t.zone) ? t.zone.join(' · ') : (t.zone || '');
     case 'rr':      return numEs(t.rr);
-    case 'entry':   return t.entry || '';
+    case 'entry':   return Array.isArray(t.entry) ? t.entry.join(' · ') : (t.entry || '');
     case 'pct':     return pctEs(t.pnl_pct);
     case 'res':     return t.result || '';
     case 'sens':    return t.sensacion || '';

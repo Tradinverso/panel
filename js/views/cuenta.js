@@ -194,7 +194,7 @@ function renderAccountTradesTable(items, cuenta) {
               <td><span class="strat-pill ${t.sheet === 'ZONAS' ? 'zonas' : t.sheet === 'LIQUIDEZ' ? 'liquidez' : 'nasdaq'}">${t.sheet.charAt(0) + t.sheet.slice(1).toLowerCase()}</span></td>
               <td>${t.pair || '–'}</td>
               <td>${t.setup || '–'}</td>
-              <td>${t.zone || '–'}</td>
+              <td>${(Array.isArray(t.zone) ? t.zone.join(' · ') : t.zone) || '–'}</td>
               <td style="font-family:var(--mono);font-size:12px;color:var(--muted);">${riskPct}%</td>
               <td style="color:${pctColor};">${t.pnl_pct >= 0 ? '+' : ''}${t.pnl_pct.toFixed(2)}%</td>
               <td style="color:${usdColor};font-weight:500;">${fmtUsd(usdPnl, true)}</td>

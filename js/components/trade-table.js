@@ -20,8 +20,8 @@ export function renderTradeTable(container, trades, opts = {}) {
   const sheets = [...new Set(trades.map(t => t.sheet))];
   const setups = [...new Set(trades.map(t => t.setup).filter(Boolean))];
   const pairs = [...new Set(trades.map(t => t.pair).filter(Boolean))];
-  const zones = [...new Set(trades.map(t => t.zone).filter(Boolean))].sort();
-  const entries = [...new Set(trades.map(t => t.entry).filter(Boolean))].sort();
+  const zones = [...new Set(trades.flatMap(t => Array.isArray(t.zone) ? t.zone : (t.zone ? [t.zone] : [])).filter(Boolean))].sort();
+  const entries = [...new Set(trades.flatMap(t => Array.isArray(t.entry) ? t.entry : (t.entry ? [t.entry] : [])).filter(Boolean))].sort();
   const sensaciones = [...new Set(trades.map(t => t.sensacion).filter(Boolean))];
   const accountIds = [...new Set(trades.flatMap(t =>
     Array.isArray(t.accounts) ? t.accounts.map(a => a.accountId) : []
@@ -40,8 +40,14 @@ export function renderTradeTable(container, trades, opts = {}) {
       if (filters.result !== 'all' && t.result !== filters.result) return false;
       if (filters.setup !== 'all' && t.setup !== filters.setup) return false;
       if (filters.pair !== 'all' && t.pair !== filters.pair) return false;
-      if (filters.zone !== 'all' && t.zone !== filters.zone) return false;
-      if (filters.entry !== 'all' && t.entry !== filters.entry) return false;
+      if (filters.zone !== 'all') {
+        const zones = Array.isArray(t.zone) ? t.zone : (t.zone ? [t.zone] : []);
+        if (!zones.includes(filters.zone)) return false;
+      }
+      if (filters.entry !== 'all') {
+        const entries = Array.isArray(t.entry) ? t.entry : (t.entry ? [t.entry] : []);
+        if (!entries.includes(filters.entry)) return false;
+      }
       if (filters.sens !== 'all') {
         if (filters.sens === '_empty' && t.sensacion) return false;
         if (filters.sens !== '_empty' && t.sensacion !== filters.sens) return false;
@@ -263,8 +269,8 @@ function row(t, canDelete) {
       <td><span class="strat-pill ${STRAT_CLS[t.sheet]}">${STRAT_LABEL[t.sheet] || t.sheet}</span></td>
       <td>${t.pair || '–'}</td>
       <td>${t.setup || '–'}</td>
-      <td>${t.zone || '–'}</td>
-      <td>${t.entry || '–'}</td>
+      <td>${(Array.isArray(t.zone) ? t.zone.join(' · ') : t.zone) || '–'}</td>
+      <td>${(Array.isArray(t.entry) ? t.entry.join(' · ') : t.entry) || '–'}</td>
       <td>${sens}</td>
       <td>${cuentas}</td>
       <td><span class="res-pill res-${t.result.toLowerCase()}">${t.result}</span></td>
