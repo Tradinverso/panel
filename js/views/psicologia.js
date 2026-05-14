@@ -172,8 +172,9 @@ function openDailyModal(ds) {
 
 // Punto de entrada: abre el modal en modo LECTURA si ya hay una reflexión
 // guardada, o directamente en EDICIÓN si está vacía (no tiene sentido abrir
-// el modo lectura sobre un texto inexistente).
-function openReflectionModal(type, period) {
+// el modo lectura sobre un texto inexistente). Exportado para que otras
+// vistas (ej. calendario operativo) puedan reusarlo.
+export function openReflectionModal(type, period) {
   const existing = findReflection(type, period);
   const content = existing && existing.content ? existing.content : '';
   const initialMode = content.trim() ? 'read' : 'edit';

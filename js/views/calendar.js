@@ -4,6 +4,7 @@ import { fmtPct } from '../utils/number-format-es.js';
 import { renderTradeTable } from '../components/trade-table.js';
 import { tradeRealPnl } from '../utils/calculations.js';
 import { computeUsdPnl, fmtUsd } from '../utils/account-stats.js';
+import { openReflectionModal } from './psicologia.js';
 
 let calYear = null, calMonth = null;
 let stratFilter = 'all';
@@ -130,6 +131,11 @@ function paintCalendar(container, dayIndex) {
   const today = new Date();
   let mTrades = 0, mTp = 0, mSl = 0, mPnl = 0, mPnlReal = 0, mUsd = 0, mOver = 0;
 
+  // Fechas que tienen reflexión diaria — para mostrar el icono 📝 en la celda
+  const reflexDates = new Set(
+    (state.reflections || []).filter(r => r.type === 'daily').map(r => r.period)
+  );
+
   for (let i = firstDow - 1; i >= 0; i--) {
     grid.appendChild(emptyCell(prevLast - i, 'other'));
   }
@@ -147,11 +153,18 @@ function paintCalendar(container, dayIndex) {
     if (isToday) cls += ' cal-today';
     if (selectedDay === ds) cls += ' selected';
     cell.className = cls;
+
+    const hasReflex = reflexDates.has(ds);
+    const reflexBtn = hasReflex
+      ? `<button class="cal-reflex-btn" data-reflex="${ds}" title="Ver reflexión del día">📝</button>`
+      : '';
+
     if (data) {
       const usdLine = data.usd !== 0
         ? `<div class="cal-pnl-usd">${fmtUsd(data.usd, true)}</div>`
         : '';
       cell.innerHTML = `
+        ${reflexBtn}
         <span class="cal-num">${d}</span>
         <div class="cal-pnl">${fmtPct(data.pnl)}</div>
         <div class="cal-pnl-real">real ${fmtPct(data.pnlReal)}</div>
@@ -164,8 +177,18 @@ function paintCalendar(container, dayIndex) {
         render(container);
       });
     } else {
-      cell.innerHTML = `<span class="cal-num">${d}</span>`;
+      cell.innerHTML = `${reflexBtn}<span class="cal-num">${d}</span>`;
     }
+
+    // Botón 📝: stopPropagation para no disparar el click de la celda
+    const reflexBtnEl = cell.querySelector('.cal-reflex-btn');
+    if (reflexBtnEl) {
+      reflexBtnEl.addEventListener('click', e => {
+        e.stopPropagation();
+        openReflectionModal('daily', ds);
+      });
+    }
+
     grid.appendChild(cell);
   }
   const rem = (7 - (firstDow + daysInMonth) % 7) % 7;
