@@ -40,6 +40,28 @@
 .cal-meta { font-size: 9px; font-family: var(--mono); color: var(--muted); }
 .cal-warn { position: absolute; top: 6px; right: 6px; width: 16px; height: 16px; border-radius: 50%; background: var(--orange); color: #000; font-size: 9px; font-weight: 600; font-family: var(--mono); display: flex; align-items: center; justify-content: center; }
 
+/* Botón 📝 para ver la reflexión del día (si existe) */
+.cal-cell .cal-reflex-btn {
+  position: absolute; top: 6px; right: 6px;
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(91,141,239,0.18);
+  border: 1px solid rgba(91,141,239,0.4);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  z-index: 2;
+  padding: 0;
+  transition: background .12s, transform .1s;
+}
+.cal-cell .cal-reflex-btn:hover {
+  background: var(--accent-bg);
+  transform: scale(1.1);
+}
+/* Si la celda también tiene cal-warn (5+ trades), desplazar el botón 📝 a la izquierda
+   para que no se solapen. */
+.cal-cell:has(.cal-warn) .cal-reflex-btn { right: 30px; }
+
 .cal-legend { display: flex; gap: 12px; align-items: center; margin-top: 12px; font-size: 10px; font-family: var(--mono); color: var(--muted); flex-wrap: wrap; }
 .cl-item { display: flex; align-items: center; gap: 6px; }
 .cl-dot { width: 10px; height: 10px; border-radius: 3px; }
