@@ -8,6 +8,11 @@ import { router } from '../router.js';
 import { winrate, pnlPct, pnlPctReal, currentSlStreak, tradeCounts } from '../utils/calculations.js';
 import { fmtPct, fmtPctNoSign } from '../utils/number-format-es.js';
 import { openModal, closeModal } from '../components/modal.js';
+import {
+  generateBackup, downloadBackup, getLastBackupDate, setLastBackupDate,
+  daysSinceLastBackup, formatBackupDate,
+  parseBackupFile, summarizeBackup, restoreBackup,
+} from '../utils/backup.js';
 
 let cache = null;
 let cacheUid = null;
@@ -43,6 +48,11 @@ async function render(container) {
     </div>
   ` : '';
 
+  const lastBackup = getLastBackupDate();
+  const daysSince = daysSinceLastBackup();
+  const showBackupWarn = daysSince >= 7;
+  const backupTooltip = lastBackup ? `Último backup: ${formatBackupDate(lastBackup)}` : 'Aún no has hecho ningún backup';
+
   container.innerHTML = `
     <div class="page-header">
       <div>
@@ -50,11 +60,19 @@ async function render(container) {
         <div class="sub" id="adminSub">Cargando alumnos…</div>
       </div>
       <div class="page-actions">
+        <button class="btn" id="backupBtn" title="${backupTooltip}">📥 Backup</button>
+        <button class="btn" id="restoreBtn" title="Restaurar desde un archivo de backup">📂 Restaurar</button>
         <button class="btn" id="refreshBtn">↻ Refrescar</button>
         <button class="btn primary" id="newStudentBtn">+ Crear nuevo alumno</button>
       </div>
     </div>
     ${viewingBanner}
+    ${showBackupWarn ? `
+      <div class="backup-warn">
+        ⚠ <strong>Backup pendiente</strong> — tu último backup fue ${lastBackup ? `hace ${daysSince} días (${formatBackupDate(lastBackup)})` : 'nunca'}.
+        <button class="btn primary" id="backupBtnInline">Crear ahora</button>
+      </div>
+    ` : ''}
     <div id="studentsContent" class="card">
       <div class="loader"><div class="spinner"></div><div>Cargando alumnos…</div></div>
     </div>
@@ -75,6 +93,40 @@ async function render(container) {
   container.querySelector('#newStudentBtn').addEventListener('click', () => {
     openCreateStudentModal(container);
   });
+
+  // Backup handler (mismo handler para ambos botones: header + banner)
+  async function runBackup() {
+    const btnHeader = container.querySelector('#backupBtn');
+    const btnInline = container.querySelector('#backupBtnInline');
+    const setBtnText = (txt) => {
+      if (btnHeader) btnHeader.textContent = txt;
+      if (btnInline) btnInline.textContent = txt;
+    };
+    const setBtnDisabled = (b) => {
+      if (btnHeader) btnHeader.disabled = b;
+      if (btnInline) btnInline.disabled = b;
+    };
+    setBtnDisabled(true);
+    setBtnText('Generando…');
+    try {
+      const data = await generateBackup((i, total) => {
+        setBtnText(`Generando ${i}/${total}…`);
+      });
+      downloadBackup(data);
+      setLastBackupDate();
+      render(container);
+    } catch (e) {
+      console.error('Backup error:', e);
+      alert('Error generando backup: ' + (e.message || String(e)));
+      setBtnDisabled(false);
+      setBtnText('📥 Backup');
+    }
+  }
+  container.querySelector('#backupBtn').addEventListener('click', runBackup);
+  const backupInline = container.querySelector('#backupBtnInline');
+  if (backupInline) backupInline.addEventListener('click', runBackup);
+
+  container.querySelector('#restoreBtn').addEventListener('click', () => openRestoreModal(container));
 
   try {
     if (!cache) cache = await sync.listStudents();
@@ -360,6 +412,143 @@ function openCreateStudentModal(container) {
 function showErr(el, msg) {
   el.textContent = '⚠ ' + msg;
   el.style.display = 'flex';
+}
+
+function openRestoreModal(adminContainer) {
+  let loadedData = null;
+
+  openModal({
+    title: 'Restaurar desde backup',
+    meta: 'Sube un archivo JSON generado por "📥 Backup"',
+    size: 'lg',
+    body: `
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="form-field">
+          <label class="form-label">Archivo de backup (.json)</label>
+          <input type="file" id="restoreFile" accept="application/json,.json" class="form-input" style="padding:8px;">
+        </div>
+
+        <div id="restoreSummary" style="display:none;background:var(--card2);padding:12px 14px;border-radius:8px;font-family:var(--mono);font-size:12px;line-height:1.6;border:1px solid var(--border);"></div>
+
+        <div id="restoreMode" style="display:none;">
+          <label class="form-label">Modo de restauración</label>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
+            <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;">
+              <input type="radio" name="restoreMode" value="merge" checked style="margin-top:3px;">
+              <span><strong>Merge (recomendado)</strong> — añade y actualiza, no borra nada. Si un trade existe con el mismo ID, se sobreescribe con el del backup. Lo nuevo que haya se conserva.</span>
+            </label>
+            <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;">
+              <input type="radio" name="restoreMode" value="replace" style="margin-top:3px;">
+              <span style="color:var(--red);"><strong>Replace (peligroso)</strong> — borra TODOS los trades, cuentas y reflexiones de cada alumno antes de restaurar. Pierdes cambios posteriores al backup.</span>
+            </label>
+          </div>
+          <div id="restoreConfirm" style="display:none;margin-top:10px;padding:10px;background:var(--red-bg);border:1px solid rgba(255,71,87,0.4);border-radius:6px;">
+            <label class="form-label" style="color:var(--red);">⚠ Confirma escribiendo <strong>REEMPLAZAR</strong></label>
+            <input type="text" id="restoreConfirmInp" class="form-input" placeholder="REEMPLAZAR" autocomplete="off">
+          </div>
+        </div>
+
+        <div id="restoreProgress" style="display:none;font-family:var(--mono);font-size:12px;color:var(--accent);padding:10px 12px;background:var(--card2);border-radius:6px;"></div>
+        <div id="restoreErr" class="auth-error" style="display:none;"></div>
+      </div>
+    `,
+    actions: [
+      { label: 'Cancelar', onClick: close => close() },
+      {
+        label: 'Restaurar',
+        variant: 'primary',
+        onClick: close => runRestore(close),
+      },
+    ],
+  });
+
+  // Wire post-mount
+  setTimeout(() => {
+    const root = document.getElementById('modal-root');
+    if (!root) return;
+
+    const fileInp = root.querySelector('#restoreFile');
+    const summaryEl = root.querySelector('#restoreSummary');
+    const modeEl = root.querySelector('#restoreMode');
+    const confirmEl = root.querySelector('#restoreConfirm');
+    const errEl = root.querySelector('#restoreErr');
+
+    function showErrModal(msg) {
+      errEl.textContent = '⚠ ' + msg;
+      errEl.style.display = 'flex';
+    }
+    function clearErr() { errEl.style.display = 'none'; errEl.textContent = ''; }
+
+    fileInp.addEventListener('change', async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      clearErr();
+      try {
+        loadedData = await parseBackupFile(file);
+        const s = summarizeBackup(loadedData);
+        summaryEl.style.display = 'block';
+        summaryEl.innerHTML = `
+          <strong>${new Date(s.exported_at).toLocaleString('es-ES')}</strong><br>
+          ${s.students} alumnos · ${s.trades} trades · ${s.cuentas} cuentas · ${s.reflections} reflexiones<br>
+          <span style="color:var(--muted);">Exportado por: ${escapeHtml(s.exported_by || 'desconocido')}</span>
+        `;
+        modeEl.style.display = 'block';
+      } catch (err) {
+        loadedData = null;
+        summaryEl.style.display = 'none';
+        modeEl.style.display = 'none';
+        showErrModal(err.message || String(err));
+      }
+    });
+
+    root.querySelectorAll('[name="restoreMode"]').forEach(r => {
+      r.addEventListener('change', () => {
+        const isReplace = root.querySelector('[name="restoreMode"]:checked')?.value === 'replace';
+        confirmEl.style.display = isReplace ? 'block' : 'none';
+      });
+    });
+  }, 0);
+
+  async function runRestore(close) {
+    const root = document.getElementById('modal-root');
+    if (!root) return;
+    const errEl = root.querySelector('#restoreErr');
+    const progEl = root.querySelector('#restoreProgress');
+    const showErrModal = (msg) => { errEl.textContent = '⚠ ' + msg; errEl.style.display = 'flex'; };
+
+    if (!loadedData) { showErrModal('Selecciona un archivo de backup primero.'); return; }
+
+    const mode = root.querySelector('[name="restoreMode"]:checked')?.value || 'merge';
+    if (mode === 'replace') {
+      const conf = root.querySelector('#restoreConfirmInp')?.value;
+      if (conf !== 'REEMPLAZAR') {
+        showErrModal('Para usar Replace, escribe "REEMPLAZAR" en el campo de confirmación.');
+        return;
+      }
+    }
+
+    errEl.style.display = 'none';
+    progEl.style.display = 'block';
+    progEl.style.color = 'var(--accent)';
+    progEl.textContent = 'Iniciando…';
+
+    // Deshabilitar inputs y botones mientras corre
+    root.querySelectorAll('input, [data-action]').forEach(el => el.disabled = true);
+
+    try {
+      const stats = await restoreBackup(loadedData, mode, (i, total, label) => {
+        progEl.textContent = `Restaurando ${i}/${total} · ${label}`;
+      });
+      progEl.style.color = 'var(--green)';
+      progEl.innerHTML = `✓ Restaurados <strong>${stats.trades}</strong> trades, <strong>${stats.cuentas}</strong> cuentas y <strong>${stats.reflections}</strong> reflexiones (${stats.students} alumnos).<br><span style="color:var(--muted);">Pulsa "Cancelar" para cerrar.</span>`;
+      // Invalidar cache de admin para forzar recarga al cerrar
+      cache = null;
+    } catch (err) {
+      progEl.style.display = 'none';
+      showErrModal('Error: ' + (err.message || String(err)));
+      root.querySelectorAll('input, [data-action]').forEach(el => el.disabled = false);
+    }
+  }
 }
 
 function escapeHtml(s) {

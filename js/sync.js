@@ -105,6 +105,19 @@ export const sync = {
     await deleteDoc(doc(db, 'users', uid, 'cuentas', cuentaId));
   },
 
+  async wipeAllCuentas(uid) {
+    const all = await this.loadCuentas(uid);
+    const ids = all.map(c => c.id);
+    for (let i = 0; i < ids.length; i += FIRESTORE_BATCH_LIMIT) {
+      const batch = writeBatch(db);
+      for (const id of ids.slice(i, i + FIRESTORE_BATCH_LIMIT)) {
+        batch.delete(doc(db, 'users', uid, 'cuentas', id));
+      }
+      await batch.commit();
+    }
+    return ids.length;
+  },
+
   // ── Reflexiones de psicología (diaria/semanal/mensual) ─────
   async loadReflections(uid) {
     const snap = await getDocs(collection(db, 'users', uid, 'reflections'));
@@ -118,6 +131,19 @@ export const sync = {
 
   async deleteReflection(uid, id) {
     await deleteDoc(doc(db, 'users', uid, 'reflections', id));
+  },
+
+  async wipeAllReflections(uid) {
+    const all = await this.loadReflections(uid);
+    const ids = all.map(r => r.id);
+    for (let i = 0; i < ids.length; i += FIRESTORE_BATCH_LIMIT) {
+      const batch = writeBatch(db);
+      for (const id of ids.slice(i, i + FIRESTORE_BATCH_LIMIT)) {
+        batch.delete(doc(db, 'users', uid, 'reflections', id));
+      }
+      await batch.commit();
+    }
+    return ids.length;
   },
 
   // ── Admin: listado de alumnos + sus métricas ──────────────
