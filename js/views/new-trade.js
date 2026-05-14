@@ -195,15 +195,26 @@ function renderForm(wrap, sheet, data, getter) {
 
   // Asignación a cuentas
   const assignBox = wrap.querySelector('#cuentaAssignBox');
+  let ca = null;
   if (assignBox) {
-    renderCuentaAssign(assignBox, data.accounts || [], (accs) => {
+    ca = renderCuentaAssign(assignBox, data.accounts || [], (accs) => {
       data.accounts = accs;
     }, {
       getDefaultRisk: () => {
         const n = parseFloat(data.risk_real_pct);
         return isFinite(n) && n > 0 ? n : 1;
       },
+      getPnlPct: () => {
+        const n = parseFloat(data.pnl_pct);
+        return isFinite(n) ? n : 0;
+      },
     });
+  }
+
+  // Al cambiar el % P&L del trade, refrescar los USD de las cuentas asignadas
+  const pnlPctInp = wrap.querySelector('[data-input="pnl_pct"]');
+  if (pnlPctInp && ca) {
+    pnlPctInp.addEventListener('input', () => ca.refresh());
   }
 
   // Actions

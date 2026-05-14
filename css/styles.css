@@ -256,6 +256,7 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
 .sens-pill[data-s="Fomo - Acelerado"]     { background: rgba(239,68,68,.18); color: #EF4444; }
 .sens-pill[data-s="Venganza - Rabia"]     { background: rgba(168,85,247,.18); color: #C084FC; }
 .sens-pill[data-s="Miedo - Parálisis"]    { background: rgba(120,120,130,.18); color: #9CA3AF; }
+.sens-pill[data-s="Sin registrar"]        { background: rgba(140,140,150,.10); color: var(--muted); font-style: italic; }
 
 /* ── Alerts (diagnostic) ─────────────────────────────────── */
 .alert { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 10px; border: 1px solid; margin-bottom: 8px; }

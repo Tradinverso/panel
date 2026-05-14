@@ -3,12 +3,16 @@ import { winrate, pnlPct, profitFactor, sortChrono } from './calculations.js';
 export const POSITIVAS = ['Seguro - Confiado', 'Convencido - Calma'];
 export const NEUTRALES = ['Dudoso - Inseguro'];
 export const NEGATIVAS = ['Fomo - Acelerado', 'Venganza - Rabia', 'Miedo - Parálisis'];
-export const TODAS = [...POSITIVAS, ...NEUTRALES, ...NEGATIVAS];
+// "Sin registrar" es una etiqueta neutra para trades antiguos/importados.
+// NO se clasifica (no entra en CLASSIFY), así no contamina análisis emocional.
+export const SIN_REGISTRAR = ['Sin registrar'];
+export const TODAS = [...POSITIVAS, ...NEUTRALES, ...NEGATIVAS, ...SIN_REGISTRAR];
 
 const CLASSIFY = new Map();
 POSITIVAS.forEach(s => CLASSIFY.set(s, 'positiva'));
 NEUTRALES.forEach(s => CLASSIFY.set(s, 'neutral'));
 NEGATIVAS.forEach(s => CLASSIFY.set(s, 'negativa'));
+// SIN_REGISTRAR no se añade a CLASSIFY a propósito.
 
 export function classify(s) {
   return CLASSIFY.get(s) || null;

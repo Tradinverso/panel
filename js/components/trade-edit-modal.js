@@ -194,15 +194,25 @@ export function openEditTradeModal(trade) {
 
     // Asignación de cuentas
     const assignBox = root.querySelector('#cuentaAssignBoxEdit');
+    let caEdit = null;
     if (assignBox) {
-      renderCuentaAssign(assignBox, data.accounts || [], (accs) => {
+      caEdit = renderCuentaAssign(assignBox, data.accounts || [], (accs) => {
         data.accounts = accs;
       }, {
         getDefaultRisk: () => {
           const n = parseFloat(data.risk_real_pct);
           return isFinite(n) && n > 0 ? n : 1;
         },
+        getPnlPct: () => {
+          const n = parseFloat(data.pnl_pct);
+          return isFinite(n) ? n : 0;
+        },
       });
+    }
+    // Al cambiar el % P&L del trade, refrescar los USD de las cuentas asignadas
+    const pnlPctInpEdit = root.querySelector('[data-input="pnl_pct"]');
+    if (pnlPctInpEdit && caEdit) {
+      pnlPctInpEdit.addEventListener('input', () => caEdit.refresh());
     }
   }, 0);
 }

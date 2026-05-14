@@ -15,6 +15,7 @@ const SENS_VALID = new Set([
   'Fomo - Acelerado',
   'Venganza - Rabia',
   'Miedo - Parálisis',
+  'Sin registrar',
 ]);
 
 function deriveResult(pnl_pct) {

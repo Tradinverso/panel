@@ -82,14 +82,17 @@
 .ca-row.ca-orphan { background: var(--orange-bg); border-color: rgba(255,165,2,.3); }
 .ca-label { flex: 1; font-size: 12px; font-weight: 500; }
 .ca-meta { color: var(--muted); font-family: var(--mono); font-weight: 400; }
-.ca-risk, .ca-comm { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); font-family: var(--mono); }
+.ca-risk, .ca-usd, .ca-comm { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); font-family: var(--mono); }
 .ca-comm .ca-risk-input { width: 56px; }
-.ca-risk-input {
-  width: 60px; background: var(--bg); border: 1px solid var(--border);
+.ca-risk-input, .ca-usd-input {
+  background: var(--bg); border: 1px solid var(--border);
   color: var(--text); padding: 4px 6px; border-radius: 5px;
   font-family: var(--mono); font-size: 12px; text-align: center;
 }
-.ca-risk-input:focus { outline: none; border-color: var(--accent); }
+.ca-risk-input { width: 60px; }
+.ca-usd-input { width: 80px; }
+.ca-risk-input:focus, .ca-usd-input:focus { outline: none; border-color: var(--accent); }
+.ca-usd-input:disabled { opacity: 0.4; cursor: not-allowed; }
 .ca-x {
   background: none; border: none; cursor: pointer; color: var(--muted);
   padding: 4px 8px; border-radius: 5px; font-size: 14px;

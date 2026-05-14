@@ -1,11 +1,14 @@
 // Sub-componente reutilizable: "asignar trade a una o varias cuentas".
 // Usado en new-trade.js y trade-edit-modal.js.
 //
-// renderCuentaAssign(container, initial, onChange) → { get, refresh }
+// renderCuentaAssign(container, initial, onChange, opts) → { get, refresh }
 //   - container: DOM element donde renderizar
 //   - initial: array [{accountId, riskPct}] (puede estar vacío)
 //   - onChange: callback(currentArray) cada vez que cambia
+//   - opts.getDefaultRisk: () => number — riesgo % a usar al añadir cuenta
+//   - opts.getPnlPct: () => number — pnl_pct actual del trade (para calcular USD)
 //   - return.get(): devuelve el array actual
+//   - return.refresh(): re-pinta (útil cuando cambia pnl_pct externamente)
 
 import { state } from '../state.js';
 
@@ -18,10 +21,35 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {},
       riskPct: a.riskPct || 1.0,
     }));
 
+  function currentPnlPct() {
+    if (typeof opts.getPnlPct !== 'function') return 0;
+    const v = opts.getPnlPct();
+    return typeof v === 'number' && isFinite(v) ? v : 0;
+  }
+
+  // USD = pnl_pct × riskPct × capital / 100
+  function computeUsd(pnlPct, riskPct, capital) {
+    if (!isFinite(pnlPct) || !isFinite(riskPct) || !isFinite(capital)) return 0;
+    return pnlPct * riskPct * capital / 100;
+  }
+  // riskPct = USD × 100 / (pnl_pct × capital)
+  function computeRiskFromUsd(usd, pnlPct, capital) {
+    if (!isFinite(usd) || !isFinite(pnlPct) || !isFinite(capital)) return NaN;
+    if (pnlPct === 0 || capital === 0) return NaN;
+    return usd * 100 / (pnlPct * capital);
+  }
+
+  function fmtUsdValue(v) {
+    if (!isFinite(v)) return '';
+    return v.toFixed(2);
+  }
+
   function paint() {
     const cuentas = state.cuentas || [];
     const activas = cuentas.filter(c => c.status === 'activa');
     const noCuentas = cuentas.length === 0;
+    const pnlPct = currentPnlPct();
+    const usdDisabled = pnlPct === 0;
 
     if (noCuentas) {
       container.innerHTML = `
@@ -52,12 +80,21 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {},
               <button type="button" class="ca-x" data-remove="${i}">×</button>
             </div>`;
           }
+          const usd = computeUsd(pnlPct, a.riskPct, c.capital);
+          const usdAttrs = usdDisabled
+            ? 'disabled title="Introduce el % P&L del trade primero"'
+            : '';
           return `<div class="ca-row">
             <span class="ca-label">${esc(c.empresa)} ${capShort(c.capital)} <span class="ca-meta">${c.numero ? '#' + esc(c.numero) : ''}</span></span>
             <span class="ca-risk">
               Riesgo
-              <input type="number" step="0.1" min="0.01" max="100" value="${a.riskPct}" data-risk="${i}" class="ca-risk-input">
+              <input type="number" step="0.01" min="0" max="100" value="${a.riskPct}" data-risk="${i}" class="ca-risk-input">
               %
+            </span>
+            <span class="ca-usd">
+              P&L
+              <input type="number" step="0.01" value="${usdDisabled ? '' : fmtUsdValue(usd)}" data-usd="${i}" class="ca-usd-input" ${usdAttrs}>
+              $
             </span>
             <button type="button" class="ca-x" data-remove="${i}" title="Quitar">×</button>
           </div>`;
@@ -75,7 +112,7 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {},
             : '')}
     `;
 
-    // Wire
+    // Wire: remove
     container.querySelectorAll('[data-remove]').forEach(b => {
       b.addEventListener('click', () => {
         const i = parseInt(b.dataset.remove, 10);
@@ -84,16 +121,46 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {},
         paint();
       });
     });
+
+    // Wire: input % riesgo → recalcula USD
     container.querySelectorAll('[data-risk]').forEach(inp => {
       inp.addEventListener('input', () => {
         const i = parseInt(inp.dataset.risk, 10);
         const v = parseFloat(inp.value);
-        if (!isNaN(v) && v > 0 && v <= 100) {
+        if (!isNaN(v) && v >= 0 && v <= 100) {
           assigned[i].riskPct = v;
           onChange(currentArray());
+          // Sincronizar el input USD de esa fila
+          const c = state.cuentas.find(x => x.id === assigned[i].accountId);
+          if (c && !usdDisabled) {
+            const usdInp = container.querySelector(`[data-usd="${i}"]`);
+            if (usdInp) usdInp.value = fmtUsdValue(computeUsd(pnlPct, v, c.capital));
+          }
         }
       });
     });
+
+    // Wire: input USD → recalcula riesgo %
+    container.querySelectorAll('[data-usd]').forEach(inp => {
+      inp.addEventListener('input', () => {
+        if (usdDisabled) return;
+        const i = parseInt(inp.dataset.usd, 10);
+        const usd = parseFloat(inp.value);
+        if (isNaN(usd)) return;
+        const c = state.cuentas.find(x => x.id === assigned[i].accountId);
+        if (!c) return;
+        const newRisk = computeRiskFromUsd(usd, pnlPct, c.capital);
+        if (!isFinite(newRisk) || newRisk < 0) return;
+        // Permitimos cualquier valor (incluso > 100) — el usuario sabrá si es absurdo.
+        const newRiskRounded = +newRisk.toFixed(4);
+        assigned[i].riskPct = newRiskRounded;
+        onChange(currentArray());
+        // Sincronizar el input % de esa fila
+        const riskInp = container.querySelector(`[data-risk="${i}"]`);
+        if (riskInp) riskInp.value = newRiskRounded;
+      });
+    });
+
     const sel = container.querySelector('#ca-select');
     if (sel) {
       sel.addEventListener('change', () => {
