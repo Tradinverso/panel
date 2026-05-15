@@ -32,9 +32,25 @@ export function computeUsdPnl(pnl_pct, riskPct, capital) {
   return pnl_pct * riskPct * capital / 100;
 }
 
+// Suma BRUTA — total descontado del equity de la cuenta (sin importar comisión).
 export function totalWithdrawn(account) {
   if (!account || !Array.isArray(account.withdrawals)) return 0;
   return account.withdrawals.reduce((sum, w) => sum + (w.amount || 0), 0);
+}
+
+// Suma NETA — lo que de verdad llegó al bolsillo (amount - commission por retiro).
+export function totalWithdrawnNet(account) {
+  if (!account || !Array.isArray(account.withdrawals)) return 0;
+  return account.withdrawals.reduce(
+    (sum, w) => sum + Math.max(0, (w.amount || 0) - (w.commission || 0)),
+    0
+  );
+}
+
+// Suma de comisiones pagadas en retiros (lo que se quedó el broker).
+export function totalWithdrawalCommissions(account) {
+  if (!account || !Array.isArray(account.withdrawals)) return 0;
+  return account.withdrawals.reduce((sum, w) => sum + (w.commission || 0), 0);
 }
 
 // Estadísticas completas de la cuenta.
@@ -49,6 +65,8 @@ export function accountStats(account, allTrades) {
     maxDdUsd: emptyMaxDd,
     profitFromTrades: 0,
     totalWithdrawn: 0,
+    totalWithdrawnNet: 0,
+    totalCommissions: 0,
     netToPocket: 0,
     equityUsd: account?.initialBalance || emptyCapital,
     equityPct: 0,
@@ -74,9 +92,12 @@ export function accountStats(account, allTrades) {
   const maxDdUsd = account.maxDdUsd || 0;
 
   const profitFromTrades = items.reduce((s, x) => s + x.usdPnl, 0);
-  const withdrawn = totalWithdrawn(account);
+  const withdrawn = totalWithdrawn(account);           // bruto
+  const withdrawnNet = totalWithdrawnNet(account);     // neto al bolsillo
+  const commissionsPaid = totalWithdrawalCommissions(account);
 
-  // Equity = saldo inicial + profit por trades − retiros
+  // Equity = saldo inicial + profit por trades − retiros BRUTOS
+  // (el bruto es lo que el broker descontó realmente del balance)
   const equity = initial + profitFromTrades - withdrawn;
 
   // Profit total = TODO lo ganado vs el capital nominal (incluye diff inicial,
@@ -88,7 +109,8 @@ export function accountStats(account, allTrades) {
   // Progreso hacia target (si está definido)
   const targetProgressPct = targetUsd > 0 ? (profitTotalUsd / targetUsd) * 100 : 0;
 
-  const netToPocket = withdrawn - cost;
+  // Neto a bolsillo = retirado NETO − coste de la cuenta (fees/challenges)
+  const netToPocket = withdrawnNet - cost;
 
   // Cuentas TP/SL/BE
   let tp = 0, sl = 0, be = 0;
@@ -135,7 +157,9 @@ export function accountStats(account, allTrades) {
     targetUsd,
     maxDdUsd,
     profitFromTrades,
-    totalWithdrawn: withdrawn,
+    totalWithdrawn: withdrawn,           // bruto (descontado del equity)
+    totalWithdrawnNet: withdrawnNet,     // neto al bolsillo
+    totalCommissions: commissionsPaid,   // suma de comisiones broker
     netToPocket,
     equityUsd: equity,
     equityPct,
@@ -221,10 +245,12 @@ export function portfolioStats(cuentas, allTrades) {
   for (const c of challengeActivas) {
     capitalChallenge += c.capital || 0;
   }
-  let totalWithdrawnAll = 0;
+  let totalWithdrawnNetAll = 0;    // NETO al bolsillo — lo que se muestra en KPIs
+  let totalCommissionsAll = 0;
   let totalCostAll = 0;
   for (const c of cuentas) {
-    totalWithdrawnAll += totalWithdrawn(c);
+    totalWithdrawnNetAll += totalWithdrawnNet(c);
+    totalCommissionsAll += totalWithdrawalCommissions(c);
     totalCostAll += (c.cost || 0);
   }
   return {
@@ -233,9 +259,10 @@ export function portfolioStats(cuentas, allTrades) {
     equityFondeado,
     equityPct: capitalFondeado > 0 ? ((equityFondeado - capitalFondeado) / capitalFondeado) * 100 : 0,
     profitFondeado,
-    totalWithdrawn: totalWithdrawnAll,
+    totalWithdrawn: totalWithdrawnNetAll,    // el campo público es NETO (lo que llega al bolsillo)
+    totalCommissions: totalCommissionsAll,   // suma de comisiones pagadas en retiros
     totalCost: totalCostAll,
-    netToPocket: totalWithdrawnAll - totalCostAll,
+    netToPocket: totalWithdrawnNetAll - totalCostAll,
     countActivasFondeadas: fondeadasActivas.length,
     countActivasChallenge: challengeActivas.length,
     countTotal: cuentas.length,

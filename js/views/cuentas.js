@@ -222,7 +222,9 @@ function paintPortfolioKpis(container, cuentas) {
     kpiCard({
       label: 'Retirado total',
       value: fmtUsd(s.totalWithdrawn),
-      sub: 'payouts cobrados (incl. históricos)',
+      sub: s.totalCommissions > 0
+        ? 'neto · ' + fmtUsd(s.totalCommissions) + ' en comisiones'
+        : 'payouts cobrados (incl. históricos)',
       tone: 'green',
     }),
     kpiCard({
@@ -289,7 +291,7 @@ function card(c) {
         </div>
         <div class="cc-row">
           <span class="cc-label">Retirado</span>
-          <span class="cc-value">${fmtUsd(s.totalWithdrawn)}</span>
+          <span class="cc-value">${fmtUsd(s.totalWithdrawnNet)}${s.totalCommissions > 0 ? ` <span style="font-size:10px;color:var(--orange);opacity:.85;">(−${fmtUsd(s.totalCommissions)} com.)</span>` : ''}</span>
         </div>` : ''}
         ${c.cost > 0 ? `
         <div class="cc-row">
@@ -320,6 +322,11 @@ function esc(s) {
 }
 
 export function cuentasListView(container) {
+  // Resetear filtros al entrar a la vista: solo activas por defecto.
+  // Si el usuario cambia el filtro durante la sesión, se respeta hasta salir y volver.
+  filterStatus = 'activa';
+  filterFase = 'all';
+  filterTipo = 'all';
   render(container);
   return state.on(() => render(container));
 }

@@ -152,6 +152,9 @@ function sanitizeCuenta(c) {
             id: w.id || uuid(),
             date: w.date || new Date().toISOString().substring(0, 10),
             amount: typeof w.amount === 'number' ? w.amount : (parseFloat(w.amount) || 0),
+            commission: typeof w.commission === 'number' && w.commission >= 0
+              ? w.commission
+              : (parseFloat(w.commission) || 0),
             note: String(w.note || '').trim(),
           }))
       : [],
@@ -390,6 +393,9 @@ export const state = {
       id: withdrawal.id || uuid(),
       date: withdrawal.date || new Date().toISOString().substring(0, 10),
       amount: typeof withdrawal.amount === 'number' ? withdrawal.amount : parseFloat(withdrawal.amount) || 0,
+      commission: typeof withdrawal.commission === 'number' && withdrawal.commission >= 0
+        ? withdrawal.commission
+        : (parseFloat(withdrawal.commission) || 0),
       note: String(withdrawal.note || '').trim(),
     };
     if (w.amount <= 0) return null;

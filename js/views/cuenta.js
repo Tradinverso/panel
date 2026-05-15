@@ -64,7 +64,12 @@ function render(container, cuentaId) {
       ${kpiCard({ label: 'Profit total', value: fmtUsd(s.profitTotalUsd, true), sub: signedPct(s.profitTotalPct), tone: s.profitTotalUsd >= 0 ? 'green' : 'red' })}
       ${s.targetUsd > 0 ? kpiCard({ label: 'Target', value: fmtUsd(s.targetUsd), sub: signedPct(s.targetProgressPct, 0) + ' completado', tone: s.targetProgressPct >= 100 ? 'green' : 'orange' }) : ''}
       ${s.ddLimitUsd > 0 ? kpiCard({ label: 'DD máx (firma)', value: fmtUsd(s.ddLimitUsd), sub: s.ddLimitPctOfCapital ? s.ddLimitPctOfCapital.toFixed(1) + '% del capital nominal' : 'límite definido por la firma', tone: 'orange' }) : ''}
-      ${isFondeada ? kpiCard({ label: 'Total retirado', value: fmtUsd(s.totalWithdrawn), sub: (cuenta.withdrawals || []).length + ' retiros', tone: 'purple' }) : ''}
+      ${isFondeada ? kpiCard({
+        label: 'Total retirado',
+        value: fmtUsd(s.totalWithdrawnNet),
+        sub: (cuenta.withdrawals || []).length + ' retiros' + (s.totalCommissions > 0 ? ' · ' + fmtUsd(s.totalCommissions) + ' comisiones' : ''),
+        tone: 'purple',
+      }) : ''}
       ${kpiCard({ label: 'Trades', value: s.count, sub: `${s.tp} TP · ${s.sl} SL · ${s.be} BE`, tone: 'orange' })}
       ${kpiCard({ label: 'Winrate', value: (s.tp + s.sl > 0 ? s.wr.toFixed(0) + '%' : '–'), sub: 'TP / (TP+SL)', tone: 'orange' })}
       ${kpiCard({ label: 'Profit Factor', value: isFinite(s.pf) ? s.pf.toFixed(2) : '∞', sub: '$ wins / |$ losses|', tone: 'green' })}
@@ -132,31 +137,44 @@ function render(container, cuentaId) {
 
 function renderWithdrawalsSection(cuenta, stats) {
   const ws = [...(cuenta.withdrawals || [])].sort((a, b) => b.date.localeCompare(a.date));
+  const subParts = [
+    `${ws.length} retiro${ws.length !== 1 ? 's' : ''}`,
+    `Bruto ${fmtUsd(stats.totalWithdrawn)}`,
+    `Neto ${fmtUsd(stats.totalWithdrawnNet)}`,
+  ];
+  if (stats.totalCommissions > 0) subParts.push(`Comisiones ${fmtUsd(stats.totalCommissions)}`);
   return `
     <div class="section-title">Retiros</div>
     <div class="card" style="margin-bottom:24px;">
       <div class="card-head">
         <div>
           <div class="card-title">Retiros realizados</div>
-          <div class="card-sub">${ws.length} retiro${ws.length !== 1 ? 's' : ''} · Total ${fmtUsd(stats.totalWithdrawn)}</div>
+          <div class="card-sub">${subParts.join(' · ')}</div>
         </div>
         <button class="btn primary" id="newWithdrawalBtn">+ Nuevo retiro</button>
       </div>
       ${ws.length === 0
         ? '<div class="empty" style="padding:30px 20px;">Aún no has registrado ningún retiro de esta cuenta.</div>'
         : `<table class="data-table"><thead><tr>
-            <th>Fecha</th><th>Importe</th><th>Nota</th><th></th>
+            <th>Fecha</th><th>Bruto</th><th>Comisión</th><th>Neto</th><th>Nota</th><th></th>
           </tr></thead><tbody>
-            ${ws.map(w => `
+            ${ws.map(w => {
+              const comm = +(w.commission || 0);
+              const net = Math.max(0, (w.amount || 0) - comm);
+              const pct = comm > 0 && w.amount > 0 ? (comm / w.amount * 100) : 0;
+              return `
               <tr>
                 <td>${formatDateShort(w.date)}</td>
-                <td style="color:var(--zonas);font-weight:500;">${fmtUsd(w.amount)}</td>
+                <td style="font-family:var(--mono);font-size:12px;">${fmtUsd(w.amount)}</td>
+                <td style="font-family:var(--mono);font-size:12px;color:var(--orange);">${comm > 0 ? '−' + fmtUsd(comm) + ' (' + pct.toFixed(1) + '%)' : '–'}</td>
+                <td style="color:var(--zonas);font-weight:500;">${fmtUsd(net)}</td>
                 <td style="color:var(--muted);font-family:var(--mono);font-size:11px;">${esc(w.note || '–')}</td>
                 <td style="text-align:right;">
                   <button class="btn ghost danger" data-del-w="${w.id}" style="padding:4px 8px;font-size:11px;">×</button>
                 </td>
               </tr>
-            `).join('')}
+            `;
+            }).join('')}
           </tbody></table>`
       }
     </div>
