@@ -152,9 +152,11 @@ function paintCalendar(container, dayIndex) {
       cell.innerHTML = `
         ${reflexBtn}
         <span class="cal-num">${d}</span>
-        <div class="cal-pnl">${fmtPct(data.pnl)}</div>
-        <div class="cal-pnl-real">real ${fmtPct(data.pnlReal)}</div>
-        <div class="cal-meta">${data.count} trade${data.count > 1 ? 's' : ''} · ${data.tp}T ${data.sl}S${data.be > 0 ? ' ' + data.be + 'BE' : ''}</div>
+        <div class="cal-body">
+          <div class="cal-pnl">${fmtPct(data.pnl)}</div>
+          <div class="cal-pnl-real">real ${fmtPct(data.pnlReal)}</div>
+          <div class="cal-meta">${data.count} trade${data.count > 1 ? 's' : ''} · ${data.tp}T ${data.sl}S${data.be > 0 ? ' ' + data.be + 'BE' : ''}</div>
+        </div>
         ${data.count >= 5 ? `<div class="cal-warn">${data.count}</div>` : ''}
       `;
       cell.addEventListener('click', () => {

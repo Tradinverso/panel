@@ -137,6 +137,16 @@ function paintDailyGrid(body) {
     const beStr = stats.be > 0 ? `${stats.be}BE` : '';
     const breakdown = [tpStr, slStr, beStr].filter(Boolean).join(' ');
 
+    // Plan: cuántos trades en plan / fuera (ignora null)
+    const inPlanDay = stats.trades.filter(t => t.plan_followed === true).length;
+    const outOfPlanDay = stats.trades.filter(t => t.plan_followed === false).length;
+    const planParts = [];
+    if (inPlanDay > 0) planParts.push(`<span style="color:var(--green);">✓ ${inPlanDay}</span>`);
+    if (outOfPlanDay > 0) planParts.push(`<span style="color:var(--red);">✗ ${outOfPlanDay}</span>`);
+    const planLine = planParts.length
+      ? `<div class="psico-day-plan">${planParts.join(' · ')}</div>`
+      : '';
+
     html += `
       <div class="${cls}" data-day="${ds}">
         <div class="psico-day-head">
@@ -147,6 +157,7 @@ function paintDailyGrid(body) {
           <div class="psico-day-body">
             <div class="psico-day-pnl">${fmtPct(stats.pnlSistema, 1)}</div>
             <div class="psico-day-meta">${stats.count} trade${stats.count > 1 ? 's' : ''}${breakdown ? ' · ' + breakdown : ''}</div>
+            ${planLine}
           </div>
         ` : '<div class="psico-day-body empty">–</div>'}
       </div>
