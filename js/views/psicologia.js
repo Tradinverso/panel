@@ -132,10 +132,10 @@ function paintDailyGrid(body) {
     if (hasReflex) cls += ' has-reflex';
     if (isToday) cls += ' cal-today';
 
-    const tpStr = stats.tp > 0 ? `<span style="color:var(--green);">${stats.tp} TP</span>` : '';
-    const slStr = stats.sl > 0 ? `<span style="color:var(--red);">${stats.sl} SL</span>` : '';
-    const beStr = stats.be > 0 ? `<span style="color:var(--orange);">${stats.be} BE</span>` : '';
-    const resultsLine = [tpStr, slStr, beStr].filter(Boolean).join(' · ');
+    const tpStr = stats.tp > 0 ? `${stats.tp}T` : '';
+    const slStr = stats.sl > 0 ? `${stats.sl}S` : '';
+    const beStr = stats.be > 0 ? `${stats.be}BE` : '';
+    const breakdown = [tpStr, slStr, beStr].filter(Boolean).join(' ');
 
     html += `
       <div class="${cls}" data-day="${ds}">
@@ -144,15 +144,11 @@ function paintDailyGrid(body) {
           ${hasReflex ? '<span class="psico-reflex-dot" title="Reflexión guardada">📝</span>' : ''}
         </div>
         ${stats.count ? `
-          <div class="psico-day-stats">
-            <div class="psico-day-trades">${stats.count} trade${stats.count > 1 ? 's' : ''}</div>
-            <div class="psico-day-results">${resultsLine || '—'}</div>
-            <div class="psico-day-wrpnl">
-              <span style="color:${stats.wr >= 40 ? 'var(--green)' : 'var(--red)'};">${stats.wr.toFixed(0)}% WR</span>
-              <span style="color:${stats.pnlSistema >= 0 ? 'var(--green)' : 'var(--red)'};">${fmtPct(stats.pnlSistema, 1)}</span>
-            </div>
+          <div class="psico-day-body">
+            <div class="psico-day-pnl">${fmtPct(stats.pnlSistema, 1)}</div>
+            <div class="psico-day-meta">${stats.count} trade${stats.count > 1 ? 's' : ''}${breakdown ? ' · ' + breakdown : ''}</div>
           </div>
-        ` : '<div class="psico-day-stats empty">–</div>'}
+        ` : '<div class="psico-day-body empty">–</div>'}
       </div>
     `;
   }
@@ -437,18 +433,45 @@ function wireRows(body, type) {
 
 function renderStatsBlock(s) {
   if (s.count === 0) {
-    return '<div class="psico-stats-empty">Sin trades en este día.</div>';
+    return '<div class="psico-stats-empty">Sin trades en este período.</div>';
   }
   const pnlSysColor = s.pnlSistema >= 0 ? 'var(--green)' : 'var(--red)';
   const pnlRealColor = s.pnlReal >= 0 ? 'var(--green)' : 'var(--red)';
-  const usdColor = s.usdFondeadas > 0 ? 'var(--green)' : s.usdFondeadas < 0 ? 'var(--red)' : 'var(--muted)';
   const wrColor = s.wr >= 40 ? 'var(--green)' : 'var(--red)';
+
+  // Plan seguido: contar dentro/fuera/sin marcar
+  const trades = s.trades || [];
+  const inPlan = trades.filter(t => t.plan_followed === true).length;
+  const outOfPlan = trades.filter(t => t.plan_followed === false).length;
+  const noMarked = trades.length - inPlan - outOfPlan;
+  const planParts = [];
+  if (inPlan > 0) planParts.push(`<span style="color:var(--green);">✓ ${inPlan}</span>`);
+  if (outOfPlan > 0) planParts.push(`<span style="color:var(--red);">✗ ${outOfPlan}</span>`);
+  if (noMarked > 0) planParts.push(`<span style="color:var(--muted);">— ${noMarked}</span>`);
+  const planHtml = planParts.join(' · ') || '<span style="color:var(--muted);">sin marcar</span>';
+
+  // Sensaciones: contar y mostrar pills con frecuencia
+  const sensCount = {};
+  for (const t of trades) {
+    if (t.sensacion) sensCount[t.sensacion] = (sensCount[t.sensacion] || 0) + 1;
+  }
+  const sensEntries = Object.entries(sensCount).sort((a, b) => b[1] - a[1]);
+  const sensHtml = sensEntries.length
+    ? sensEntries.map(([sen, n]) =>
+        `<span class="sens-pill" data-s="${escapeAttr(sen)}" style="font-size:9px;padding:1px 6px;">${escapeHtml(sen)}${n > 1 ? ' ×' + n : ''}</span>`
+      ).join(' ')
+    : '<span style="color:var(--muted);">—</span>';
+
   return `
     <div class="psico-stat-row"><span class="psico-stat-lbl">Trades</span><span class="psico-stat-val">${s.count} <span style="color:var(--muted);font-size:10px;">(${s.tp}T·${s.sl}S·${s.be}BE)</span></span></div>
     <div class="psico-stat-row"><span class="psico-stat-lbl">Winrate</span><span class="psico-stat-val" style="color:${wrColor};">${s.wr.toFixed(0)}%</span></div>
     <div class="psico-stat-row"><span class="psico-stat-lbl">P&L sistema</span><span class="psico-stat-val" style="color:${pnlSysColor};">${fmtPct(s.pnlSistema, 1)}</span></div>
     <div class="psico-stat-row"><span class="psico-stat-lbl">P&L real</span><span class="psico-stat-val" style="color:${pnlRealColor};">${fmtPct(s.pnlReal, 1)}</span></div>
-    <div class="psico-stat-row"><span class="psico-stat-lbl">USD fondeadas</span><span class="psico-stat-val" style="color:${usdColor};">${s.usdFondeadas !== 0 ? fmtUsd(s.usdFondeadas, true) : '$0'}</span></div>
+    <div class="psico-stat-row"><span class="psico-stat-lbl">Plan</span><span class="psico-stat-val">${planHtml}</span></div>
+    <div class="psico-stat-row psico-stat-stack">
+      <span class="psico-stat-lbl">Sensaciones</span>
+      <span class="psico-stat-sens-list">${sensHtml}</span>
+    </div>
   `;
 }
 
