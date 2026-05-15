@@ -18,7 +18,19 @@ function render(container) {
     <div class="page-header">
       <div>
         <h1>Diagnóstico</h1>
-        <div class="sub">Alertas técnicas y emocionales basadas en ${trades.length} trades</div>
+        <div class="sub">Alertas de plan, técnicas y emocionales basadas en ${trades.length} trades</div>
+      </div>
+    </div>
+
+    <div style="font-size:15px;font-weight:600;margin-bottom:14px;letter-spacing:-0.2px;">📋 Trading Plan</div>
+    <div class="grid-2" style="margin-bottom:24px;">
+      <div class="card">
+        <div class="card-title" style="margin-bottom:14px;">Alertas (fuera del plan)</div>
+        <div id="planAlertas">${renderList(a.planAlertas, 'Sin alertas — disciplina al día ✓')}</div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:14px;">Indicadores positivos</div>
+        <div id="planInsights">${renderList(a.planInsights, 'Marca el campo "plan seguido" en tus trades para activar indicadores.')}</div>
       </div>
     </div>
 
