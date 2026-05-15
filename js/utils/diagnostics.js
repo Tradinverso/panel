@@ -61,8 +61,10 @@ export function buildAlerts(trades) {
   const tecInsights = [];
   const emoAlertas = [];
   const emoInsights = [];
+  const planAlertas = [];
+  const planInsights = [];
 
-  if (!trades.length) return { tecAlertas, tecInsights, emoAlertas, emoInsights };
+  if (!trades.length) return { tecAlertas, tecInsights, emoAlertas, emoInsights, planAlertas, planInsights };
 
   const globalWR = winrate(trades);
   const today = todayStr();
@@ -144,14 +146,18 @@ export function buildAlerts(trades) {
       `Has alcanzado el límite diario de drawdown (${DAILY_DD_LIMIT}%). Cierra plataforma y revisa journaling.`));
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // ALERTAS E INSIGHTS DEL TRADING PLAN (categoría separada)
+  // ═══════════════════════════════════════════════════════════
+
   // ── HOY: trades fuera del plan ──
   const todayOut = todays.filter(t => t.plan_followed === false).length;
   if (todayOut >= 2) {
-    tecAlertas.push(danger('📋',
+    planAlertas.push(danger('📋',
       `HOY ${todayOut} trades fuera del plan`,
       `Revisa la disciplina de ejecución. Cierra plataforma si vuelve a pasar.`));
   } else if (todayOut === 1) {
-    tecAlertas.push(warn('📋',
+    planAlertas.push(warn('📋',
       `HOY 1 trade fuera del plan`,
       `Atento — un trade más sin plan activaría la alerta crítica.`));
   }
@@ -160,7 +166,7 @@ export function buildAlerts(trades) {
   const last7 = recentTrades(trades, 7);
   const last7Out = last7.filter(t => t.plan_followed === false).length;
   if (last7Out > 3) {
-    tecAlertas.push(danger('📋',
+    planAlertas.push(danger('📋',
       `Últimos 7 días: ${last7Out} trades fuera del plan`,
       `Patrón problemático — revisa tu disciplina antes de seguir operando.`));
   }
@@ -168,15 +174,15 @@ export function buildAlerts(trades) {
   // ── Racha activa fuera del plan (siempre visible si ≥1; color escala) ──
   const outStreak = currentOutOfPlanStreak(trades);
   if (outStreak >= 3) {
-    tecAlertas.push(danger('🚫',
+    planAlertas.push(danger('🚫',
       `Racha activa: ${outStreak} trades seguidos fuera del plan`,
       `Para. Vuelve al journaling y revisa qué está pasando antes del siguiente trade.`));
   } else if (outStreak === 2) {
-    tecAlertas.push(warn('🚫',
+    planAlertas.push(warn('🚫',
       `Racha activa: 2 trades seguidos fuera del plan`,
       `Un trade más y se activa la alerta crítica.`));
   } else if (outStreak === 1) {
-    tecAlertas.push(warn('🚫',
+    planAlertas.push(warn('🚫',
       `Racha activa: 1 trade fuera del plan`,
       `Recuerda: la disciplina es lo que marca la diferencia.`));
   }
@@ -184,11 +190,11 @@ export function buildAlerts(trades) {
   // ── Racha activa DENTRO del plan (siempre visible si ≥1; verde si ≥5) ──
   const inStreak = currentInPlanStreak(trades);
   if (inStreak >= 5) {
-    tecInsights.push(success('✅',
+    planInsights.push(success('✅',
       `Racha activa: ${inStreak} trades seguidos dentro del plan`,
       `Disciplina excelente — mantén el ritmo.`));
   } else if (inStreak >= 1) {
-    tecInsights.push(success('🟢',
+    planInsights.push(success('🟢',
       `Racha activa: ${inStreak} trade${inStreak > 1 ? 's' : ''} dentro del plan`,
       inStreak >= 3
         ? `Vas por buen camino — apunta a los 5 seguidos.`
@@ -199,11 +205,11 @@ export function buildAlerts(trades) {
   const ps = planStats(trades);
   if (ps.total >= 10) {
     if (ps.pctInPlan >= 80) {
-      tecInsights.push(success('📋',
+      planInsights.push(success('📋',
         `${ps.pctInPlan.toFixed(0)}% de trades dentro del plan`,
         `${ps.inPlan} de ${ps.total} respetaron tu trading plan. Sigue así.`));
     } else if (ps.pctInPlan < 60) {
-      tecAlertas.push(warn('📋',
+      planAlertas.push(warn('📋',
         `Solo ${ps.pctInPlan.toFixed(0)}% de trades dentro del plan`,
         `${ps.outOfPlan} de ${ps.total} no siguieron el plan. Patrón a corregir.`));
     }
@@ -393,7 +399,7 @@ export function buildAlerts(trades) {
     emoAlertas.push(warn('🧠',
       `Pocos datos emocionales (${withSens.length} trades con sensación)`,
       `Registra al menos 3 trades con sensación para empezar a ver diagnóstico emocional.`));
-    return { tecAlertas, tecInsights, emoAlertas, emoInsights };
+    return { tecAlertas, tecInsights, emoAlertas, emoInsights, planAlertas, planInsights };
   }
 
   const sensWR = winrate(withSens);
@@ -517,5 +523,5 @@ export function buildAlerts(trades) {
     }
   }
 
-  return { tecAlertas, tecInsights, emoAlertas, emoInsights };
+  return { tecAlertas, tecInsights, emoAlertas, emoInsights, planAlertas, planInsights };
 }
