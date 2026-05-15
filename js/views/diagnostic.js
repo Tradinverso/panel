@@ -2,6 +2,7 @@ import { state } from '../state.js';
 import { buildAlerts } from '../utils/diagnostics.js';
 import { sensacionStats, withSensacion, TODAS, POSITIVAS, NEGATIVAS } from '../utils/sensaciones.js';
 import { fmtPct, fmtPctNoSign } from '../utils/number-format-es.js';
+import { planComparisonStats } from '../utils/calculations.js';
 
 function render(container) {
   const trades = state.trades;
@@ -19,18 +20,6 @@ function render(container) {
       <div>
         <h1>Diagnóstico</h1>
         <div class="sub">Alertas de plan, técnicas y emocionales basadas en ${trades.length} trades</div>
-      </div>
-    </div>
-
-    <div style="font-size:15px;font-weight:600;margin-bottom:14px;letter-spacing:-0.2px;">📋 Trading Plan</div>
-    <div class="grid-2" style="margin-bottom:24px;">
-      <div class="card">
-        <div class="card-title" style="margin-bottom:14px;">Alertas (fuera del plan)</div>
-        <div id="planAlertas">${renderList(a.planAlertas, 'Sin alertas — disciplina al día ✓')}</div>
-      </div>
-      <div class="card">
-        <div class="card-title" style="margin-bottom:14px;">Indicadores positivos</div>
-        <div id="planInsights">${renderList(a.planInsights, 'Marca el campo "plan seguido" en tus trades para activar indicadores.')}</div>
       </div>
     </div>
 
@@ -72,10 +61,63 @@ function render(container) {
         <div id="sensTable"></div>
       </div>
     </div>
+
+    <div class="section-title">📋 Trading Plan — Disciplina de ejecución</div>
+    <div class="grid-2" style="margin-bottom:14px;">
+      <div class="card">
+        <div class="card-title" style="margin-bottom:14px;">Alertas (fuera del plan)</div>
+        <div id="planAlertas">${renderList(a.planAlertas, 'Sin alertas — disciplina al día ✓')}</div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:14px;">Indicadores positivos</div>
+        <div id="planInsights">${renderList(a.planInsights, 'Marca el campo "plan seguido" en tus trades para activar indicadores.')}</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:24px;">
+      <div class="card-title">Rendimiento según disciplina</div>
+      <div class="card-sub">Comparativa de trades dentro vs fuera del plan</div>
+      <table class="data-table" style="margin-top:14px;">
+        <thead><tr>
+          <th></th><th>Trades</th><th>WR</th><th>TP</th><th>SL</th><th>BE</th><th>P&L</th>
+        </tr></thead>
+        <tbody id="planCompareTbody"></tbody>
+      </table>
+    </div>
   `;
 
   paintSensDist(container.querySelector('#sensDist'), trades);
   paintSensTable(container.querySelector('#sensTable'), trades);
+  paintPlanCompare(container.querySelector('#planCompareTbody'), trades);
+}
+
+function paintPlanCompare(container, trades) {
+  const s = planComparisonStats(trades);
+  const total = s.inPlan.total + s.outOfPlan.total;
+  if (total === 0) {
+    container.innerHTML = `<tr><td colspan="7" class="empty" style="padding:18px;">Marca el campo "plan seguido" en tus trades para ver la comparativa.</td></tr>`;
+    return;
+  }
+  container.innerHTML = `
+    <tr>
+      <td><span style="color:var(--green);font-weight:600;">✓ Dentro del plan</span></td>
+      <td>${s.inPlan.total}</td>
+      <td>${s.inPlan.total ? fmtPctNoSign(s.inPlan.wr, 0) : '–'}</td>
+      <td style="color:var(--green);">${s.inPlan.tp}</td>
+      <td style="color:var(--red);">${s.inPlan.sl}</td>
+      <td style="color:var(--orange);">${s.inPlan.be}</td>
+      <td style="color:${s.inPlan.pnlSistema >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:500;">${s.inPlan.total ? fmtPct(s.inPlan.pnlSistema, 1) : '–'}</td>
+    </tr>
+    <tr>
+      <td><span style="color:var(--red);font-weight:600;">✗ Fuera del plan</span></td>
+      <td>${s.outOfPlan.total}</td>
+      <td>${s.outOfPlan.total ? fmtPctNoSign(s.outOfPlan.wr, 0) : '–'}</td>
+      <td style="color:var(--green);">${s.outOfPlan.tp}</td>
+      <td style="color:var(--red);">${s.outOfPlan.sl}</td>
+      <td style="color:var(--orange);">${s.outOfPlan.be}</td>
+      <td style="color:${s.outOfPlan.pnlSistema >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:500;">${s.outOfPlan.total ? fmtPct(s.outOfPlan.pnlSistema, 1) : '–'}</td>
+    </tr>
+  `;
 }
 
 function renderList(items, emptyText) {

@@ -162,6 +162,27 @@ export function currentOutOfPlanStreak(trades) {
   return n;
 }
 
+// Comparativa de rendimiento entre trades dentro/fuera del plan.
+// Trades con plan_followed null se IGNORAN (no entran en ningún grupo).
+export function planComparisonStats(trades) {
+  const inPlan = trades.filter(t => t.plan_followed === true);
+  const outOfPlan = trades.filter(t => t.plan_followed === false);
+  const statsFor = (sub) => {
+    const c = tradeCounts(sub);
+    return {
+      total: sub.length,
+      tp: c.tp, sl: c.sl, be: c.be,
+      wr: winrate(sub),
+      pnlSistema: pnlPct(sub),
+      pnlReal: pnlPctReal(sub),
+    };
+  };
+  return {
+    inPlan: statsFor(inPlan),
+    outOfPlan: statsFor(outOfPlan),
+  };
+}
+
 // Current SL streak from end (chronological)
 export function currentSlStreak(trades) {
   const sorted = sortChrono(trades);
