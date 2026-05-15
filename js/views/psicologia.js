@@ -495,6 +495,11 @@ function renderStatsInline(s) {
   const usdColor = s.usdFondeadas > 0 ? 'var(--green)' : s.usdFondeadas < 0 ? 'var(--red)' : 'var(--muted)';
   const wrColor = s.wr >= 40 ? 'var(--green)' : 'var(--red)';
 
+  // Plan: cuenta trades en/fuera del plan (ignora null)
+  const trades = s.trades || [];
+  const inPlan = trades.filter(t => t.plan_followed === true).length;
+  const outOfPlan = trades.filter(t => t.plan_followed === false).length;
+
   const parts = [
     `<span class="psico-chip neutral"><strong>${s.count}</strong> trades</span>`,
   ];
@@ -504,6 +509,8 @@ function renderStatsInline(s) {
   parts.push(`<span class="psico-chip" style="color:${wrColor};"><strong>${s.wr.toFixed(0)}%</strong> WR</span>`);
   parts.push(`<span class="psico-chip" style="color:${pnlSysColor};"><strong>${fmtPct(s.pnlSistema, 1)}</strong> sist</span>`);
   parts.push(`<span class="psico-chip" style="color:${pnlRealColor};"><strong>${fmtPct(s.pnlReal, 1)}</strong> real</span>`);
+  if (inPlan > 0) parts.push(`<span class="psico-chip" style="color:var(--green);"><strong>✓ ${inPlan}</strong> plan</span>`);
+  if (outOfPlan > 0) parts.push(`<span class="psico-chip" style="color:var(--red);"><strong>✗ ${outOfPlan}</strong> plan</span>`);
   if (s.usdFondeadas !== 0) {
     parts.push(`<span class="psico-chip" style="color:${usdColor};"><strong>${fmtUsd(s.usdFondeadas, true)}</strong> USD</span>`);
   }
