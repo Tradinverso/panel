@@ -309,8 +309,21 @@ function renderProgressBars(s) {
       </div>
     `);
   }
-  // DD máximo ya no se muestra como progreso "consumido" — la firma lo define como límite fijo
-  // y no calculamos cuánto has consumido para evitar falsos drawdowns. Solo aparece como KPI arriba.
+  // DD consumido: solo cuenta cuando equity < capital nominal (no penaliza tener
+  // la cuenta en positivo). Para CFD es exacto; para futuros es estimación optimista.
+  if (s.ddLimitUsd > 0) {
+    const pct = Math.max(0, Math.min(100, s.ddConsumedPct));
+    const color = s.ddConsumedPct >= 80 ? 'var(--red)' : s.ddConsumedPct >= 50 ? 'var(--orange)' : 'var(--green)';
+    bars.push(`
+      <div class="prog-row">
+        <div class="prog-head">
+          <span><strong>🛑 DD consumido</strong> · ${fmtUsd(s.ddConsumedUsd)} de ${fmtUsd(s.ddLimitUsd)}</span>
+          <span style="color:${color};font-weight:600;">${s.ddConsumedPct.toFixed(0)}%</span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${color};"></div></div>
+      </div>
+    `);
+  }
   return bars.length
     ? `<div class="card" style="margin-bottom:24px;"><div class="card-title">Progreso</div><div class="card-sub">Avance hacia los límites de la cuenta</div>${bars.join('')}</div>`
     : '';

@@ -58,6 +58,8 @@ export function accountStats(account, allTrades) {
     // DD límite definido por la firma — fijo, NO se calcula desde trades
     ddLimitUsd: emptyMaxDd,
     ddLimitPctOfCapital: emptyCapital > 0 ? (emptyMaxDd / emptyCapital) * 100 : 0,
+    ddConsumedUsd: 0,
+    ddConsumedPct: 0,
     count: 0, tp: 0, sl: 0, be: 0,
     wr: 0, pf: 0,
     currentSlStreak: 0,
@@ -106,11 +108,17 @@ export function accountStats(account, allTrades) {
   }
   const pf = losses > 0 ? wins / losses : (wins > 0 ? Infinity : 0);
 
-  // DD límite definido por la firma — fijo, NO se calcula desde trades.
-  // El cálculo dinámico anterior daba falsos drawdowns cuando la cuenta entraba
-  // con beneficio. Ahora solo mostramos lo que la firma define como límite.
+  // DD límite definido por la firma — fijo. NO calculamos peak/maxDD desde la curva
+  // (eso daba falsos drawdowns cuando la cuenta entraba con beneficio). En su lugar
+  // calculamos cuánto te has acercado al "suelo": capital_nominal − maxDdUsd.
+  // Si equity ≥ capital_nominal → DD consumido = 0% (estás por encima del piso).
+  // Si equity < capital_nominal → consumido = capital_nominal − equity (en USD).
+  // Para CFD esto es exacto (DD fijo desde nominal). Para futuros es una estimación
+  // optimista (el trailing real podría haber consumido más si peakeaste arriba).
   const ddLimitUsd = maxDdUsd;
   const ddLimitPctOfCapital = capital > 0 ? (maxDdUsd / capital) * 100 : 0;
+  const ddConsumedUsd = Math.max(0, capital - equity);
+  const ddConsumedPct = maxDdUsd > 0 ? (ddConsumedUsd / maxDdUsd) * 100 : 0;
 
   // Racha SL actual
   const sortedTrades = sortChrono(items.map(x => x.trade));
@@ -136,6 +144,8 @@ export function accountStats(account, allTrades) {
     targetProgressPct,
     ddLimitUsd,
     ddLimitPctOfCapital,
+    ddConsumedUsd,
+    ddConsumedPct,
     count: items.length, tp, sl, be,
     wr, pf,
     currentSlStreak: curSL,
