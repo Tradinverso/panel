@@ -31,7 +31,7 @@ export function renderTradeTable(container, trades, opts = {}) {
   let filters = {
     sheet: 'all', result: 'all', setup: 'all',
     pair: 'all', zone: 'all', entry: 'all',
-    sens: 'all', account: 'all',
+    sens: 'all', account: 'all', plan: 'all',
   };
 
   function applyFilters() {
@@ -58,6 +58,11 @@ export function renderTradeTable(container, trades, opts = {}) {
         if (filters.account === '_none') {
           if (Array.isArray(t.accounts) && t.accounts.length > 0) return false;
         } else if (!has) return false;
+      }
+      if (filters.plan !== 'all') {
+        if (filters.plan === 'yes' && t.plan_followed !== true) return false;
+        if (filters.plan === 'no'  && t.plan_followed !== false) return false;
+        if (filters.plan === '_none' && (t.plan_followed === true || t.plan_followed === false)) return false;
       }
       return true;
     });
@@ -123,6 +128,12 @@ export function renderTradeTable(container, trades, opts = {}) {
           }),
           { v: '_none', l: '— Sin asignar —' },
         ]) : ''}
+        ${sel('plan', filters.plan, [
+          { v: 'all', l: 'Plan: todos' },
+          { v: 'yes', l: '✓ Dentro del plan' },
+          { v: 'no',  l: '✗ Fuera del plan' },
+          { v: '_none', l: '— Sin marcar —' },
+        ])}
         ${hasActiveFilters ? '<button class="btn ghost" data-clear-filters>× Limpiar filtros</button>' : ''}
         <span class="filter-count">${filteredCount} de ${trades.length} trades</span>
       </div>
@@ -138,7 +149,7 @@ export function renderTradeTable(container, trades, opts = {}) {
   function renderTable(filtered) {
     // Más reciente arriba: ordenamos cronológicamente y luego invertimos.
     const sorted = sortChrono(filtered).reverse();
-    const colspan = canDelete ? 16 : 15;
+    const colspan = canDelete ? 17 : 16;
     const bodyContent = sorted.length
       ? sorted.map(t => row(t, canDelete)).join('')
       : `<tr><td colspan="${colspan}" class="empty" style="padding:30px;">Ningún trade coincide con los filtros</td></tr>`;
@@ -155,7 +166,8 @@ export function renderTradeTable(container, trades, opts = {}) {
               <th>Setup</th>
               <th>Zona</th>
               <th>Entrada</th>
-              <th>Sensación</th>
+              <th>Sens. al ejecutar</th>
+              <th>Plan</th>
               <th>Cuentas</th>
               <th>Resultado</th>
               <th>Dur.</th>
@@ -183,7 +195,7 @@ export function renderTradeTable(container, trades, opts = {}) {
       filters = {
         sheet: 'all', result: 'all', setup: 'all',
         pair: 'all', zone: 'all', entry: 'all',
-        sens: 'all', account: 'all',
+        sens: 'all', account: 'all', plan: 'all',
       };
       paint();
     });
@@ -272,6 +284,7 @@ function row(t, canDelete) {
       <td>${(Array.isArray(t.zone) ? t.zone.join(' · ') : t.zone) || '–'}</td>
       <td>${(Array.isArray(t.entry) ? t.entry.join(' · ') : t.entry) || '–'}</td>
       <td>${sens}</td>
+      <td class="td-plan">${t.plan_followed === true ? '<span class="plan-icon-yes" title="Dentro del plan">✓</span>' : t.plan_followed === false ? '<span class="plan-icon-no" title="Fuera del plan">✗</span>' : '<span class="plan-icon-na" title="No registrado">–</span>'}</td>
       <td>${cuentas}</td>
       <td><span class="res-pill res-${t.result.toLowerCase()}">${t.result}</span></td>
       <td>${dur}</td>

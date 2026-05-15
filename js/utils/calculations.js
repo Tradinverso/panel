@@ -115,6 +115,53 @@ export function bestTpStreakPnl(trades) {
   return best;
 }
 
+// ── Plan seguido (trading plan) ──────────────────────────────
+// plan_followed: true (en plan) / false (fuera) / null (no registrado)
+
+// Trades que tienen plan_followed marcado (no null) — base para stats de plan
+function tradesWithPlan(trades) {
+  return trades.filter(t => t.plan_followed === true || t.plan_followed === false);
+}
+
+// {inPlan, outOfPlan, total, pctInPlan}. Solo cuenta trades con plan_followed
+// marcado (true/false). Los que tienen null se ignoran.
+export function planStats(trades) {
+  const sub = tradesWithPlan(trades);
+  const inPlan = sub.filter(t => t.plan_followed === true).length;
+  const outOfPlan = sub.length - inPlan;
+  return {
+    inPlan,
+    outOfPlan,
+    total: sub.length,
+    pctInPlan: sub.length > 0 ? (inPlan / sub.length) * 100 : 0,
+  };
+}
+
+// Racha activa de trades CONSECUTIVOS dentro del plan (desde el último hacia atrás).
+// Trades con plan_followed null se SALTAN (no rompen, no cuentan).
+export function currentInPlanStreak(trades) {
+  const sorted = sortChrono(trades);
+  let n = 0;
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const v = sorted[i].plan_followed;
+    if (v === true) n++;
+    else if (v === false) break;
+  }
+  return n;
+}
+
+// Racha activa de trades CONSECUTIVOS fuera del plan.
+export function currentOutOfPlanStreak(trades) {
+  const sorted = sortChrono(trades);
+  let n = 0;
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const v = sorted[i].plan_followed;
+    if (v === false) n++;
+    else if (v === true) break;
+  }
+  return n;
+}
+
 // Current SL streak from end (chronological)
 export function currentSlStreak(trades) {
   const sorted = sortChrono(trades);

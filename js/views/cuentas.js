@@ -256,7 +256,6 @@ function card(c) {
   const isFondeada = c.fase === 'fondeada';
   const equityColor = s.equityPct >= 0 ? 'var(--green)' : 'var(--red)';
   const profitColor = s.profitTotalUsd >= 0 ? 'var(--green)' : 'var(--red)';
-  const ddColor = s.ddPct > 5 ? 'var(--red)' : s.ddPct > 2 ? 'var(--orange)' : 'var(--muted)';
   const wr = s.tp + s.sl > 0 ? s.wr.toFixed(0) + '%' : '–';
   const racha = s.currentSlStreak >= 3 ? `🔴 ${s.currentSlStreak} SL`
               : s.currentSlStreak === 2 ? `🟡 2 SL`
@@ -297,10 +296,11 @@ function card(c) {
           <span class="cc-label">Coste</span>
           <span class="cc-value" style="color:var(--muted);">${fmtUsd(c.cost)}</span>
         </div>` : ''}
+        ${s.ddLimitUsd > 0 ? `
         <div class="cc-row">
-          <span class="cc-label">DD máx</span>
-          <span class="cc-value" style="color:${ddColor};">-${s.ddPct.toFixed(2)}% (${fmtUsd(s.ddUsd)})</span>
-        </div>
+          <span class="cc-label">DD máx (firma)</span>
+          <span class="cc-value">${fmtUsd(s.ddLimitUsd)}${s.ddLimitPctOfCapital ? ` <span style="font-size:10px;opacity:.7;">(${s.ddLimitPctOfCapital.toFixed(1)}%)</span>` : ''}</span>
+        </div>` : ''}
         <div class="cc-row">
           <span class="cc-label">Trades</span>
           <span class="cc-value">${s.count} · ${wr} WR · ${racha}</span>

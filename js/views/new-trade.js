@@ -53,6 +53,7 @@ function init(sheet) {
     pips: '',
     pnl_pct: '',
     risk_real_pct: '1',
+    plan_followed: null,
     sensacion: '',
     url1: '',
     url2: '',
@@ -125,7 +126,12 @@ function renderForm(wrap, sheet, data, getter) {
       </div>
 
       <div class="form-field">
-        <label class="form-label">Sensación <span class="required">*</span></label>
+        <label class="form-label">¿Has seguido el plan? <span class="required">*</span></label>
+        <div data-field="plan_followed"></div>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">Sensación al ejecutar <span class="required">*</span></label>
         <div data-field="sensacion"></div>
       </div>
 
@@ -183,6 +189,15 @@ function renderForm(wrap, sheet, data, getter) {
     name: 'sensacion', options: SENS_OPTIONS, value: data.sensacion,
     variant: 'sens',
     onChange: v => data.sensacion = v,
+  });
+  renderPills(wrap.querySelector('[data-field="plan_followed"]'), {
+    name: 'plan_followed',
+    options: [
+      { value: 'yes', label: '✓ Sí' },
+      { value: 'no',  label: '✗ No' },
+    ],
+    value: data.plan_followed === true ? 'yes' : data.plan_followed === false ? 'no' : '',
+    onChange: v => { data.plan_followed = v === 'yes' ? true : v === 'no' ? false : null; },
   });
 
   // Inputs
@@ -272,6 +287,9 @@ function validate(sheet, data) {
   const pnl = parseFloat(data.pnl_pct);
   if (data.pnl_pct === '' || isNaN(pnl)) errs.push({ field: 'pnl_pct', msg: '% P&L numérico obligatorio' });
   if (!data.sensacion) errs.push({ field: 'sensacion', msg: 'Selecciona la sensación' });
+  if (data.plan_followed !== true && data.plan_followed !== false) {
+    errs.push({ field: 'plan_followed', msg: 'Indica si has seguido el plan (Sí o No)' });
+  }
   return errs;
 }
 
@@ -297,6 +315,7 @@ function buildTrade(sheet, data) {
     rr: data.rr ? parseFloat(data.rr) : null,
     pips: data.pips ? parseFloat(data.pips) : null,
     sensacion: data.sensacion,
+    plan_followed: data.plan_followed === true || data.plan_followed === false ? data.plan_followed : null,
     url1: data.url1 || '',
     url2: data.url2 || '',
     reflexion: data.reflexion || '',
@@ -328,7 +347,8 @@ function confirmBody(t) {
       <dt>% P&L sistema</dt><dd><strong style="color:${t.result === 'TP' ? 'var(--green)' : t.result === 'SL' ? 'var(--red)' : 'var(--orange)'};">${fmtPct(t.pnl_pct)}</strong> · <span class="res-pill res-${t.result.toLowerCase()}">${t.result}</span></dd>
       <dt>Riesgo real</dt><dd>${fmtPct(t.risk_real_pct)}</dd>
       <dt>% P&L real</dt><dd><strong style="color:${t.result === 'TP' ? 'var(--green)' : t.result === 'SL' ? 'var(--red)' : 'var(--orange)'};">${fmtPct(t.pnl_pct * t.risk_real_pct)}</strong></dd>
-      <dt>Sensación</dt><dd><span class="sens-pill" data-s="${t.sensacion}">${t.sensacion}</span></dd>
+      <dt>Sensación al ejecutar</dt><dd><span class="sens-pill" data-s="${t.sensacion}">${t.sensacion}</span></dd>
+      ${t.plan_followed === true ? '<dt>Plan</dt><dd><span style="color:var(--green);">✓ Seguido</span></dd>' : t.plan_followed === false ? '<dt>Plan</dt><dd><span style="color:var(--red);">✗ Fuera de plan</span></dd>' : ''}
       ${cuentasLine}
       ${t.reflexion ? `<dt>Reflexión</dt><dd style="white-space:pre-wrap;">${t.reflexion}</dd>` : ''}
     </dl>

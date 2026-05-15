@@ -95,7 +95,8 @@ function render(container) {
                 <th>Setup</th>
                 <th>Zona</th>
                 <th>Entrada</th>
-                <th>Sensación</th>
+                <th>Sens. al ejecutar</th>
+                <th>Plan</th>
                 <th>% P&L sist.</th>
                 <th>Riesgo real</th>
                 <th>RR</th>
@@ -174,6 +175,13 @@ function renderRow(t) {
           ${SENS_OPTIONS.map(s => `<option value="${escAttr(s)}" ${t.sensacion === s ? 'selected' : ''}>${escHtml(s)}</option>`).join('')}
         </select>
       </td>
+      <td>
+        <select data-field="plan_followed">
+          <option value=""    ${t.plan_followed == null ? 'selected' : ''}>—</option>
+          <option value="yes" ${t.plan_followed === true ? 'selected' : ''}>✓ Sí</option>
+          <option value="no"  ${t.plan_followed === false ? 'selected' : ''}>✗ No</option>
+        </select>
+      </td>
       <td><input type="number" step="0.01" data-field="pnl_pct" value="${t.pnl_pct != null ? t.pnl_pct : ''}" class="td-w-70"></td>
       <td><input type="number" step="0.01" min="0" data-field="risk_real_pct" value="${t.risk_real_pct != null ? t.risk_real_pct : ''}" class="td-w-70"></td>
       <td><input type="number" step="0.1" data-field="rr" value="${t.rr != null ? t.rr : ''}" class="td-w-60"></td>
@@ -202,6 +210,11 @@ function handleCellChange(e) {
   // Parse arrays (zone, entry) — separados por coma
   if (field === 'zone' || field === 'entry') {
     value = String(value).split(',').map(s => s.trim()).filter(Boolean);
+  }
+
+  // Plan seguido: '' → null, 'yes' → true, 'no' → false
+  if (field === 'plan_followed') {
+    value = value === 'yes' ? true : value === 'no' ? false : null;
   }
 
   // Parse números

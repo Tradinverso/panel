@@ -61,7 +61,8 @@ export function openViewTradeModal(trade) {
         <dt>% P&L sistema</dt><dd><strong style="color:${resColor};">${fmtPct(trade.pnl_pct)}</strong></dd>
         <dt>Riesgo real</dt><dd>${fmtPct(risk)}</dd>
         <dt>% P&L real</dt><dd><strong style="color:${resColor};">${fmtPct(realPnl)}</strong></dd>
-        <dt>Sensación</dt><dd>${sensHtml}</dd>
+        <dt>Sensación al ejecutar</dt><dd>${sensHtml}</dd>
+        <dt>Plan seguido</dt><dd>${trade.plan_followed === true ? '<span style="color:var(--green);font-weight:600;">✓ Sí</span>' : trade.plan_followed === false ? '<span style="color:var(--red);font-weight:600;">✗ No</span>' : '<span style="color:var(--muted);">— no registrado</span>'}</dd>
         <dt>Cuentas</dt><dd>${cuentasHtml}</dd>
         <dt>Links</dt><dd>${linksHtml}</dd>
         <dt>Reflexión</dt><dd>${reflexionHtml}</dd>

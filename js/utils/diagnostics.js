@@ -11,6 +11,7 @@
 import {
   winrate, pnlPct, currentSlStreak, sortChrono, statsByGroup,
   wrByHour, longVsShort, avgRR,
+  planStats, currentInPlanStreak, currentOutOfPlanStreak,
 } from './calculations.js';
 import {
   withSensacion, groupByEmotion, sensacionStats,
@@ -141,6 +142,71 @@ export function buildAlerts(trades) {
     tecAlertas.push(danger('📉',
       `HOY ${todayPnl.toFixed(1)}% acumulado — para`,
       `Has alcanzado el límite diario de drawdown (${DAILY_DD_LIMIT}%). Cierra plataforma y revisa journaling.`));
+  }
+
+  // ── HOY: trades fuera del plan ──
+  const todayOut = todays.filter(t => t.plan_followed === false).length;
+  if (todayOut >= 2) {
+    tecAlertas.push(danger('📋',
+      `HOY ${todayOut} trades fuera del plan`,
+      `Revisa la disciplina de ejecución. Cierra plataforma si vuelve a pasar.`));
+  } else if (todayOut === 1) {
+    tecAlertas.push(warn('📋',
+      `HOY 1 trade fuera del plan`,
+      `Atento — un trade más sin plan activaría la alerta crítica.`));
+  }
+
+  // ── Últimos 7 días: más de 3 trades fuera del plan ──
+  const last7 = recentTrades(trades, 7);
+  const last7Out = last7.filter(t => t.plan_followed === false).length;
+  if (last7Out > 3) {
+    tecAlertas.push(danger('📋',
+      `Últimos 7 días: ${last7Out} trades fuera del plan`,
+      `Patrón problemático — revisa tu disciplina antes de seguir operando.`));
+  }
+
+  // ── Racha activa fuera del plan (siempre visible si ≥1; color escala) ──
+  const outStreak = currentOutOfPlanStreak(trades);
+  if (outStreak >= 3) {
+    tecAlertas.push(danger('🚫',
+      `Racha activa: ${outStreak} trades seguidos fuera del plan`,
+      `Para. Vuelve al journaling y revisa qué está pasando antes del siguiente trade.`));
+  } else if (outStreak === 2) {
+    tecAlertas.push(warn('🚫',
+      `Racha activa: 2 trades seguidos fuera del plan`,
+      `Un trade más y se activa la alerta crítica.`));
+  } else if (outStreak === 1) {
+    tecAlertas.push(warn('🚫',
+      `Racha activa: 1 trade fuera del plan`,
+      `Recuerda: la disciplina es lo que marca la diferencia.`));
+  }
+
+  // ── Racha activa DENTRO del plan (siempre visible si ≥1; verde si ≥5) ──
+  const inStreak = currentInPlanStreak(trades);
+  if (inStreak >= 5) {
+    tecInsights.push(success('✅',
+      `Racha activa: ${inStreak} trades seguidos dentro del plan`,
+      `Disciplina excelente — mantén el ritmo.`));
+  } else if (inStreak >= 1) {
+    tecInsights.push(success('🟢',
+      `Racha activa: ${inStreak} trade${inStreak > 1 ? 's' : ''} dentro del plan`,
+      inStreak >= 3
+        ? `Vas por buen camino — apunta a los 5 seguidos.`
+        : `Sigue ejecutando con disciplina.`));
+  }
+
+  // ── Insight global de % en plan (necesita ≥10 trades marcados) ──
+  const ps = planStats(trades);
+  if (ps.total >= 10) {
+    if (ps.pctInPlan >= 80) {
+      tecInsights.push(success('📋',
+        `${ps.pctInPlan.toFixed(0)}% de trades dentro del plan`,
+        `${ps.inPlan} de ${ps.total} respetaron tu trading plan. Sigue así.`));
+    } else if (ps.pctInPlan < 60) {
+      tecAlertas.push(warn('📋',
+        `Solo ${ps.pctInPlan.toFixed(0)}% de trades dentro del plan`,
+        `${ps.outOfPlan} de ${ps.total} no siguieron el plan. Patrón a corregir.`));
+    }
   }
 
   // ── Racha de DÍAS operados negativos seguidos (activa) ──

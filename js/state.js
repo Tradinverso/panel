@@ -99,6 +99,8 @@ function sanitizeTrade(t) {
     result: t.result || deriveResult(pnl_pct),
     pnl_pct,
     risk_real_pct,
+    // ¿Se ha seguido el trading plan? true / false / null (no registrado)
+    plan_followed: (t.plan_followed === true || t.plan_followed === false) ? t.plan_followed : null,
     open_hour: t.open_hour != null ? t.open_hour : parseTime(open_str),
     open_str,
     close_str,

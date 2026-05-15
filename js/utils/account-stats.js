@@ -39,24 +39,25 @@ export function totalWithdrawn(account) {
 
 // Estadísticas completas de la cuenta.
 export function accountStats(account, allTrades) {
+  const emptyMaxDd = account?.maxDdUsd || 0;
+  const emptyCapital = account?.capital || 0;
   const empty = {
-    capital: account?.capital || 0,
-    initialBalance: account?.initialBalance || account?.capital || 0,
+    capital: emptyCapital,
+    initialBalance: account?.initialBalance || emptyCapital,
     cost: account?.cost || 0,
     targetUsd: account?.targetUsd || 0,
-    maxDdUsd: account?.maxDdUsd || 0,
+    maxDdUsd: emptyMaxDd,
     profitFromTrades: 0,
     totalWithdrawn: 0,
     netToPocket: 0,
-    equityUsd: account?.initialBalance || account?.capital || 0,
+    equityUsd: account?.initialBalance || emptyCapital,
     equityPct: 0,
     profitTotalUsd: 0,
     profitTotalPct: 0,
     targetProgressPct: 0,
-    ddUsd: 0,
-    ddPct: 0,
-    ddVsLimitPct: 0,
-    peakUsd: account?.initialBalance || account?.capital || 0,
+    // DD límite definido por la firma — fijo, NO se calcula desde trades
+    ddLimitUsd: emptyMaxDd,
+    ddLimitPctOfCapital: emptyCapital > 0 ? (emptyMaxDd / emptyCapital) * 100 : 0,
     count: 0, tp: 0, sl: 0, be: 0,
     wr: 0, pf: 0,
     currentSlStreak: 0,
@@ -105,20 +106,11 @@ export function accountStats(account, allTrades) {
   }
   const pf = losses > 0 ? wins / losses : (wins > 0 ? Infinity : 0);
 
-  // DD basado en la curva de equity (con retiros)
-  const events = buildEvents(account, items);
-  let runningEquity = initial;
-  let peak = initial;
-  let maxDD = 0;
-  for (const ev of events) {
-    runningEquity += ev.delta;
-    if (runningEquity > peak) peak = runningEquity;
-    const dd = peak - runningEquity;
-    if (dd > maxDD) maxDD = dd;
-  }
-  const ddPct = peak > 0 ? (maxDD / peak) * 100 : 0;
-  // % consumido del límite máximo de DD (si está definido)
-  const ddVsLimitPct = maxDdUsd > 0 ? (maxDD / maxDdUsd) * 100 : 0;
+  // DD límite definido por la firma — fijo, NO se calcula desde trades.
+  // El cálculo dinámico anterior daba falsos drawdowns cuando la cuenta entraba
+  // con beneficio. Ahora solo mostramos lo que la firma define como límite.
+  const ddLimitUsd = maxDdUsd;
+  const ddLimitPctOfCapital = capital > 0 ? (maxDdUsd / capital) * 100 : 0;
 
   // Racha SL actual
   const sortedTrades = sortChrono(items.map(x => x.trade));
@@ -142,10 +134,8 @@ export function accountStats(account, allTrades) {
     profitTotalUsd,
     profitTotalPct,
     targetProgressPct,
-    ddUsd: maxDD,
-    ddPct,
-    ddVsLimitPct,
-    peakUsd: peak,
+    ddLimitUsd,
+    ddLimitPctOfCapital,
     count: items.length, tp, sl, be,
     wr, pf,
     currentSlStreak: curSL,

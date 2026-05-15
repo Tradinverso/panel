@@ -93,10 +93,10 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
             </div>
           </div>
           <div class="form-field">
-            <label class="form-label">Max DD permitido ($)</label>
-            <input class="form-input" type="number" step="100" id="ce-maxdd" value="${esc(data.maxDdUsd)}" placeholder="ej. 5000">
+            <label class="form-label">DD máximo permitido por la firma ($)</label>
+            <input class="form-input" type="number" step="100" id="ce-maxdd" value="${esc(data.maxDdUsd)}" placeholder="ej. 8000">
             <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:4px;line-height:1.5;">
-              Drawdown máximo en $ antes de perder la cuenta. Opcional.
+              Límite fijo en $ que define la prop firm (ej. en CFD un 8% sobre el capital nominal, en futuros el DD trailing que te marquen). Opcional.
             </div>
           </div>
         </div>

@@ -27,6 +27,7 @@ export function openEditTradeModal(trade) {
     pips: trade.pips != null ? String(trade.pips) : '',
     pnl_pct: trade.pnl_pct != null ? String(trade.pnl_pct) : '',
     risk_real_pct: trade.risk_real_pct != null ? String(trade.risk_real_pct) : '1',
+    plan_followed: trade.plan_followed === true || trade.plan_followed === false ? trade.plan_followed : null,
     sensacion: trade.sensacion || '',
     url1: trade.url1 || '',
     url2: trade.url2 || '',
@@ -109,7 +110,12 @@ export function openEditTradeModal(trade) {
         </div>
 
         <div class="form-field">
-          <label class="form-label">Sensación</label>
+          <label class="form-label">¿Has seguido el plan? <span class="required">*</span></label>
+          <div data-field="plan_followed"></div>
+        </div>
+
+        <div class="form-field">
+          <label class="form-label">Sensación al ejecutar</label>
           <div data-field="sensacion"></div>
         </div>
 
@@ -185,6 +191,17 @@ export function openEditTradeModal(trade) {
       onChange: v => data.sensacion = v,
     });
 
+    const planEl = root.querySelector('[data-field="plan_followed"]');
+    if (planEl) renderPills(planEl, {
+      name: 'plan_followed',
+      options: [
+        { value: 'yes', label: '✓ Sí' },
+        { value: 'no',  label: '✗ No' },
+      ],
+      value: data.plan_followed === true ? 'yes' : data.plan_followed === false ? 'no' : '',
+      onChange: v => { data.plan_followed = v === 'yes' ? true : v === 'no' ? false : null; },
+    });
+
     // Inputs (sincronización bidireccional con `data`)
     root.querySelectorAll('[data-input]').forEach(el => {
       el.addEventListener('input', () => {
@@ -227,6 +244,7 @@ function doSave(trade, data, close) {
   if (data.pnl_pct === '' || isNaN(pnl)) return showErr('El % P&L tiene que ser un número.');
   if (!data.date) return showErr('Falta la fecha.');
   if (!data.setup) return showErr('Falta el setup (LONG o SHORT).');
+  if (data.plan_followed !== true && data.plan_followed !== false) return showErr('Indica si has seguido el plan (Sí o No).');
 
   const pnl_pct = +pnl.toFixed(4);
   const result = pnl_pct > 0.2 ? 'TP' : pnl_pct < -0.2 ? 'SL' : 'BE';
@@ -249,6 +267,7 @@ function doSave(trade, data, close) {
     rr: data.rr ? parseFloat(data.rr) : null,
     pips: data.pips ? parseFloat(data.pips) : null,
     sensacion: data.sensacion || '',
+    plan_followed: data.plan_followed === true || data.plan_followed === false ? data.plan_followed : null,
     url1: data.url1 || '',
     url2: data.url2 || '',
     reflexion: data.reflexion || '',

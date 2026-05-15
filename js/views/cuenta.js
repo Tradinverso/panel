@@ -63,8 +63,7 @@ function render(container, cuentaId) {
       ${kpiCard({ label: 'Equity actual', value: fmtUsd(s.equityUsd), sub: signedPct(s.equityPct) + ' vs capital', tone: s.equityPct >= 0 ? 'green' : 'red' })}
       ${kpiCard({ label: 'Profit total', value: fmtUsd(s.profitTotalUsd, true), sub: signedPct(s.profitTotalPct), tone: s.profitTotalUsd >= 0 ? 'green' : 'red' })}
       ${s.targetUsd > 0 ? kpiCard({ label: 'Target', value: fmtUsd(s.targetUsd), sub: signedPct(s.targetProgressPct, 0) + ' completado', tone: s.targetProgressPct >= 100 ? 'green' : 'orange' }) : ''}
-      ${s.maxDdUsd > 0 ? kpiCard({ label: 'Max DD permitido', value: fmtUsd(s.maxDdUsd), sub: s.ddVsLimitPct.toFixed(0) + '% consumido', tone: s.ddVsLimitPct >= 80 ? 'red' : s.ddVsLimitPct >= 50 ? 'orange' : 'green' }) : ''}
-      ${kpiCard({ label: 'DD máximo', value: '-' + s.ddPct.toFixed(2) + '%', sub: '-' + fmtUsd(s.ddUsd), tone: 'red' })}
+      ${s.ddLimitUsd > 0 ? kpiCard({ label: 'DD máx (firma)', value: fmtUsd(s.ddLimitUsd), sub: s.ddLimitPctOfCapital ? s.ddLimitPctOfCapital.toFixed(1) + '% del capital nominal' : 'límite definido por la firma', tone: 'orange' }) : ''}
       ${isFondeada ? kpiCard({ label: 'Total retirado', value: fmtUsd(s.totalWithdrawn), sub: (cuenta.withdrawals || []).length + ' retiros', tone: 'purple' }) : ''}
       ${kpiCard({ label: 'Trades', value: s.count, sub: `${s.tp} TP · ${s.sl} SL · ${s.be} BE`, tone: 'orange' })}
       ${kpiCard({ label: 'Winrate', value: (s.tp + s.sl > 0 ? s.wr.toFixed(0) + '%' : '–'), sub: 'TP / (TP+SL)', tone: 'orange' })}
@@ -310,20 +309,11 @@ function renderProgressBars(s) {
       </div>
     `);
   }
-  if (s.maxDdUsd > 0) {
-    const pct = Math.max(0, Math.min(100, s.ddVsLimitPct));
-    const color = s.ddVsLimitPct >= 80 ? 'var(--red)' : s.ddVsLimitPct >= 50 ? 'var(--orange)' : 'var(--green)';
-    bars.push(`
-      <div class="prog-row">
-        <div class="prog-head">
-          <span><strong>🛑 Max DD</strong> · ${fmtUsd(s.ddUsd)} consumido de ${fmtUsd(s.maxDdUsd)}</span>
-          <span style="color:${color};font-weight:600;">${s.ddVsLimitPct.toFixed(0)}%</span>
-        </div>
-        <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${color};"></div></div>
-      </div>
-    `);
-  }
-  return `<div class="card" style="margin-bottom:24px;"><div class="card-title">Progreso</div><div class="card-sub">Avance hacia los límites de la cuenta</div>${bars.join('')}</div>`;
+  // DD máximo ya no se muestra como progreso "consumido" — la firma lo define como límite fijo
+  // y no calculamos cuánto has consumido para evitar falsos drawdowns. Solo aparece como KPI arriba.
+  return bars.length
+    ? `<div class="card" style="margin-bottom:24px;"><div class="card-title">Progreso</div><div class="card-sub">Avance hacia los límites de la cuenta</div>${bars.join('')}</div>`
+    : '';
 }
 
 function esc(s) {
