@@ -6,6 +6,7 @@ import { router } from '../router.js';
 import { TODAS as SENS_OPTIONS } from '../utils/sensaciones.js';
 import { parseTime, durationMinutes, formatDateEs } from '../utils/date-helpers.js';
 import { fmtPct } from '../utils/number-format-es.js';
+import { fmtUsd } from '../utils/account-stats.js';
 import { STRATEGIES as STRAT_META } from '../utils/strategy-config.js';
 
 export function newTradeView(container) {
@@ -226,12 +227,6 @@ function renderForm(wrap, sheet, data, getter) {
     });
   }
 
-  // Al cambiar el % P&L del trade, refrescar los USD de las cuentas asignadas
-  const pnlPctInp = wrap.querySelector('[data-input="pnl_pct"]');
-  if (pnlPctInp && ca) {
-    pnlPctInp.addEventListener('input', () => ca.refresh());
-  }
-
   // Actions
   wrap.querySelector('#cancelBtn').addEventListener('click', () => router.go('#/dashboard'));
   wrap.querySelector('#saveBtn').addEventListener('click', () => attemptSave(sheet, data, wrap));
@@ -329,8 +324,11 @@ function confirmBody(t) {
   if (Array.isArray(t.accounts) && t.accounts.length) {
     const lines = t.accounts.map(a => {
       const c = state.cuentas.find(x => x.id === a.accountId);
-      if (!c) return `${a.accountId.substring(0, 6)}… (no encontrada) · ${a.riskPct}%`;
-      return `${c.empresa} ${capShort(c.capital)}${c.numero ? ' #' + c.numero : ''} · ${a.riskPct}%`;
+      const usd = typeof a.usdPnl === 'number' ? a.usdPnl : 0;
+      const usdColor = usd > 0 ? 'var(--green)' : usd < 0 ? 'var(--red)' : 'var(--muted)';
+      const usdStr = `<strong style="color:${usdColor};">${fmtUsd(usd, true)}</strong>`;
+      if (!c) return `${a.accountId.substring(0, 6)}… (no encontrada) · ${usdStr}`;
+      return `${c.empresa} ${capShort(c.capital)}${c.numero ? ' #' + c.numero : ''} · ${usdStr}`;
     });
     cuentasLine = `<dt>Cuentas</dt><dd>${lines.join('<br>')}</dd>`;
   }

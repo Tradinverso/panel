@@ -2,7 +2,7 @@
 // para mostrar el resumen del día / semana / mes al lado de cada reflexión.
 
 import { tradeCounts, winrate, pnlPct, pnlPctReal } from './calculations.js';
-import { computeUsdPnl } from './account-stats.js';
+import { accountUsd } from './account-stats.js';
 
 // Suma del USD del trade sumando solo cuentas FONDEADAS (criterio consistente
 // con el calendario: el dinero real solo cuenta en cuentas en fase 'fondeada').
@@ -12,7 +12,7 @@ function usdFundedFor(trade, cuentaMap) {
   for (const a of trade.accounts) {
     const c = cuentaMap.get(a.accountId);
     if (c && c.fase === 'fondeada') {
-      sum += computeUsdPnl(trade.pnl_pct, a.riskPct, c.capital);
+      sum += accountUsd(trade, a, c.capital);
     }
   }
   return sum;

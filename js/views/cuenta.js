@@ -196,13 +196,12 @@ function renderAccountTradesTable(items, cuenta) {
           <th>Activo</th>
           <th>Setup</th>
           <th>Zona</th>
-          <th>Riesgo</th>
           <th>% sistema</th>
           <th>$ P&L</th>
           <th>Resultado</th>
         </tr></thead>
         <tbody>
-          ${sorted.map(({ trade: t, riskPct, usdPnl }) => {
+          ${sorted.map(({ trade: t, usdPnl }) => {
             const pctColor = t.pnl_pct >= 0 ? 'var(--green)' : 'var(--red)';
             const usdColor = usdPnl >= 0 ? 'var(--green)' : 'var(--red)';
             return `<tr>
@@ -212,7 +211,6 @@ function renderAccountTradesTable(items, cuenta) {
               <td>${t.pair || '–'}</td>
               <td>${t.setup || '–'}</td>
               <td>${(Array.isArray(t.zone) ? t.zone.join(' · ') : t.zone) || '–'}</td>
-              <td style="font-family:var(--mono);font-size:12px;color:var(--muted);">${riskPct}%</td>
               <td style="color:${pctColor};">${t.pnl_pct >= 0 ? '+' : ''}${t.pnl_pct.toFixed(2)}%</td>
               <td style="color:${usdColor};font-weight:500;">${fmtUsd(usdPnl, true)}</td>
               <td><span class="res-pill res-${t.result.toLowerCase()}">${t.result}</span></td>

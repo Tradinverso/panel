@@ -1,7 +1,11 @@
-// Cálculos por cuenta. Convierten el % del sistema (asumiendo 1% de riesgo)
-// a importes reales en USD según capital y riesgo asignado por cuenta.
+// Cálculos por cuenta.
 //
-//   $ P&L (trade en cuenta) = pnl_pct × riskPct × capital / 100
+// Cada asignación de trade-a-cuenta persiste el $ P&L directamente:
+//   t.accounts = [{accountId, usdPnl}]
+//
+// Trades antiguos (legacy) persistían un factor de escala `riskPct` y el USD
+// se derivaba con: USD = pnl_pct × riskPct × capital / 100. Mantenemos ese
+// fallback en `accountUsd()` para que los trades históricos sigan computando.
 //
 // Equity = initialBalance + Σ trades − Σ retiros
 //
@@ -11,7 +15,17 @@
 
 import { sortChrono } from './calculations.js';
 
-// Devuelve [{ trade, riskPct, usdPnl }] solo de los trades asignados a esta cuenta.
+// USD del trade en esta cuenta. Prioriza `usdPnl` (modelo nuevo); si no existe
+// deriva del `riskPct` legacy.
+export function accountUsd(trade, assignment, capital) {
+  if (!assignment) return 0;
+  if (typeof assignment.usdPnl === 'number' && isFinite(assignment.usdPnl)) {
+    return assignment.usdPnl;
+  }
+  return computeUsdPnl(trade.pnl_pct, assignment.riskPct, capital);
+}
+
+// Devuelve [{ trade, usdPnl }] solo de los trades asignados a esta cuenta.
 export function tradesForAccount(account, allTrades) {
   if (!account || !Array.isArray(allTrades)) return [];
   const out = [];
@@ -19,12 +33,14 @@ export function tradesForAccount(account, allTrades) {
     if (!Array.isArray(t.accounts)) continue;
     const a = t.accounts.find(x => x.accountId === account.id);
     if (!a) continue;
-    const usdPnl = computeUsdPnl(t.pnl_pct, a.riskPct, account.capital);
-    out.push({ trade: t, riskPct: a.riskPct, usdPnl });
+    const usdPnl = accountUsd(t, a, account.capital);
+    out.push({ trade: t, usdPnl });
   }
   return out;
 }
 
+// Legacy: USD = pnl_pct × riskPct × capital / 100. Solo se usa como fallback
+// para trades antiguos que no tienen `usdPnl` persistido.
 export function computeUsdPnl(pnl_pct, riskPct, capital) {
   if (pnl_pct == null || isNaN(pnl_pct)) return 0;
   if (riskPct == null || isNaN(riskPct)) return 0;

@@ -226,11 +226,6 @@ export function openEditTradeModal(trade) {
         },
       });
     }
-    // Al cambiar el % P&L del trade, refrescar los USD de las cuentas asignadas
-    const pnlPctInpEdit = root.querySelector('[data-input="pnl_pct"]');
-    if (pnlPctInpEdit && caEdit) {
-      pnlPctInpEdit.addEventListener('input', () => caEdit.refresh());
-    }
   }, 0);
 }
 

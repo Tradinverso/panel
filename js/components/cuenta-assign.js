@@ -1,43 +1,54 @@
 // Sub-componente reutilizable: "asignar trade a una o varias cuentas".
 // Usado en new-trade.js y trade-edit-modal.js.
 //
+// Modelo: cada asignación guarda el $ P&L directamente — el usuario solo
+// introduce dólares, no porcentajes. Los trades legacy (con `riskPct` en vez
+// de `usdPnl`) se migran al USD equivalente la primera vez que se editan.
+//
 // renderCuentaAssign(container, initial, onChange, opts) → { get, refresh }
 //   - container: DOM element donde renderizar
-//   - initial: array [{accountId, riskPct}] (puede estar vacío)
+//   - initial: array [{accountId, usdPnl}] o legacy [{accountId, riskPct}]
 //   - onChange: callback(currentArray) cada vez que cambia
 //   - opts.getDefaultRisk: () => number — riesgo % a usar al añadir cuenta
-//   - opts.getPnlPct: () => number — pnl_pct actual del trade (para calcular USD)
+//     (se aplica como factor para calcular el USD inicial usando el pnl_pct
+//     actual del trade)
+//   - opts.getPnlPct: () => number — pnl_pct actual del trade. Solo se usa
+//     para calcular el USD inicial al AÑADIR una cuenta y para migrar
+//     asignaciones legacy. NO se recalcula al cambiar pnl_pct: el USD que
+//     introduce el usuario queda congelado.
 //   - return.get(): devuelve el array actual
-//   - return.refresh(): re-pinta (útil cuando cambia pnl_pct externamente)
+//   - return.refresh(): re-pinta (útil al añadir/quitar cuentas)
 
 import { state } from '../state.js';
 
 export function renderCuentaAssign(container, initial = [], onChange = () => {}, opts = {}) {
-  // Mantenemos una copia mutable
-  let assigned = (Array.isArray(initial) ? initial : [])
-    .filter(a => a && a.accountId)
-    .map(a => ({
-      accountId: a.accountId,
-      riskPct: a.riskPct || 1.0,
-    }));
-
   function currentPnlPct() {
     if (typeof opts.getPnlPct !== 'function') return 0;
     const v = opts.getPnlPct();
     return typeof v === 'number' && isFinite(v) ? v : 0;
   }
 
-  // USD = pnl_pct × riskPct × capital / 100
-  function computeUsd(pnlPct, riskPct, capital) {
-    if (!isFinite(pnlPct) || !isFinite(riskPct) || !isFinite(capital)) return 0;
-    return pnlPct * riskPct * capital / 100;
+  // Normaliza la entrada: si viene `usdPnl` lo usa; si solo viene `riskPct`
+  // (formato legacy) deriva el USD equivalente con el pnl_pct actual.
+  function normalize(arr) {
+    const cuentas = state.cuentas || [];
+    const pnlPct = currentPnlPct();
+    return (Array.isArray(arr) ? arr : [])
+      .filter(a => a && a.accountId)
+      .map(a => {
+        if (typeof a.usdPnl === 'number' && isFinite(a.usdPnl)) {
+          return { accountId: a.accountId, usdPnl: a.usdPnl };
+        }
+        // Legacy: deriva USD desde riskPct
+        const c = cuentas.find(x => x.id === a.accountId);
+        const cap = c ? c.capital : 0;
+        const riskPct = typeof a.riskPct === 'number' ? a.riskPct : 1;
+        const usd = pnlPct * riskPct * cap / 100;
+        return { accountId: a.accountId, usdPnl: +usd.toFixed(2) };
+      });
   }
-  // riskPct = USD × 100 / (pnl_pct × capital)
-  function computeRiskFromUsd(usd, pnlPct, capital) {
-    if (!isFinite(usd) || !isFinite(pnlPct) || !isFinite(capital)) return NaN;
-    if (pnlPct === 0 || capital === 0) return NaN;
-    return usd * 100 / (pnlPct * capital);
-  }
+
+  let assigned = normalize(initial);
 
   function fmtUsdValue(v) {
     if (!isFinite(v)) return '';
@@ -48,8 +59,6 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {},
     const cuentas = state.cuentas || [];
     const activas = cuentas.filter(c => c.status === 'activa');
     const noCuentas = cuentas.length === 0;
-    const pnlPct = currentPnlPct();
-    const usdDisabled = pnlPct === 0;
 
     if (noCuentas) {
       container.innerHTML = `
@@ -62,7 +71,6 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {},
       return;
     }
 
-    // IDs ya asignados (para excluir del desplegable)
     const usedIds = new Set(assigned.map(a => a.accountId));
     const disponibles = activas.filter(c => !usedIds.has(c.id));
 
@@ -80,20 +88,11 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {},
               <button type="button" class="ca-x" data-remove="${i}">×</button>
             </div>`;
           }
-          const usd = computeUsd(pnlPct, a.riskPct, c.capital);
-          const usdAttrs = usdDisabled
-            ? 'disabled title="Introduce el % P&L del trade primero"'
-            : '';
           return `<div class="ca-row">
             <span class="ca-label">${esc(c.empresa)} ${capShort(c.capital)} <span class="ca-meta">${c.numero ? '#' + esc(c.numero) : ''}</span></span>
-            <span class="ca-risk">
-              Riesgo
-              <input type="number" step="0.01" min="0" max="100" value="${a.riskPct}" data-risk="${i}" class="ca-risk-input">
-              %
-            </span>
             <span class="ca-usd">
               P&L
-              <input type="number" step="0.01" value="${usdDisabled ? '' : fmtUsdValue(usd)}" data-usd="${i}" class="ca-usd-input" ${usdAttrs}>
+              <input type="number" step="0.01" value="${fmtUsdValue(a.usdPnl)}" data-usd="${i}" class="ca-usd-input">
               $
             </span>
             <button type="button" class="ca-x" data-remove="${i}" title="Quitar">×</button>
@@ -122,42 +121,14 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {},
       });
     });
 
-    // Wire: input % riesgo → recalcula USD
-    container.querySelectorAll('[data-risk]').forEach(inp => {
-      inp.addEventListener('input', () => {
-        const i = parseInt(inp.dataset.risk, 10);
-        const v = parseFloat(inp.value);
-        if (!isNaN(v) && v >= 0 && v <= 100) {
-          assigned[i].riskPct = v;
-          onChange(currentArray());
-          // Sincronizar el input USD de esa fila
-          const c = state.cuentas.find(x => x.id === assigned[i].accountId);
-          if (c && !usdDisabled) {
-            const usdInp = container.querySelector(`[data-usd="${i}"]`);
-            if (usdInp) usdInp.value = fmtUsdValue(computeUsd(pnlPct, v, c.capital));
-          }
-        }
-      });
-    });
-
-    // Wire: input USD → recalcula riesgo %
+    // Wire: input USD → guarda el valor introducido tal cual
     container.querySelectorAll('[data-usd]').forEach(inp => {
       inp.addEventListener('input', () => {
-        if (usdDisabled) return;
         const i = parseInt(inp.dataset.usd, 10);
         const usd = parseFloat(inp.value);
         if (isNaN(usd)) return;
-        const c = state.cuentas.find(x => x.id === assigned[i].accountId);
-        if (!c) return;
-        const newRisk = computeRiskFromUsd(usd, pnlPct, c.capital);
-        if (!isFinite(newRisk) || newRisk < 0) return;
-        // Permitimos cualquier valor (incluso > 100) — el usuario sabrá si es absurdo.
-        const newRiskRounded = +newRisk.toFixed(4);
-        assigned[i].riskPct = newRiskRounded;
+        assigned[i].usdPnl = +usd.toFixed(2);
         onChange(currentArray());
-        // Sincronizar el input % de esa fila
-        const riskInp = container.querySelector(`[data-risk="${i}"]`);
-        if (riskInp) riskInp.value = newRiskRounded;
       });
     });
 
@@ -168,9 +139,13 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {},
         if (!id) return;
         const c = cuentas.find(x => x.id === id);
         if (!c) return;
+        // USD inicial: aplicamos el riesgo nominal default sobre el pnl_pct.
+        // Si pnl_pct=0 (BE) o no se ha introducido aún, sale 0 — el usuario lo edita.
         const def = typeof opts.getDefaultRisk === 'function' ? opts.getDefaultRisk() : 1;
         const risk = isFinite(def) && def > 0 ? def : 1;
-        assigned.push({ accountId: id, riskPct: risk });
+        const pnlPct = currentPnlPct();
+        const usd = +(pnlPct * risk * (c.capital || 0) / 100).toFixed(2);
+        assigned.push({ accountId: id, usdPnl: usd });
         onChange(currentArray());
         paint();
       });
@@ -180,7 +155,7 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {},
   function currentArray() {
     return assigned.map(a => ({
       accountId: a.accountId,
-      riskPct: a.riskPct,
+      usdPnl: a.usdPnl,
     }));
   }
 

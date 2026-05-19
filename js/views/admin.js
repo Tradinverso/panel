@@ -260,6 +260,16 @@ function paintStudents(container, students) {
       }
     });
   });
+
+  // Eliminar alumno (soft delete: marca profile.blocked).
+  content.querySelectorAll('[data-delete-uid]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const uid = btn.dataset.deleteUid;
+      const stu = students.find(s => s.uid === uid);
+      if (!stu) return;
+      openDeleteStudentModal(container, stu);
+    });
+  });
 }
 
 function escAttr(s) {
@@ -333,11 +343,12 @@ function row(s) {
       </td>
       <td style="color:${pnlMonthColor};font-weight:500;">${monthTrades.length ? fmtPct(pnlMonth, 1) : '–'}</td>
       <td style="color:${slColor};font-family:var(--mono);font-weight:500;">${streak > 0 ? streak + ' SL' : '–'}</td>
-      <td style="text-align:right;">
+      <td style="text-align:right;white-space:nowrap;">
         ${isViewing
           ? '<span class="badge st-activa">👁 viendo ahora</span>'
           : `<button class="btn primary" data-view-uid="${s.uid}" style="padding:6px 12px;font-size:11px;">Ver dashboard →</button>`
         }
+        <button class="btn" data-delete-uid="${s.uid}" title="Eliminar alumno (bloquear acceso)" style="padding:6px 9px;font-size:13px;margin-left:6px;color:var(--red);">🗑</button>
       </td>
     </tr>
   `;
@@ -412,6 +423,68 @@ function openCreateStudentModal(container) {
 function showErr(el, msg) {
   el.textContent = '⚠ ' + msg;
   el.style.display = 'flex';
+}
+
+function openDeleteStudentModal(adminContainer, stu) {
+  const nombre = stu.profile?.nombre || '';
+  const email = stu.profile?.email || '';
+  const expected = email.trim().toLowerCase();
+  const tradeCount = stu.trades?.length || 0;
+
+  openModal({
+    title: 'Eliminar alumno',
+    body: `
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div style="padding:12px 14px;background:var(--red-bg);border:1px solid rgba(255,71,87,0.4);border-radius:8px;font-size:13px;line-height:1.5;">
+          Vas a eliminar a <strong>${escapeHtml(nombre || email)}</strong>
+          ${nombre ? `<span style="color:var(--muted);">(${escapeHtml(email)})</span>` : ''}
+          de la app. No volverá a aparecer en la lista y <strong>no podrá entrar</strong>.
+        </div>
+        <div style="font-size:12px;color:var(--muted);font-family:var(--mono);line-height:1.6;">
+          Sus datos (${tradeCount} trade${tradeCount === 1 ? '' : 's'}, cuentas, reflexiones) <strong>se conservan</strong> en Firebase por si lo necesitas recuperar.
+          Para desbloquearlo: en la consola de Firebase, en <code>users/{uid}/profile/data</code>, cambia <code>blocked</code> a <code>false</code>.
+        </div>
+        <div class="form-field">
+          <label class="form-label">Escribe el email del alumno para confirmar</label>
+          <input class="form-input" type="text" id="deleteConfirmInp" placeholder="${escAttr(email)}" autocomplete="off">
+        </div>
+        <div id="deleteErr" class="auth-error" style="display:none;"></div>
+      </div>
+    `,
+    actions: [
+      { label: 'Cancelar', onClick: close => close() },
+      {
+        label: 'Eliminar',
+        variant: 'danger',
+        onClick: async close => {
+          const root = document.getElementById('modal-root');
+          const inp = root.querySelector('#deleteConfirmInp');
+          const errEl = root.querySelector('#deleteErr');
+          const typed = (inp?.value || '').trim().toLowerCase();
+          if (typed !== expected) {
+            errEl.textContent = '⚠ El email no coincide.';
+            errEl.style.display = 'flex';
+            return;
+          }
+          errEl.style.display = 'none';
+          try {
+            // Si el admin está viendo a este alumno ahora mismo, salir primero.
+            if (state.viewAsUid === stu.uid) {
+              await state.exitViewAs();
+            }
+            await sync.blockStudent(stu.uid);
+            close();
+            cache = null;
+            render(adminContainer);
+          } catch (err) {
+            console.error('No se pudo eliminar el alumno:', err);
+            errEl.textContent = '⚠ Error: ' + (err.message || String(err));
+            errEl.style.display = 'flex';
+          }
+        },
+      },
+    ],
+  });
 }
 
 function openRestoreModal(adminContainer) {

@@ -8,6 +8,7 @@ import { state } from '../state.js';
 import { fmtPct } from '../utils/number-format-es.js';
 import { formatDateEs } from '../utils/date-helpers.js';
 import { STRATEGIES } from '../utils/strategy-config.js';
+import { accountUsd, fmtUsd } from '../utils/account-stats.js';
 
 const STRAT_LABEL = { ZONAS: 'Zonas', LIQUIDEZ: 'Liquidez', NASDAQ: 'Nasdaq' };
 
@@ -20,8 +21,11 @@ export function openViewTradeModal(trade) {
   const cuentasHtml = (Array.isArray(trade.accounts) && trade.accounts.length)
     ? trade.accounts.map(a => {
         const c = state.cuentas.find(x => x.id === a.accountId);
-        if (!c) return `<div>${escapeHtml(a.accountId.substring(0, 8))}… · ${a.riskPct}%</div>`;
-        return `<div>${escapeHtml(c.empresa)} ${capShort(c.capital)}${c.numero ? ' #' + escapeHtml(c.numero) : ''} · ${a.riskPct}%</div>`;
+        const usd = accountUsd(trade, a, c ? c.capital : 0);
+        const usdColor = usd > 0 ? 'var(--green)' : usd < 0 ? 'var(--red)' : 'var(--muted)';
+        const usdStr = `<strong style="color:${usdColor};">${fmtUsd(usd, true)}</strong>`;
+        if (!c) return `<div>${escapeHtml(a.accountId.substring(0, 8))}… · ${usdStr}</div>`;
+        return `<div>${escapeHtml(c.empresa)} ${capShort(c.capital)}${c.numero ? ' #' + escapeHtml(c.numero) : ''} · ${usdStr}</div>`;
       }).join('')
     : '<span style="color:var(--muted);">— Sin asignar —</span>';
 

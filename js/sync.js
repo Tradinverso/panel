@@ -14,7 +14,15 @@ export const sync = {
   async loadProfile(user) {
     const ref = doc(db, 'users', user.uid, 'profile', 'data');
     const snap = await getDoc(ref);
-    if (snap.exists()) return snap.data();
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.blocked === true) {
+        const err = new Error('Cuenta bloqueada por el administrador.');
+        err.code = 'auth/account-blocked';
+        throw err;
+      }
+      return data;
+    }
     // Primer login: crear perfil con role inferido del email
     const profile = {
       email: user.email,
@@ -28,6 +36,18 @@ export const sync = {
 
   async updateProfile(uid, patch) {
     await setDoc(doc(db, 'users', uid, 'profile', 'data'), patch, { merge: true });
+  },
+
+  // Soft delete: marca el profile del alumno como bloqueado. No borra datos
+  // (trades, cuentas, reflexiones se conservan). El alumno deja de aparecer en
+  // listStudents y no puede iniciar sesión.
+  async blockStudent(uid) {
+    if (!uid) throw new Error('uid requerido');
+    await setDoc(
+      doc(db, 'users', uid, 'profile', 'data'),
+      { blocked: true, blockedAt: serverTimestamp() },
+      { merge: true }
+    );
   },
 
   // ── Config ─────────────────────────────────────────────────
@@ -156,6 +176,7 @@ export const sync = {
         if (!profileSnap.exists()) continue;
         const profile = profileSnap.data();
         if (profile.role !== 'student') continue;
+        if (profile.blocked === true) continue;
         const tradesSnap = await getDocs(collection(db, 'users', userDoc.id, 'trades'));
         const trades = tradesSnap.docs.map(d => d.data());
         result.push({ uid: userDoc.id, profile, trades });

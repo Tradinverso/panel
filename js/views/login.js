@@ -52,6 +52,13 @@ export function loginView(container) {
 
   emailEl.focus();
 
+  // Si auth.init expulsó al usuario por cuenta bloqueada, mostrar el aviso.
+  if (auth._blockedNotice) {
+    errorEl.textContent = '⚠ ' + auth._blockedNotice;
+    errorEl.style.display = 'flex';
+    auth._blockedNotice = null;
+  }
+
   function showLogin() {
     resetForm.style.display = 'none';
     form.style.display = '';

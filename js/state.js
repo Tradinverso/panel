@@ -82,15 +82,24 @@ function sanitizeTrade(t) {
   const risk_real_pct = isFinite(risk_real_raw) && risk_real_raw >= 0 ? risk_real_raw : 1;
   const open_str = t.open_str || '';
   const close_str = t.close_str || '';
-  // accounts: [{accountId, riskPct}] — el balance de la cuenta se ajusta
-  // editándola directamente; no usamos comisiones por trade.
+  // Modelo nuevo: accounts: [{accountId, usdPnl}] — el $ que entra a esa
+  // cuenta queda persistido tal cual. Trades legacy (con `riskPct` y sin
+  // `usdPnl`) se conservan intactos para que `accountUsd()` haga el fallback
+  // — se migran al editar o se siguen leyendo como antes.
   const accounts = Array.isArray(t.accounts)
     ? t.accounts
         .filter(a => a && a.accountId)
-        .map(a => ({
-          accountId: a.accountId,
-          riskPct: typeof a.riskPct === 'number' && a.riskPct > 0 ? a.riskPct : 1.0,
-        }))
+        .map(a => {
+          const out = { accountId: a.accountId };
+          if (typeof a.usdPnl === 'number' && isFinite(a.usdPnl)) {
+            out.usdPnl = a.usdPnl;
+          } else if (typeof a.riskPct === 'number' && a.riskPct > 0) {
+            out.riskPct = a.riskPct;
+          } else {
+            out.riskPct = 1.0;
+          }
+          return out;
+        })
     : [];
   return {
     id: t.id || uuid(),

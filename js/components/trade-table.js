@@ -4,6 +4,7 @@ import { sortChrono, tradeRealPnl } from '../utils/calculations.js';
 import { openModal } from './modal.js';
 import { openViewTradeModal } from './trade-view-modal.js';
 import { state } from '../state.js';
+import { accountUsd, fmtUsd } from '../utils/account-stats.js';
 
 const STRAT_LABEL = { ZONAS: 'Zonas', LIQUIDEZ: 'Liquidez', NASDAQ: 'Nasdaq' };
 const STRAT_CLS = { ZONAS: 'zonas', LIQUIDEZ: 'liquidez', NASDAQ: 'nasdaq' };
@@ -238,7 +239,8 @@ function row(t, canDelete) {
   function badgeFor(a) {
     const c = state.cuentas.find(x => x.id === a.accountId);
     const label = c ? (c.empresa.substring(0, 4).toUpperCase() + (c.capital >= 1000 ? Math.round(c.capital / 1000) + 'K' : '')) : '?';
-    const title = c ? `${c.empresa} ${c.numero || ''} · ${a.riskPct}%` : 'Cuenta no encontrada';
+    const usd = accountUsd(t, a, c ? c.capital : 0);
+    const title = c ? `${c.empresa} ${c.numero || ''} · ${fmtUsd(usd, true)}` : 'Cuenta no encontrada';
     return `<span class="acc-badge" title="${escAttr(title)}">${label}</span>`;
   }
   let cuentas;
@@ -250,7 +252,8 @@ function row(t, canDelete) {
       const extra = t.accounts.length - 1;
       const restNames = t.accounts.slice(1).map(a => {
         const cc = state.cuentas.find(x => x.id === a.accountId);
-        return cc ? `${cc.empresa} ${capShort(cc.capital)}${cc.numero ? ' #' + cc.numero : ''} · ${a.riskPct}%` : '?';
+        const usd = accountUsd(t, a, cc ? cc.capital : 0);
+        return cc ? `${cc.empresa} ${capShort(cc.capital)}${cc.numero ? ' #' + cc.numero : ''} · ${fmtUsd(usd, true)}` : '?';
       }).join('\n');
       cuentas = `${first}<span class="acc-badge acc-more" title="${escAttr(restNames)}">+${extra}</span>`;
     }

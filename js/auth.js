@@ -18,6 +18,7 @@ export const auth = {
   currentUser: null,    // FirebaseUser | null
   profile: null,        // { email, nombre, role, createdAt } | null
   ready: false,         // true after first onAuthStateChanged fires
+  _blockedNotice: null, // mensaje a mostrar en login si el alumno fue expulsado por bloqueo
 
   init() {
     onAuthStateChanged(fbAuth, async (user) => {
@@ -26,6 +27,17 @@ export const auth = {
         try {
           this.profile = await sync.loadProfile(user);
         } catch (e) {
+          if (e?.code === 'auth/account-blocked') {
+            // Profile marcado como bloqueado: forzar logout y dejar aviso
+            // para que login.js lo muestre.
+            await fbSignOut(fbAuth);
+            this.currentUser = null;
+            this.profile = null;
+            this._blockedNotice = 'Cuenta bloqueada por el administrador.';
+            this.ready = true;
+            this.emit();
+            return;
+          }
           console.error('No se pudo cargar el perfil:', e);
           this.profile = {
             email: user.email,
@@ -132,6 +144,7 @@ export function authErrorMsg(err) {
     case 'auth/weak-password':         return 'La contraseña debe tener al menos 6 caracteres.';
     case 'auth/requires-recent-login': return 'Vuelve a iniciar sesión para cambiar la contraseña.';
     case 'auth/missing-email':         return 'Introduce un email.';
+    case 'auth/account-blocked':       return 'Cuenta bloqueada por el administrador.';
     default: return err?.message || 'Error desconocido.';
   }
 }
