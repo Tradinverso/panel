@@ -12,7 +12,6 @@ import {
 } from '../utils/period-stats.js';
 import { MONTHS_ES, MONTHS_ES_SHORT } from '../utils/date-helpers.js';
 import { fmtPct } from '../utils/number-format-es.js';
-import { fmtUsd } from '../utils/account-stats.js';
 
 let tab = 'daily'; // 'daily' | 'weekly' | 'monthly'
 let calYear = null;
@@ -492,7 +491,6 @@ function renderStatsInline(s) {
   }
   const pnlSysColor = s.pnlSistema >= 0 ? 'var(--green)' : 'var(--red)';
   const pnlRealColor = s.pnlReal >= 0 ? 'var(--green)' : 'var(--red)';
-  const usdColor = s.usdFondeadas > 0 ? 'var(--green)' : s.usdFondeadas < 0 ? 'var(--red)' : 'var(--muted)';
   const wrColor = s.wr >= 40 ? 'var(--green)' : 'var(--red)';
 
   // Plan: cuenta trades en/fuera del plan (ignora null)
@@ -511,9 +509,6 @@ function renderStatsInline(s) {
   parts.push(`<span class="psico-chip" style="color:${pnlRealColor};"><strong>${fmtPct(s.pnlReal, 1)}</strong> real</span>`);
   if (inPlan > 0) parts.push(`<span class="psico-chip" style="color:var(--green);"><strong>✓ ${inPlan}</strong> plan</span>`);
   if (outOfPlan > 0) parts.push(`<span class="psico-chip" style="color:var(--red);"><strong>✗ ${outOfPlan}</strong> plan</span>`);
-  if (s.usdFondeadas !== 0) {
-    parts.push(`<span class="psico-chip" style="color:${usdColor};"><strong>${fmtUsd(s.usdFondeadas, true)}</strong> USD</span>`);
-  }
   return parts.join('');
 }
 
