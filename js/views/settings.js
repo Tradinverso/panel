@@ -123,14 +123,14 @@ export function settingsView(container) {
 
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">Backup técnico (JSON)</div>
+          <div class="setting-label">Backup completo (JSON)</div>
           <div class="setting-desc">
-            Archivo JSON con todos tus trades. Para restaurar, súbelo desde
-            <strong>Importar → Subir archivo</strong>.
+            Archivo JSON con <strong>todos tus datos</strong>: trades, cuentas y reflexiones de psicología.
+            Para restaurar, súbelo desde <strong>Importar → Subir archivo</strong>.
           </div>
         </div>
         <div class="setting-control" style="display:flex;justify-content:flex-end;">
-          <button class="btn" id="exportBtn" ${tradeCount === 0 ? 'disabled' : ''}>Descargar JSON</button>
+          <button class="btn" id="exportBtn">📥 Descargar backup</button>
         </div>
       </div>
     </div>
@@ -196,12 +196,19 @@ export function settingsView(container) {
   if (themeSel) themeSel.addEventListener('change', e => theme.apply(e.target.value));
 
   container.querySelector('#exportBtn').addEventListener('click', () => {
-    const data = { version: 1, trades: state.trades, exportedAt: new Date().toISOString() };
+    const data = {
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      exportedBy: profile?.email || auth.currentUser?.email || 'unknown',
+      trades: state.trades,
+      cuentas: state.cuentas,
+      reflections: state.reflections,
+    };
     const stamp = stampNow();
     const userPart = inViewAs && viewedProfile
       ? slug(viewedProfile.nombre || viewedProfile.email)
       : slug(profile.nombre || profile.email || 'tradinverso');
-    downloadFile(`tradinverso-${userPart}-${stamp}.json`, JSON.stringify(data, null, 2), 'application/json');
+    downloadFile(`tradinverso-backup-${userPart}-${stamp}.json`, JSON.stringify(data, null, 2), 'application/json');
   });
 
   // Exportar Excel (.xlsx) con 3 pestañas

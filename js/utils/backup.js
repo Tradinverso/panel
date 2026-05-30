@@ -8,13 +8,39 @@ import { auth } from '../auth.js';
 const STORAGE_KEY = 'tradinverso_last_backup';
 
 // Genera el objeto de backup. onProgress(current, total) opcional para UI.
+// Incluye al admin actual (sus propios trades/cuentas/reflexiones) además
+// de todos los alumnos — listStudents filtra por role==='student' y
+// dejaba al admin fuera.
 export async function generateBackup(onProgress = () => {}) {
   const students = await sync.listStudents();
-  const total = students.length;
+  const adminUid = auth.currentUser?.uid;
+  const adminAlreadyIn = adminUid && students.some(s => s.uid === adminUid);
+  const includeAdmin = adminUid && !adminAlreadyIn;
+
+  const total = students.length + (includeAdmin ? 1 : 0);
   const result = [];
-  for (let i = 0; i < total; i++) {
-    const s = students[i];
-    onProgress(i + 1, total);
+  let i = 0;
+
+  if (includeAdmin) {
+    i++;
+    onProgress(i, total);
+    const [trades, cuentas, reflections] = await Promise.all([
+      sync.loadTrades(adminUid).catch(() => []),
+      sync.loadCuentas(adminUid).catch(() => []),
+      sync.loadReflections(adminUid).catch(() => []),
+    ]);
+    result.push({
+      uid: adminUid,
+      profile: auth.profile || { email: auth.currentUser.email, role: 'admin' },
+      trades,
+      cuentas,
+      reflections,
+    });
+  }
+
+  for (const s of students) {
+    i++;
+    onProgress(i, total);
     const [cuentas, reflections] = await Promise.all([
       sync.loadCuentas(s.uid).catch(() => []),
       sync.loadReflections(s.uid).catch(() => []),

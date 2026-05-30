@@ -299,31 +299,45 @@ function paintFileTab(container) {
     const result = container.querySelector('#fileResult');
     try {
       const text = await f.text();
-      let trades = [];
       if (f.name.endsWith('.json')) {
         const parsed = JSON.parse(text);
+        // Backup completo v2: trades + cuentas + reflexiones → mostrar selector
+        if (parsed && parsed.version === 2 && !Array.isArray(parsed)) {
+          showBackupV2Selector(result, parsed);
+          return;
+        }
+        // v1 / array suelto / Apps Script: solo trades, importación directa
         const arr = Array.isArray(parsed) ? parsed : (parsed.trades || []);
-        // Try canonical shape first; if no pnl_pct, fall back to Apps Script mapping
+        let trades = [];
         if (arr.length && arr[0].pnl_pct != null) {
           trades = arr;
         } else {
           trades = arr.map(t => mapAppsScriptTrade(t)).filter(Boolean);
         }
-      } else {
-        // CSV: assume first row is headers matching IMPORT_HEADERS for one strategy.
-        // Detect strategy by header presence.
-        const csv = parseCsv(text);
-        const header = csv[0].map(h => h.toLowerCase());
-        let detectedSheet = 'ZONAS';
-        if (header.includes('htf') && header.includes('ltf') && header.includes('rr') && !header.includes('pip sl') && !header.includes('par')) detectedSheet = 'NASDAQ';
-        else if (header.includes('htf') && header.includes('ltf')) detectedSheet = 'LIQUIDEZ';
-        const headers = IMPORT_HEADERS[detectedSheet];
-        for (let i = 1; i < csv.length; i++) {
-          const row = {};
-          headers.forEach((h, j) => row[h.key] = (csv[i][j] || '').trim());
-          const r = rowToTrade(detectedSheet, row);
-          if (r.trade) trades.push(r.trade);
+        if (!trades.length) {
+          result.className = 'import-result err';
+          result.innerHTML = 'No se pudo extraer ningún trade del archivo.';
+          return;
         }
+        const { added, dup } = state.addMany(trades);
+        result.className = 'import-result ok';
+        result.innerHTML = `${added} importados · ${dup} duplicados ignorados de ${trades.length} extraídos.`;
+        return;
+      }
+
+      // CSV: assume first row is headers matching IMPORT_HEADERS for one strategy.
+      const csv = parseCsv(text);
+      const header = csv[0].map(h => h.toLowerCase());
+      let detectedSheet = 'ZONAS';
+      if (header.includes('htf') && header.includes('ltf') && header.includes('rr') && !header.includes('pip sl') && !header.includes('par')) detectedSheet = 'NASDAQ';
+      else if (header.includes('htf') && header.includes('ltf')) detectedSheet = 'LIQUIDEZ';
+      const headers = IMPORT_HEADERS[detectedSheet];
+      const trades = [];
+      for (let i = 1; i < csv.length; i++) {
+        const row = {};
+        headers.forEach((h, j) => row[h.key] = (csv[i][j] || '').trim());
+        const r = rowToTrade(detectedSheet, row);
+        if (r.trade) trades.push(r.trade);
       }
       if (!trades.length) {
         result.className = 'import-result err';
@@ -338,6 +352,102 @@ function paintFileTab(container) {
       result.innerHTML = 'Error al leer el archivo: ' + err.message;
     }
   });
+}
+
+// Muestra el selector de qué restaurar de un backup v2 (trades, cuentas, reflexiones).
+// Por defecto solo trades está marcado, para evitar sobrescribir accidentalmente
+// cuentas o reflexiones recientes.
+function showBackupV2Selector(resultEl, parsed) {
+  const trades = Array.isArray(parsed.trades) ? parsed.trades : [];
+  const cuentas = Array.isArray(parsed.cuentas) ? parsed.cuentas : [];
+  const reflections = Array.isArray(parsed.reflections) ? parsed.reflections : [];
+  const exportedAt = parsed.exportedAt ? new Date(parsed.exportedAt).toLocaleString('es-ES') : '—';
+  const exportedBy = parsed.exportedBy || '—';
+
+  resultEl.className = '';
+  resultEl.innerHTML = `
+    <div style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+      <div style="font-size:12px;color:var(--muted);font-family:var(--mono);margin-bottom:10px;">
+        Backup completo detectado · ${exportedAt}<br>
+        <span style="opacity:.7;">Exportado por ${escapeHtml(exportedBy)}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;">
+        <label style="display:flex;gap:8px;align-items:center;cursor:${trades.length ? 'pointer' : 'not-allowed'};opacity:${trades.length ? 1 : 0.5};">
+          <input type="checkbox" id="bkTrades" ${trades.length ? 'checked' : 'disabled'}>
+          <span><strong>Trades</strong> (${trades.length}) — los duplicados se ignoran automáticamente</span>
+        </label>
+        <label style="display:flex;gap:8px;align-items:center;cursor:${cuentas.length ? 'pointer' : 'not-allowed'};opacity:${cuentas.length ? 1 : 0.5};">
+          <input type="checkbox" id="bkCuentas" ${cuentas.length ? '' : 'disabled'}>
+          <span><strong>Cuentas</strong> (${cuentas.length}) — las existentes con mismo ID se sobrescriben</span>
+        </label>
+        <label style="display:flex;gap:8px;align-items:center;cursor:${reflections.length ? 'pointer' : 'not-allowed'};opacity:${reflections.length ? 1 : 0.5};">
+          <input type="checkbox" id="bkReflections" ${reflections.length ? '' : 'disabled'}>
+          <span><strong>Reflexiones</strong> (${reflections.length}) — las existentes con mismo período se sobrescriben</span>
+        </label>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn" id="bkCancel">Cancelar</button>
+        <button class="btn primary" id="bkImport">Importar selección</button>
+      </div>
+      <div id="bkResult" style="margin-top:12px;"></div>
+    </div>
+  `;
+
+  resultEl.querySelector('#bkCancel').addEventListener('click', () => {
+    resultEl.innerHTML = '';
+  });
+
+  resultEl.querySelector('#bkImport').addEventListener('click', async () => {
+    const wantTrades = resultEl.querySelector('#bkTrades').checked;
+    const wantCuentas = resultEl.querySelector('#bkCuentas').checked;
+    const wantReflections = resultEl.querySelector('#bkReflections').checked;
+    if (!wantTrades && !wantCuentas && !wantReflections) {
+      resultEl.querySelector('#bkResult').innerHTML = '<div class="import-result err">Selecciona al menos una sección a importar.</div>';
+      return;
+    }
+
+    const btn = resultEl.querySelector('#bkImport');
+    btn.disabled = true;
+    btn.textContent = 'Importando…';
+
+    const parts = [];
+    try {
+      if (wantTrades && trades.length) {
+        const { added, dup } = state.addMany(trades);
+        parts.push(`${added} trades (${dup} duplicados ignorados)`);
+      }
+      if (wantCuentas && cuentas.length) {
+        let n = 0;
+        for (const c of cuentas) {
+          if (!c || !c.id) continue;
+          const existing = state.cuentas.find(x => x.id === c.id);
+          if (existing) state.updateCuenta(c.id, c);
+          else state.addCuenta(c);
+          n++;
+        }
+        parts.push(`${n} cuentas`);
+      }
+      if (wantReflections && reflections.length) {
+        let n = 0;
+        for (const r of reflections) {
+          if (!r || !r.type || !r.period) continue;
+          state.saveReflection(r.type, r.period, r.content || '');
+          n++;
+        }
+        parts.push(`${n} reflexiones`);
+      }
+      resultEl.querySelector('#bkResult').innerHTML = `<div class="import-result ok">Importado: ${parts.join(' · ')}.</div>`;
+    } catch (err) {
+      resultEl.querySelector('#bkResult').innerHTML = `<div class="import-result err">Error: ${err.message || err}</div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Importar selección';
+    }
+  });
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
 
 function todayStr() {
