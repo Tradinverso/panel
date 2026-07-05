@@ -83,6 +83,22 @@ export function settingsView(container) {
         </div>
       </div>
     </div>
+
+    <div class="section-title">Módulos</div>
+    <div class="card">
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Gestión de riesgo / rotación</div>
+          <div class="setting-desc">Añade la sección <strong>Riesgo</strong> en la barra lateral: escalado de riesgo por niveles según el drawdown y rotación entre cuentas. Lee de tus cuentas y trades, no añade datos.</div>
+        </div>
+        <div class="setting-control">
+          <select class="select" id="riskModuleSel">
+            <option value="on"  ${state.config.riskModuleEnabled === false ? '' : 'selected'}>Activado</option>
+            <option value="off" ${state.config.riskModuleEnabled === false ? 'selected' : ''}>Desactivado</option>
+          </select>
+        </div>
+      </div>
+    </div>
   `;
 
   const adminBanner = inViewAs && viewedProfile ? `
@@ -125,7 +141,7 @@ export function settingsView(container) {
         <div class="setting-info">
           <div class="setting-label">Backup completo (JSON)</div>
           <div class="setting-desc">
-            Archivo JSON con <strong>todos tus datos</strong>: trades, cuentas y reflexiones de psicología.
+            Archivo JSON con <strong>todos tus datos</strong>: trades, cuentas, reflexiones de psicología y perfiles de riesgo.
             Para restaurar, súbelo desde <strong>Importar → Subir archivo</strong>.
           </div>
         </div>
@@ -195,6 +211,12 @@ export function settingsView(container) {
   const themeSel = container.querySelector('#themeSel');
   if (themeSel) themeSel.addEventListener('change', e => theme.apply(e.target.value));
 
+  const riskSel = container.querySelector('#riskModuleSel');
+  if (riskSel) riskSel.addEventListener('change', e => {
+    state.setConfig({ riskModuleEnabled: e.target.value === 'on' });
+    flashOk(container, e.target.value === 'on' ? 'Módulo de riesgo activado' : 'Módulo de riesgo desactivado');
+  });
+
   container.querySelector('#exportBtn').addEventListener('click', () => {
     const data = {
       version: 2,
@@ -203,6 +225,9 @@ export function settingsView(container) {
       trades: state.trades,
       cuentas: state.cuentas,
       reflections: state.reflections,
+      perfiles: state.perfiles,
+      config: state.config,
+      tradingPlan: state.tradingPlan,
     };
     const stamp = stampNow();
     const userPart = inViewAs && viewedProfile

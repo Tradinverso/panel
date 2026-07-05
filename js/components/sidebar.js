@@ -7,26 +7,27 @@ import { auth } from '../auth.js';
 // (Ajustes muestra info personal del admin, así que no tiene sentido).
 // Importar y Nuevo trade SÍ se permiten — admin puede dar de alta datos a alumnos.
 const NAV_BASE = [
-  { section: 'Operativa' },
   { path: '#/dashboard',  label: 'Dashboard',   icon: '📊', class: '' },
+
+  { section: 'Operativa' },
   { path: '#/nuevo',      label: 'Nuevo trade', icon: '✏️', class: '' },
   { path: '#/calendario', label: 'Calendario',  icon: '📅', class: '' },
-  { path: '#/cuentas',    label: 'Cuentas',     icon: '🏦', class: '', countActiveCuentas: true },
+  { path: '#/zonas',      label: 'Zonas',    icon: '🎯', class: 'zonas',    sheet: 'ZONAS' },
+  { path: '#/liquidez',   label: 'Liquidez', icon: '💧', class: 'liquidez', sheet: 'LIQUIDEZ' },
+  { path: '#/nasdaq',     label: 'Nasdaq',   icon: '🚀', class: 'nasdaq',   sheet: 'NASDAQ' },
 
-  { section: 'Estrategias' },
-  { path: '#/zonas',    label: 'Zonas',    icon: '🎯', class: 'zonas',    sheet: 'ZONAS' },
-  { path: '#/liquidez', label: 'Liquidez', icon: '💧', class: 'liquidez', sheet: 'LIQUIDEZ' },
-  { path: '#/nasdaq',   label: 'Nasdaq',   icon: '🚀', class: 'nasdaq',   sheet: 'NASDAQ' },
+  { section: 'Gestión' },
+  { path: '#/cuentas',      label: 'Cuentas',      icon: '🏦', class: '', countActiveCuentas: true },
+  { path: '#/contabilidad', label: 'Contabilidad', icon: '🧮', class: '' },
 
   { section: 'Análisis' },
   { path: '#/diagnostico', label: 'Diagnóstico', icon: '🩺', class: '' },
-
-  { section: 'Psicología' },
-  { path: '#/psicologia', label: 'Reflexiones', icon: '🧘', class: '' },
+  { path: '#/psicologia',  label: 'Reflexiones', icon: '🧘', class: '' },
+  { path: '#/plan',        label: 'Plan de trading', icon: '📋', class: '' },
 
   { section: 'Datos' },
   { path: '#/importar', label: 'Importar', icon: '📥', class: '' },
-  { path: '#/tabla',    label: 'Tabla',    icon: '📋', class: '' },
+  { path: '#/tabla',    label: 'Tabla',    icon: '🗃️', class: '' },
   { path: '#/ajustes',  label: 'Ajustes',  icon: '⚙️', class: '' },
 ];
 
@@ -57,7 +58,9 @@ export function renderSidebar(container) {
 
   // En viewAs solo ocultamos Ajustes (muestra info del admin). Importar y
   // Nuevo trade siguen visibles porque admin puede dar de alta datos a alumnos.
-  let nav = NAV_BASE.filter(item => !inViewAs || !item.hideInViewAs);
+  // Módulo de Riesgo: visible salvo que el usuario lo haya desactivado.
+  const riskOn = !(state.config && state.config.riskModuleEnabled === false);
+  let nav = NAV_BASE.filter(item => (!inViewAs || !item.hideInViewAs) && (!item.riskModule || riskOn));
   if (auth.isAdmin()) nav = nav.concat(NAV_ADMIN);
 
   const initial = (auth.displayName() || '?').charAt(0).toUpperCase();
@@ -79,7 +82,7 @@ export function renderSidebar(container) {
     <a href="${auth.isAdmin() && !inViewAs ? '#/admin' : '#/dashboard'}" class="brand">
       <div class="brand-logo">T</div>
       <div class="brand-text">
-        <span class="brand-line1">Journaling</span>
+        <span class="brand-line1">Trading Journal · V2.0</span>
         <span class="brand-line2">Tradinverso</span>
       </div>
     </a>

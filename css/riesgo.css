@@ -1,0 +1,159 @@
+/* Vista Riesgo / Rotación — componentes propios (banner, niveles, cards,
+   acordeones, perfiles). Construido sobre los tokens var(--*) de themes.css
+   para heredar el tema (oscuro/claro). */
+
+/* ── Tabs ── */
+.rg-tabs {
+  display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 20px;
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 4px; width: fit-content; max-width: 100%;
+}
+.rg-tab {
+  padding: 8px 18px; font-size: 13px; font-weight: 500; color: var(--muted);
+  cursor: pointer; border: none; background: none; border-radius: var(--radius-sm);
+  font-family: var(--font); transition: all .15s;
+}
+.rg-tab:hover { color: var(--text); }
+.rg-tab.active { background: var(--surface); color: var(--text-strong); font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+a.rg-tab { text-decoration: none; display: inline-flex; align-items: center; }
+
+/* ── Banner de rotación ── */
+.rg-banner {
+  background: linear-gradient(135deg, var(--surface), var(--card));
+  border: 1px solid var(--accent); border-radius: var(--radius-lg);
+  padding: 16px 20px; margin-bottom: 14px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 14px; position: relative; overflow: hidden;
+  box-shadow: 0 0 18px -8px var(--accent);
+}
+.rg-banner-label { font-size: 10px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 5px; }
+.rg-banner-name { font-size: 21px; font-weight: 600; font-family: var(--font-display); letter-spacing: -.3px; color: var(--text-strong); }
+.rg-banner-meta { font-size: 12px; color: var(--muted); margin-top: 4px; font-family: var(--mono); }
+.rg-banner-meta b { color: var(--text); }
+.rg-seq { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.rg-pill { font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border-strong); color: var(--muted); background: var(--card2); }
+.rg-pill.cur { background: var(--accent); color: #fff; border-color: transparent; }
+.rg-pill.nxt { border-color: var(--accent); color: var(--accent); }
+.rg-arr { color: var(--dim); font-size: 11px; }
+
+.rg-advisor {
+  background: var(--accent-bg); border: 1px solid var(--accent);
+  border-radius: var(--radius); padding: 10px 14px; margin-bottom: 22px;
+  font-size: 13px; color: var(--text); line-height: 1.5;
+}
+.rg-advisor a { color: var(--accent); font-weight: 600; }
+
+/* ── Grupos + cards ── */
+.rg-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; align-items: start; }
+.rg-group { background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.rg-group-hdr { padding: 12px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
+.rg-group-title { font-size: 13px; font-weight: 700; flex: 1; }
+.rg-group-count { font-size: 11px; color: var(--muted); background: var(--surface); padding: 2px 8px; border-radius: 20px; }
+.rg-group-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+.rg-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px; cursor: pointer; transition: all .18s; position: relative; overflow: hidden;
+}
+.rg-card::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+.rg-card.ok::after { background: linear-gradient(180deg, var(--green), var(--accent)); }
+.rg-card.warn::after { background: var(--orange); }
+.rg-card.danger::after { background: linear-gradient(180deg, var(--orange), var(--red)); }
+.rg-card.limit::after { background: var(--red); }
+.rg-card:hover { border-color: var(--border-strong); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,.25); }
+.rg-card.activa { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-bg), 0 0 12px -4px var(--accent); }
+.rg-card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; }
+.rg-card-name { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.rg-card-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.rg-tag-active { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 20px; background: var(--accent); color: #fff; text-transform: uppercase; letter-spacing: .05em; }
+.rg-tag-excl { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 20px; background: var(--red-bg); color: var(--red); }
+.rg-card-perfil { font-size: 10px; color: var(--muted); margin-bottom: 5px; }
+.rg-card-perfil span { background: var(--surface); padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border); }
+.rg-card-bal { font-size: 23px; font-weight: 600; letter-spacing: -.5px; font-family: var(--font-display); margin-bottom: 6px; color: var(--text-strong); }
+.rg-card-row { display: flex; align-items: center; justify-content: space-between; }
+.rg-card-pct { font-size: 12px; font-weight: 700; font-family: var(--mono); }
+.rg-card-pct.pos { color: var(--green); }
+.rg-card-pct.neg { color: var(--red); }
+.rg-card-risk { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--muted); }
+.rg-card-risk strong { color: var(--accent); font-family: var(--mono); font-size: 12px; }
+
+/* ── Pills de nivel N1..N7 ── */
+.nlvl { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 20px; text-transform: uppercase; letter-spacing: .04em; display: inline-block; }
+.nlvl.n1 { background: var(--green-bg); color: var(--green); }
+.nlvl.n2, .nlvl.n3 { background: var(--orange-bg); color: var(--orange); }
+.nlvl.n4, .nlvl.n5 { background: rgba(249,115,22,.16); color: #F97316; }
+.nlvl.n6, .nlvl.n7 { background: var(--red-bg); color: var(--red); }
+
+/* ── Tags de grupo ── */
+.rg-gtag { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+.rg-gtag.g1 { background: var(--liquidez-bg); color: var(--liquidez); }
+.rg-gtag.g2 { background: var(--orange-bg); color: var(--orange); }
+.rg-gtag.gf { background: var(--green-bg); color: var(--green); }
+
+/* ── Alertas ── */
+.rg-alertas { margin-bottom: 8px; }
+.rg-alerta { display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-radius: var(--radius); border: 1px solid; margin-bottom: 8px; }
+.rg-alerta.warn { background: var(--orange-bg); border-color: var(--orange); }
+.rg-alerta.danger { background: rgba(249,115,22,.08); border-color: #F97316; }
+.rg-alerta.critical { background: var(--red-bg); border-color: var(--red); }
+.rg-alerta.ok { background: var(--green-bg); border-color: var(--green); }
+.rg-alerta-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+.rg-alerta-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+.rg-alerta-desc { font-size: 12px; color: var(--muted); }
+
+/* ── Tabla resumen ── */
+.rg-table td.mono, .rg-niv-table td.mono { font-family: var(--mono); font-size: 12px; }
+.mono { font-family: var(--mono); }
+
+/* ── Acordeones de gestión ── */
+.rg-hint { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+.rg-acc { background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 10px; overflow: hidden; }
+.rg-acc-hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; cursor: pointer; transition: background .15s; }
+.rg-acc-hdr:hover { background: var(--hover); }
+.rg-acc-l { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rg-acc-name { font-size: 15px; font-weight: 700; }
+.rg-acc-perfil { font-size: 11px; background: var(--surface); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); }
+.rg-acc-meta { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+.rg-chev { color: var(--muted); transition: transform .25s; font-size: 14px; }
+.rg-chev.open { transform: rotate(180deg); }
+.rg-acc-body { display: none; padding: 18px; border-top: 1px solid var(--border); }
+.rg-acc-body.open { display: block; }
+.rg-acc-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+.rg-field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: end; }
+.rg-flabel { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+.rg-niv-table th { text-align: center; }
+.rg-niv-table td { text-align: center; }
+.rg-niv-table tr.arow td { background: var(--accent-bg); }
+
+/* ── Orden de rotación (reordenar ▲▼) ── */
+.rg-orden { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.rg-orden-item { display: flex; align-items: center; gap: 12px; background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; }
+.rg-orden-num { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--muted); min-width: 18px; text-align: center; }
+.rg-orden-name { flex: 1; font-size: 13px; font-weight: 600; }
+.rg-orden-actions { display: flex; gap: 4px; }
+.rg-orden-actions .btn { padding: 4px 9px; font-size: 12px; }
+
+/* ── Toggle en rotación ── */
+.rg-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; color: var(--muted); }
+.rg-toggle input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+
+/* ── Perfiles ── */
+.rg-perfil { background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; margin-bottom: 12px; }
+.rg-perfil-hdr { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.rg-perfil-name { font-size: 15px; font-weight: 700; }
+.rg-preset { font-size: 9px; font-weight: 700; padding: 1px 7px; border-radius: 20px; background: var(--accent-bg); color: var(--accent); text-transform: uppercase; letter-spacing: .05em; vertical-align: middle; }
+.rg-perfil-desc { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.rg-perfil-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.rg-ppill { font-size: 12px; padding: 4px 12px; border-radius: 20px; font-weight: 600; background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+.rg-ppill.b { background: var(--accent-bg); color: var(--accent); border-color: transparent; }
+.rg-ppill.g { background: var(--green-bg); color: var(--green); border-color: transparent; }
+.rg-niv-preview { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.rg-niv-preview .np { background: var(--surface); border-radius: 8px; padding: 6px 4px; text-align: center; border: 1px solid var(--border); }
+.rg-niv-preview .np-lbl { font-size: 9px; color: var(--muted); margin-bottom: 3px; font-weight: 600; }
+.rg-niv-preview .np-val { font-size: 11px; font-weight: 700; color: var(--accent); font-family: var(--mono); }
+
+@media (max-width: 640px) {
+  .rg-banner { flex-direction: column; align-items: flex-start; }
+  /* Preview de 7 niveles: se reparte en varias filas en vez de aplastarse */
+  .rg-niv-preview { grid-template-columns: repeat(4, 1fr); }
+}

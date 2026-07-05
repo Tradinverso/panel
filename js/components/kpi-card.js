@@ -1,6 +1,7 @@
-export function kpiCard({ label, value, sub = '', tone = 'green' }) {
+export function kpiCard({ label, value, sub = '', tone = 'green', icon = '' }) {
   return `
     <div class="kpi-card ${tone}">
+      ${icon ? `<span class="kpi-icon ${tone}">${icon}</span>` : ''}
       <div class="kpi-label">${label}</div>
       <div class="kpi-value ${tone}">${value}</div>
       ${sub ? `<div class="kpi-sub">${sub}</div>` : ''}

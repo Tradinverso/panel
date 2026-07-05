@@ -1,6 +1,7 @@
 // Hash-based router con guarda de auth + role.
 
 import { auth } from './auth.js';
+import { state } from './state.js';
 
 const routes = new Map();
 let currentCleanup = null;
@@ -41,6 +42,11 @@ export const router = {
       }
       if (ADMIN_ROUTES.has(path) && !auth.isAdmin()) {
         window.location.hash = '#/dashboard';
+        return;
+      }
+      // Módulo de Riesgo desactivado por el usuario → redirige a Cuentas.
+      if (path === '#/riesgo' && state.config && state.config.riskModuleEnabled === false) {
+        window.location.hash = '#/cuentas';
         return;
       }
 

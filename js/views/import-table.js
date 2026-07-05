@@ -361,6 +361,9 @@ function showBackupV2Selector(resultEl, parsed) {
   const trades = Array.isArray(parsed.trades) ? parsed.trades : [];
   const cuentas = Array.isArray(parsed.cuentas) ? parsed.cuentas : [];
   const reflections = Array.isArray(parsed.reflections) ? parsed.reflections : [];
+  const perfiles = Array.isArray(parsed.perfiles) ? parsed.perfiles : [];
+  const tradingPlan = (parsed.tradingPlan && typeof parsed.tradingPlan === 'object') ? parsed.tradingPlan : null;
+  const hasPlan = !!(tradingPlan && (tradingPlan.content || tradingPlan.docUrl));
   const exportedAt = parsed.exportedAt ? new Date(parsed.exportedAt).toLocaleString('es-ES') : '—';
   const exportedBy = parsed.exportedBy || '—';
 
@@ -384,6 +387,14 @@ function showBackupV2Selector(resultEl, parsed) {
           <input type="checkbox" id="bkReflections" ${reflections.length ? '' : 'disabled'}>
           <span><strong>Reflexiones</strong> (${reflections.length}) — las existentes con mismo período se sobrescriben</span>
         </label>
+        <label style="display:flex;gap:8px;align-items:center;cursor:${perfiles.length ? 'pointer' : 'not-allowed'};opacity:${perfiles.length ? 1 : 0.5};">
+          <input type="checkbox" id="bkPerfiles" ${perfiles.length ? '' : 'disabled'}>
+          <span><strong>Perfiles de riesgo</strong> (${perfiles.length}) — los existentes con mismo ID se sobrescriben</span>
+        </label>
+        <label style="display:flex;gap:8px;align-items:center;cursor:${hasPlan ? 'pointer' : 'not-allowed'};opacity:${hasPlan ? 1 : 0.5};">
+          <input type="checkbox" id="bkPlan" ${hasPlan ? '' : 'disabled'}>
+          <span><strong>Plan de trading</strong> — sobrescribe el plan actual</span>
+        </label>
       </div>
       <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
         <button class="btn" id="bkCancel">Cancelar</button>
@@ -401,7 +412,9 @@ function showBackupV2Selector(resultEl, parsed) {
     const wantTrades = resultEl.querySelector('#bkTrades').checked;
     const wantCuentas = resultEl.querySelector('#bkCuentas').checked;
     const wantReflections = resultEl.querySelector('#bkReflections').checked;
-    if (!wantTrades && !wantCuentas && !wantReflections) {
+    const wantPerfiles = resultEl.querySelector('#bkPerfiles').checked;
+    const wantPlan = resultEl.querySelector('#bkPlan').checked;
+    if (!wantTrades && !wantCuentas && !wantReflections && !wantPerfiles && !wantPlan) {
       resultEl.querySelector('#bkResult').innerHTML = '<div class="import-result err">Selecciona al menos una sección a importar.</div>';
       return;
     }
@@ -435,6 +448,21 @@ function showBackupV2Selector(resultEl, parsed) {
           n++;
         }
         parts.push(`${n} reflexiones`);
+      }
+      if (wantPerfiles && perfiles.length) {
+        let n = 0;
+        for (const p of perfiles) {
+          if (!p || !p.nombre) continue;
+          const existing = p.id && state.perfiles.find(x => x.id === p.id);
+          if (existing) state.updatePerfil(p.id, p);
+          else state.addPerfil(p);
+          n++;
+        }
+        parts.push(`${n} perfiles`);
+      }
+      if (wantPlan && hasPlan) {
+        state.saveTradingPlan(tradingPlan);
+        parts.push('plan de trading');
       }
       resultEl.querySelector('#bkResult').innerHTML = `<div class="import-result ok">Importado: ${parts.join(' · ')}.</div>`;
     } catch (err) {

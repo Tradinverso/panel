@@ -1,64 +1,105 @@
+/* Tokens de tema — sistema de diseño "Glass Command Center".
+   Toda la app referencia estas variables, así que el look global se controla aquí. */
 :root {
-  --bg: #0A0F1E;
-  --surface: #161D2E;
-  --card: #111827;
-  --card2: #0F1420;
-  --text: #F0F2F8;
+  /* Fondos / superficies */
+  --bg: #0A0E1A;
+  --surface: #121a2e;
+  --card: #141d33;
+  --card2: #0e1626;
+  --text: #E6ECF5;
   --text-strong: #FFFFFF;
-  --muted: #8A96B8;
-  --dim: #4A5478;
-  --border: rgba(255,255,255,0.09);
-  --border-strong: rgba(255,255,255,0.15);
-  --hover: rgba(255,255,255,0.04);
+  --muted: #97A3BE;
+  --dim: #5B6884;
+  --border: rgba(255,255,255,0.08);
+  --border-strong: rgba(120,160,255,0.22);
+  --hover: rgba(120,160,255,0.06);
 
-  --green: #00D4AA;
-  --green-bg: rgba(0,212,170,0.15);
-  --red: #FF4757;
-  --red-bg: rgba(255,71,87,0.15);
-  --orange: #FFA502;
-  --orange-bg: rgba(255,165,2,0.15);
-  --accent: #5B8DEF;
-  --accent-bg: rgba(91,141,239,0.15);
+  /* Cristal (glassmorphism) */
+  --glass: rgba(18,26,46,0.6);
+  --glass-2: rgba(255,255,255,0.04);   /* highlight interior */
+  --glass-border: rgba(120,180,255,0.18);
 
+  /* Acentos */
+  --green: #10E0A0;
+  --green-bg: rgba(16,224,160,0.14);
+  --red: #FF5C7A;
+  --red-bg: rgba(255,92,122,0.14);
+  --orange: #FFA23A;
+  --orange-bg: rgba(255,162,58,0.14);
+  --accent: #3B82F6;
+  --accent-bg: rgba(59,130,246,0.15);
+  --cyan: #22D3EE;
+  --cyan-bg: rgba(34,211,238,0.14);
+
+  /* Estrategias */
   --zonas: #A855F7;
   --zonas-bg: rgba(168,85,247,0.15);
-  --liquidez: #3B82F6;
-  --liquidez-bg: rgba(59,130,246,0.15);
-  --nasdaq: #EF4444;
-  --nasdaq-bg: rgba(239,68,68,0.15);
+  --liquidez: #38BDF8;
+  --liquidez-bg: rgba(56,189,248,0.15);
+  --nasdaq: #FF5C7A;
+  --nasdaq-bg: rgba(255,92,122,0.15);
 
-  --pos: #00D4AA;
-  --neu: #FFA502;
-  --neg: #FF4757;
+  --pos: #10E0A0;
+  --neu: #FFA23A;
+  --neg: #FF5C7A;
 
+  /* Glows / elevación */
+  --glow-accent: 0 0 26px -6px rgba(34,211,238,0.5);
+  --glow-soft: 0 12px 34px -16px rgba(0,0,0,0.7);
+  --glow-card: 0 1px 0 var(--glass-2) inset, 0 10px 30px -18px rgba(0,0,0,0.65);
+
+  /* Tipografía */
   --font: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
   --mono: 'DM Mono', ui-monospace, monospace;
 
-  --radius: 12px;
-  --radius-sm: 8px;
-  --radius-lg: 16px;
+  /* Radios */
+  --radius: 14px;
+  --radius-sm: 9px;
+  --radius-lg: 18px;
+
+  /* Movimiento */
+  --ease: cubic-bezier(.22,.61,.36,1);
+  --dur: .18s;
 
   --sidebar-w: 248px;
 }
 
 :root[data-theme="light"] {
-  --bg: #F4F6FB;
+  --bg: #EEF2FB;
   --surface: #FFFFFF;
   --card: #FFFFFF;
-  --card2: #F8FAFD;
-  --text: #1A2035;
-  --text-strong: #0A0F1E;
-  --muted: #64748B;
-  --dim: #94A3B8;
-  --border: rgba(15,20,32,0.08);
-  --border-strong: rgba(15,20,32,0.16);
-  --hover: rgba(15,20,32,0.04);
+  --card2: #F3F6FC;
+  --text: #182135;
+  --text-strong: #060A14;
+  --muted: #586480;
+  --dim: #98A4BC;
+  --border: rgba(15,23,42,0.09);
+  --border-strong: rgba(40,90,200,0.22);
+  --hover: rgba(40,90,200,0.05);
 
-  --green-bg: rgba(0,180,140,0.12);
-  --red-bg: rgba(220,40,55,0.12);
-  --orange-bg: rgba(220,140,0,0.12);
-  --accent-bg: rgba(60,120,220,0.12);
+  --glass: rgba(255,255,255,0.72);
+  --glass-2: rgba(255,255,255,0.6);
+  --glass-border: rgba(40,90,200,0.16);
+
+  --green: #07A877;
+  --green-bg: rgba(7,168,119,0.12);
+  --red: #E23150;
+  --red-bg: rgba(226,49,80,0.12);
+  --orange: #D97A06;
+  --orange-bg: rgba(217,122,6,0.12);
+  --accent: #2563EB;
+  --accent-bg: rgba(37,99,235,0.12);
+  --cyan: #0891B2;
+  --cyan-bg: rgba(8,145,178,0.12);
+
   --zonas-bg: rgba(168,85,247,0.12);
-  --liquidez-bg: rgba(59,130,246,0.12);
-  --nasdaq-bg: rgba(239,68,68,0.12);
+  --liquidez: #0EA5E9;
+  --liquidez-bg: rgba(14,165,233,0.12);
+  --nasdaq: #E23150;
+  --nasdaq-bg: rgba(226,49,80,0.12);
+
+  --glow-accent: 0 0 22px -8px rgba(37,99,235,0.35);
+  --glow-soft: 0 12px 30px -18px rgba(30,50,90,0.25);
+  --glow-card: 0 1px 0 rgba(255,255,255,0.7) inset, 0 8px 24px -18px rgba(30,50,90,0.3);
 }

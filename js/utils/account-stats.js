@@ -331,6 +331,154 @@ export function portfolioMonthlyWithdrawals(cuentas) {
   return Object.keys(months).sort().map(m => ({ month: m, usd: months[m] }));
 }
 
+// ──────────────────────────────────────────────────────────────
+// Inversión (negocio prop): coste de compra/reintentos vs payouts.
+// ──────────────────────────────────────────────────────────────
+
+// Total invertido en una cuenta: suma de compras; si no hay compras,
+// fallback al coste legacy (campo `cost`).
+export function totalInvested(account) {
+  if (!account) return 0;
+  if (Array.isArray(account.purchases) && account.purchases.length) {
+    return account.purchases.reduce((s, p) => s + (p.amount || 0), 0);
+  }
+  return account.cost || 0;
+}
+
+// Compras de una cuenta (con fallback del coste legacy fechado en createdAt).
+function purchasesOf(c) {
+  if (Array.isArray(c.purchases) && c.purchases.length) return c.purchases;
+  if (c.cost > 0) {
+    return [{ id: 'legacy-' + c.id, date: new Date(c.createdAt || Date.now()).toISOString().substring(0, 10), amount: c.cost, concept: 'challenge', note: 'Coste inicial' }];
+  }
+  return [];
+}
+
+// Lista plana de TODOS los retiros con referencia a su cuenta (orden fecha desc).
+export function allWithdrawals(cuentas) {
+  const out = [];
+  for (const c of cuentas) {
+    for (const w of (c.withdrawals || [])) {
+      out.push({ ...w, cuentaId: c.id, cuentaNombre: `${c.empresa} ${c.numero || ''}`.trim() });
+    }
+  }
+  return out.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+}
+
+// Lista plana de TODAS las compras con referencia a su cuenta (orden fecha desc).
+export function allPurchases(cuentas) {
+  const out = [];
+  for (const c of cuentas) {
+    for (const p of purchasesOf(c)) {
+      out.push({ ...p, cuentaId: c.id, cuentaNombre: `${c.empresa} ${c.numero || ''}`.trim() });
+    }
+  }
+  return out.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+}
+
+// Lista plana de TODOS los eventos contables (compra / retiro / fondeada /
+// quemada) con su fecha, para el calendario de Contabilidad.
+export function accountingEvents(cuentas) {
+  const out = [];
+  for (const c of cuentas) {
+    const nombre = `${c.empresa} ${c.numero || ''}`.trim();
+    for (const p of purchasesOf(c)) out.push({ date: p.date, type: 'compra', cuentaId: c.id, cuentaNombre: nombre, amount: p.amount || 0 });
+    for (const w of (c.withdrawals || [])) out.push({ date: w.date, type: 'retiro', cuentaId: c.id, cuentaNombre: nombre, amount: w.amount || 0 });
+    if (c.fundedAt) out.push({ date: c.fundedAt, type: 'fondeada', cuentaId: c.id, cuentaNombre: nombre, amount: 0 });
+    if (c.burnedAt) out.push({ date: c.burnedAt, type: 'quemada', cuentaId: c.id, cuentaNombre: nombre, amount: 0 });
+  }
+  return out.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+}
+
+// Agregados del negocio prop sobre TODAS las cuentas.
+// range opcional {from,to} (YYYY-MM-DD) filtra gastos/ganancias por fecha;
+// los contadores (live/pasadas/quemadas/funding) son SIEMPRE globales.
+export function investmentStats(cuentas, range) {
+  const f = range && range.from, t = range && range.to;
+  const inR = d => (!f || d >= f) && (!t || d <= t);
+  let gastosTotales = 0, gananciasBrutas = 0, gananciasNetas = 0, comisiones = 0;
+  let evaluaciones = 0, live = 0, pasadas = 0, quemadas = 0, fondeadas = 0;
+  for (const c of cuentas) {
+    for (const p of purchasesOf(c)) if (inR(p.date || '')) gastosTotales += p.amount || 0;
+    for (const w of (c.withdrawals || [])) {
+      if (!inR(w.date || '')) continue;
+      const amt = w.amount || 0, com = w.commission || 0;
+      gananciasBrutas += amt; comisiones += com; gananciasNetas += Math.max(0, amt - com);
+    }
+    // contadores globales
+    evaluaciones += (Array.isArray(c.purchases) && c.purchases.length) ? c.purchases.length : 1;
+    if (c.fase === 'fondeada') fondeadas++;
+    if (c.fase === 'fondeada' && c.status === 'activa') live++;
+    if (c.status === 'pasada') pasadas++;
+    if (c.status === 'perdida') quemadas++;
+  }
+  const beneficioNeto = gananciasNetas - gastosTotales;
+  const roi = gastosTotales > 0 ? (beneficioNeto / gastosTotales) * 100 : (beneficioNeto > 0 ? Infinity : 0);
+  const fundingRatio = evaluaciones > 0 ? (fondeadas / evaluaciones) * 100 : 0;
+  return {
+    gastosTotales, gananciasBrutas, gananciasNetas, comisiones,
+    beneficioNeto, roi, fundingRatio,
+    evaluaciones, live, pasadas, quemadas, fondeadas,
+    countTotal: cuentas.length,
+  };
+}
+
+// Agregado por EMPRESA (prop firm) para el "Ranking de props".
+// range opcional {from,to} filtra importes (invertido/retirado); los contadores
+// de cuentas (nCuentas/fondeadas/live/quemadas) reflejan el estado actual.
+// Devuelve un array ordenado por beneficio desc.
+export function empresaStats(cuentas, range) {
+  const f = range && range.from, t = range && range.to;
+  const inR = d => (!f || d >= f) && (!t || d <= t);
+  const map = new Map();
+  for (const c of cuentas) {
+    const key = (c.empresa || '—').trim() || '—';
+    if (!map.has(key)) map.set(key, {
+      empresa: key, invertido: 0, retiradoBruto: 0, retiradoNeto: 0,
+      nRetiros: 0, nCompras: 0, nCuentas: 0, fondeadas: 0, live: 0, quemadas: 0,
+    });
+    const e = map.get(key);
+    e.nCuentas++;
+    if (c.fase === 'fondeada') e.fondeadas++;
+    if (c.fase === 'fondeada' && c.status === 'activa') e.live++;
+    if (c.status === 'perdida') e.quemadas++;
+    for (const p of purchasesOf(c)) if (inR(p.date || '')) { e.invertido += p.amount || 0; e.nCompras++; }
+    for (const w of (c.withdrawals || [])) {
+      if (!inR(w.date || '')) continue;
+      const amt = w.amount || 0, com = w.commission || 0;
+      e.retiradoBruto += amt; e.retiradoNeto += Math.max(0, amt - com); e.nRetiros++;
+    }
+  }
+  return [...map.values()].map(e => {
+    const beneficio = e.retiradoNeto - e.invertido;
+    return {
+      ...e,
+      beneficio,
+      roi: e.invertido > 0 ? (beneficio / e.invertido) * 100 : (beneficio > 0 ? Infinity : 0),
+      mediaRetiro: e.nRetiros ? e.retiradoBruto / e.nRetiros : 0,
+      mediaExamen: e.nCompras ? e.invertido / e.nCompras : 0,
+    };
+  }).sort((a, b) => b.beneficio - a.beneficio);
+}
+
+// Compras por mes a lo largo de TODAS las cuentas → [{ month:'YYYY-MM', usd }].
+export function monthlyInvested(cuentas) {
+  const months = {};
+  for (const c of cuentas) {
+    for (const p of (c.purchases || [])) {
+      const m = (p.date || '').substring(0, 7);
+      if (!m) continue;
+      months[m] = (months[m] || 0) + (p.amount || 0);
+    }
+    // Cuentas con coste legacy sin compras: imputar al mes de creación.
+    if ((!c.purchases || !c.purchases.length) && c.cost > 0) {
+      const m = new Date(c.createdAt || Date.now()).toISOString().substring(0, 7);
+      months[m] = (months[m] || 0) + c.cost;
+    }
+  }
+  return Object.keys(months).sort().map(m => ({ month: m, usd: months[m] }));
+}
+
 export function monthlyPnlUsd(account, allTrades) {
   const items = tradesForAccount(account, allTrades);
   const months = {};

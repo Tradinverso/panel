@@ -3,17 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Tradinverso · Trading Journal</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>Tradinverso · Trading Journal V2.0</title>
+<!-- Icono / PWA -->
+<!-- Favicon (pestaña del navegador): logo nuevo -->
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-tab-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/favicon-tab-192.png">
+<!-- Icono de app instalable (PWA): logo anterior, sin cambios -->
+<link rel="apple-touch-icon" href="assets/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0A0E1A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tradinverso">
+<meta name="mobile-web-app-capable" content="yes">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/themes.css">
 <link rel="stylesheet" href="css/styles.css">
 <link rel="stylesheet" href="css/forms.css">
 <link rel="stylesheet" href="css/calendar.css">
 <link rel="stylesheet" href="css/auth.css">
 <link rel="stylesheet" href="css/cuentas.css">
+<link rel="stylesheet" href="css/riesgo.css">
+<link rel="stylesheet" href="css/contabilidad.css">
+<link rel="stylesheet" href="css/ui.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 </head>
 <body>
+  <button id="navToggle" class="nav-toggle" aria-label="Abrir menú">☰</button>
+  <div id="navScrim" class="nav-scrim"></div>
   <aside id="sidebar"></aside>
   <main id="view"></main>
   <div id="modal-root"></div>

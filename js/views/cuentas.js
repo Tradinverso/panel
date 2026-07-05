@@ -4,6 +4,8 @@
 import { state } from '../state.js';
 import { router } from '../router.js';
 import { openCuentaEditModal, confirmDeleteCuenta } from '../components/cuenta-edit-modal.js';
+import { openModal } from '../components/modal.js';
+import { gestionTabs } from '../components/gestion-tabs.js';
 import {
   accountStats, fmtUsd,
   portfolioStats, portfolioEquityCurve, portfolioMonthlyWithdrawals,
@@ -62,6 +64,7 @@ function render(container) {
   const activas = byType.filter(c => c.status === 'activa').length;
 
   container.innerHTML = `
+    ${gestionTabs('cuentas')}
     <div class="page-header">
       <div>
         <h1>Mis cuentas</h1>
@@ -79,17 +82,10 @@ function render(container) {
         <div class="kpi-grid" id="portfolioKpis"></div>
 
         <div class="section-title">Cartera</div>
-        <div class="grid-2-1">
-          <div class="card">
-            <div class="card-title">Evolución del equity</div>
-            <div class="card-sub">Suma de cuentas fondeadas activas</div>
-            <div class="chart-wrap" style="height:220px;"><canvas id="portfolioEquity"></canvas></div>
-          </div>
-          <div class="card">
-            <div class="card-title">Payouts mensuales</div>
-            <div class="card-sub">Retiros totales por mes (incl. históricos)</div>
-            <div class="chart-wrap" style="height:220px;"><canvas id="portfolioPayouts"></canvas></div>
-          </div>
+        <div class="card" style="margin-bottom:24px;">
+          <div class="card-title">Evolución del equity</div>
+          <div class="card-sub">Suma de cuentas fondeadas activas</div>
+          <div class="chart-wrap" style="height:240px;"><canvas id="portfolioEquity"></canvas></div>
         </div>
 
         <div class="section-title-row">
@@ -113,7 +109,7 @@ function render(container) {
         <div class="cuentas-hint">💡 Para registrar retiros de propfirms anteriores: créalas como cuenta con estado <b>Pasada</b> o <b>Perdida</b> y añade los retiros desde su detalle.</div>
 
         ${sortedFiltered.length
-          ? `<div class="cuenta-grid">${sortedFiltered.map(c => card(c)).join('')}</div>`
+          ? renderGroupedCards(sortedFiltered)
           : '<div class="empty">Ninguna cuenta coincide con los filtros.</div>'}
       `}
   `;
@@ -148,20 +144,15 @@ function render(container) {
       if (abs >= 1000) return (v < 0 ? '-' : '') + '$' + (abs / 1000).toFixed(abs >= 10000 ? 0 : 1) + 'K';
       return (v < 0 ? '-' : '') + '$' + abs.toFixed(0);
     };
-    const equityCanvas = container.querySelector('#portfolioEquity');
-    if (equityCanvas) {
+    // Gráfico en el siguiente frame (layout listo) para evitar lienzo en blanco.
+    requestAnimationFrame(() => {
+      const equityCanvas = container.querySelector('#portfolioEquity');
+      if (!equityCanvas) return;
       const curve = portfolioEquityCurve(byType, state.trades);
       createEquity(equityCanvas, [
         { key: 'PORT', label: 'Equity cartera', data: curve },
       ], { formatter: usdAxis });
-    }
-    const payoutsCanvas = container.querySelector('#portfolioPayouts');
-    if (payoutsCanvas) {
-      const data = portfolioMonthlyWithdrawals(byType);
-      const labels = data.map(d => MONTHS_ES_SHORT[+d.month.split('-')[1] - 1] + ' ' + d.month.substring(2, 4));
-      const values = data.map(d => +d.usd.toFixed(2));
-      createBar(payoutsCanvas, labels, values, { formatter: usdAxis });
-    }
+    });
 
     const faseEl = container.querySelector('#cf-fase');
     if (faseEl) faseEl.addEventListener('change', e => {
@@ -194,6 +185,23 @@ function render(container) {
       if (c) confirmDeleteCuenta(c, () => render(container));
     });
   });
+  container.querySelectorAll('[data-advance]').forEach(b => {
+    b.addEventListener('click', () => state.advanceFase(b.dataset.advance));
+  });
+  container.querySelectorAll('[data-quemada]').forEach(b => {
+    b.addEventListener('click', () => {
+      const c = state.cuentas.find(x => x.id === b.dataset.quemada);
+      if (!c) return;
+      openModal({
+        title: 'Marcar cuenta quemada',
+        body: `¿Marcar <strong>${esc(c.empresa)} ${esc(c.numero || '')}</strong> como <strong>quemada</strong> (perdida)? Puedes revertirlo desde Editar.`,
+        actions: [
+          { label: 'Cancelar', onClick: close => close() },
+          { label: 'Sí, quemada', variant: 'danger', onClick: close => { state.markQuemada(c.id); close(); } },
+        ],
+      });
+    });
+  });
 }
 
 function paintPortfolioKpis(container, cuentas) {
@@ -219,26 +227,6 @@ function paintPortfolioKpis(container, cuentas) {
       sub: 'desde inicio · cuentas activas',
       tone: s.profitFondeado >= 0 ? 'green' : 'red',
     }),
-    kpiCard({
-      label: 'Retirado total',
-      value: fmtUsd(s.totalWithdrawn),
-      sub: s.totalCommissions > 0
-        ? 'neto · ' + fmtUsd(s.totalCommissions) + ' en comisiones'
-        : 'payouts cobrados (incl. históricos)',
-      tone: 'green',
-    }),
-    kpiCard({
-      label: 'Coste total',
-      value: '-' + fmtUsd(s.totalCost),
-      sub: 'fees + retries',
-      tone: 'red',
-    }),
-    kpiCard({
-      label: 'Neto cobrado',
-      value: fmtUsd(s.netToPocket, true),
-      sub: 'retirado − coste',
-      tone: s.netToPocket >= 0 ? 'green' : 'red',
-    }),
   ].join('');
 }
 
@@ -253,61 +241,79 @@ function emptyState() {
   `;
 }
 
+// Agrupa las cuentas (ya filtradas+ordenadas) por fase en columnas tipo "tablero".
+const FASE_ORDER = ['challenge_1', 'challenge_2', 'fondeada'];
+const FASE_COL = {
+  challenge_1: { label: 'Challenge 1ª', short: '1F', cls: 'g1' },
+  challenge_2: { label: 'Challenge 2ª', short: '2F', cls: 'g2' },
+  fondeada:    { label: 'Fondeada',     short: '★',  cls: 'gf' },
+};
+
+function renderGroupedCards(list) {
+  const cols = FASE_ORDER.map(f => {
+    const items = list.filter(c => c.fase === f);
+    if (!items.length) return '';
+    const g = FASE_COL[f];
+    return `
+      <div class="cuenta-col">
+        <div class="cuenta-col-hdr">
+          <span class="cuenta-gtag ${g.cls}">${g.short}</span>
+          <span class="cuenta-col-title">${g.label}</span>
+          <span class="cuenta-col-count">${items.length}</span>
+        </div>
+        <div class="cuenta-col-body">${items.map(card).join('')}</div>
+      </div>`;
+  }).join('');
+  return `<div class="cuenta-cols">${cols}</div>`;
+}
+
 function card(c) {
   const s = accountStats(c, state.trades);
   const isFondeada = c.fase === 'fondeada';
   const equityColor = s.equityPct >= 0 ? 'var(--green)' : 'var(--red)';
-  const profitColor = s.profitTotalUsd >= 0 ? 'var(--green)' : 'var(--red)';
   const wr = s.tp + s.sl > 0 ? s.wr.toFixed(0) + '%' : '–';
   const racha = s.currentSlStreak >= 3 ? `🔴 ${s.currentSlStreak} SL`
-              : s.currentSlStreak === 2 ? `🟡 2 SL`
-              : '✅ sin racha';
+              : s.currentSlStreak === 2 ? `🟡 2 SL` : '';
+
+  const stat = (label, value, extra = '') =>
+    `<div class="cuenta-stat"><span class="cuenta-stat-l">${label}</span><span class="cuenta-stat-v"${extra}>${value}</span></div>`;
+
+  // Objetivo de la fase: % del capital (con $ derivado). Fallback al $ legacy.
+  const objPct = c.targetPct > 0 ? c.targetPct : 0;
+  const objUsd = objPct > 0 ? Math.round(s.capital * objPct / 100) : s.targetUsd;
+  const objText = objPct > 0 ? `${+objPct.toFixed(2)}% · ${fmtUsd(objUsd)}` : (objUsd > 0 ? fmtUsd(objUsd) : '—');
 
   return `
-    <div class="cuenta-card ${STATUS_CLASS[c.status]}" data-view-cuenta="${c.id}">
+    <div class="cuenta-card st-${c.status}" data-view-cuenta="${c.id}">
       <div class="cuenta-card-head">
-        <div>
-          <div class="cuenta-card-title">${esc(c.empresa)} ${fmtCapitalShort(c.capital)} · ${esc(c.tipo)}</div>
-          <div class="cuenta-card-meta">${c.numero ? '#' + esc(c.numero) + ' · ' : ''}<span class="badge ${FASE_CLASS[c.fase]}">${FASE_LABEL[c.fase]}</span> <span class="badge st-${c.status}">${STATUS_DOT[c.status]} ${STATUS_LABEL[c.status]}</span></div>
+        <div class="cuenta-card-id">
+          <div class="cuenta-card-title">${esc(c.empresa)} <span class="cc-cap">${fmtCapitalShort(c.capital)}</span></div>
+          <div class="cuenta-card-sub">${c.numero ? '#' + esc(c.numero) + ' · ' : ''}${esc(c.tipo)} · <span class="badge st-${c.status}">${STATUS_DOT[c.status]} ${STATUS_LABEL[c.status]}</span></div>
         </div>
         <div class="cuenta-card-actions" data-stop>
           <button class="btn ghost" data-edit-cuenta="${c.id}" title="Editar" data-stop>✏️</button>
           <button class="btn ghost danger" data-delete-cuenta="${c.id}" title="Borrar" data-stop>×</button>
         </div>
       </div>
-      <div class="cuenta-card-body">
-        <div class="cc-row">
-          <span class="cc-label">Capital</span>
-          <span class="cc-value">${fmtUsd(s.capital)}${s.initialBalance !== s.capital ? ` <span style="color:var(--muted);font-size:10px;">→ ${fmtUsd(s.initialBalance)} inicial</span>` : ''}</span>
-        </div>
-        <div class="cc-row">
-          <span class="cc-label">Equity</span>
-          <span class="cc-value" style="color:${equityColor};">${fmtUsd(s.equityUsd)} <span style="font-size:11px;opacity:.7;">(${s.equityPct >= 0 ? '+' : ''}${s.equityPct.toFixed(2)}%)</span></span>
-        </div>
-        ${isFondeada ? `
-        <div class="cc-row">
-          <span class="cc-label">Profit total</span>
-          <span class="cc-value" style="color:${profitColor};">${fmtUsd(s.profitTotalUsd, true)}</span>
-        </div>
-        <div class="cc-row">
-          <span class="cc-label">Retirado</span>
-          <span class="cc-value">${fmtUsd(s.totalWithdrawnNet)}${s.totalCommissions > 0 ? ` <span style="font-size:10px;color:var(--orange);opacity:.85;">(−${fmtUsd(s.totalCommissions)} com.)</span>` : ''}</span>
-        </div>` : ''}
-        ${c.cost > 0 ? `
-        <div class="cc-row">
-          <span class="cc-label">Coste</span>
-          <span class="cc-value" style="color:var(--muted);">${fmtUsd(c.cost)}</span>
-        </div>` : ''}
-        ${s.ddLimitUsd > 0 ? `
-        <div class="cc-row">
-          <span class="cc-label">DD máx (firma)</span>
-          <span class="cc-value">${fmtUsd(s.ddLimitUsd)}${s.ddLimitPctOfCapital ? ` <span style="font-size:10px;opacity:.7;">(${s.ddLimitPctOfCapital.toFixed(1)}%)</span>` : ''}</span>
-        </div>` : ''}
-        <div class="cc-row">
-          <span class="cc-label">Trades</span>
-          <span class="cc-value">${s.count} · ${wr} WR · ${racha}</span>
-        </div>
+
+      <div class="cuenta-equity" style="color:${equityColor};">
+        ${fmtUsd(s.equityUsd)}
+        <span class="cuenta-equity-pct">${s.equityPct >= 0 ? '+' : ''}${s.equityPct.toFixed(2)}%</span>
       </div>
+
+      <div class="cuenta-stats">
+        ${stat('Capital', fmtUsd(s.capital))}
+        ${c.fase !== 'fondeada' ? stat('Objetivo', objText) : (objUsd > 0 ? stat('Objetivo', objText) : '')}
+        ${s.ddLimitUsd > 0 ? stat('DD máx', fmtUsd(s.ddLimitUsd)) : ''}
+        ${stat('Trades', `${s.count} · ${wr} WR`)}
+        ${racha ? stat('Racha', racha) : ''}
+      </div>
+
+      ${(c.fase !== 'fondeada' || c.status !== 'perdida') ? `
+      <div class="cuenta-card-foot" data-stop>
+        ${c.fase !== 'fondeada' ? `<button class="btn ghost" data-advance="${c.id}" data-stop>✓ Superar fase</button>` : ''}
+        ${c.status !== 'perdida' ? `<button class="btn ghost danger" data-quemada="${c.id}" data-stop>✗ Quemada</button>` : ''}
+      </div>` : ''}
     </div>
   `;
 }

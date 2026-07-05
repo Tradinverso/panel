@@ -24,10 +24,13 @@ export async function generateBackup(onProgress = () => {}) {
   if (includeAdmin) {
     i++;
     onProgress(i, total);
-    const [trades, cuentas, reflections] = await Promise.all([
+    const [trades, cuentas, reflections, perfiles, config, tradingPlan] = await Promise.all([
       sync.loadTrades(adminUid).catch(() => []),
       sync.loadCuentas(adminUid).catch(() => []),
       sync.loadReflections(adminUid).catch(() => []),
+      sync.loadPerfiles(adminUid).catch(() => []),
+      sync.loadConfig(adminUid).catch(() => ({})),
+      sync.loadTradingPlan(adminUid).catch(() => ({})),
     ]);
     result.push({
       uid: adminUid,
@@ -35,15 +38,21 @@ export async function generateBackup(onProgress = () => {}) {
       trades,
       cuentas,
       reflections,
+      perfiles,
+      config,
+      tradingPlan,
     });
   }
 
   for (const s of students) {
     i++;
     onProgress(i, total);
-    const [cuentas, reflections] = await Promise.all([
+    const [cuentas, reflections, perfiles, config, tradingPlan] = await Promise.all([
       sync.loadCuentas(s.uid).catch(() => []),
       sync.loadReflections(s.uid).catch(() => []),
+      sync.loadPerfiles(s.uid).catch(() => []),
+      sync.loadConfig(s.uid).catch(() => ({})),
+      sync.loadTradingPlan(s.uid).catch(() => ({})),
     ]);
     result.push({
       uid: s.uid,
@@ -51,6 +60,9 @@ export async function generateBackup(onProgress = () => {}) {
       trades: s.trades || [],
       cuentas,
       reflections,
+      perfiles,
+      config,
+      tradingPlan,
     });
   }
   return {
@@ -124,15 +136,16 @@ export function parseBackupFile(file) {
 
 // Devuelve un resumen agregado del backup (sin tocar Firestore).
 export function summarizeBackup(data) {
-  let trades = 0, cuentas = 0, reflections = 0;
+  let trades = 0, cuentas = 0, reflections = 0, perfiles = 0;
   for (const s of (data.students || [])) {
     trades += (s.trades?.length || 0);
     cuentas += (s.cuentas?.length || 0);
     reflections += (s.reflections?.length || 0);
+    perfiles += (s.perfiles?.length || 0);
   }
   return {
     students: data.students?.length || 0,
-    trades, cuentas, reflections,
+    trades, cuentas, reflections, perfiles,
     exported_at: data.exported_at,
     exported_by: data.exported_by,
   };
@@ -147,7 +160,7 @@ export async function restoreBackup(data, mode = 'merge', onProgress = () => {})
     throw new Error('Datos de backup inválidos.');
   }
   const total = data.students.length;
-  const stats = { students: 0, trades: 0, cuentas: 0, reflections: 0 };
+  const stats = { students: 0, trades: 0, cuentas: 0, reflections: 0, perfiles: 0 };
 
   for (let i = 0; i < total; i++) {
     const s = data.students[i];
@@ -161,6 +174,7 @@ export async function restoreBackup(data, mode = 'merge', onProgress = () => {})
         sync.wipeAllTrades(s.uid),
         sync.wipeAllCuentas(s.uid),
         sync.wipeAllReflections(s.uid),
+        sync.wipeAllPerfiles(s.uid),
       ]);
     }
 
@@ -190,6 +204,23 @@ export async function restoreBackup(data, mode = 'merge', onProgress = () => {})
       if (r && r.id) {
         try { await sync.saveReflection(s.uid, r); stats.reflections++; } catch (e) { console.warn('reflection fallo', r.id, e.message); }
       }
+    }
+
+    // Perfiles de riesgo (custom)
+    for (const p of (s.perfiles || [])) {
+      if (p && p.id) {
+        try { await sync.savePerfil(s.uid, p); stats.perfiles++; } catch (e) { console.warn('perfil fallo', p.id, e.message); }
+      }
+    }
+
+    // Config del usuario (toggle módulo, puntero de rotación, etc.)
+    if (s.config && typeof s.config === 'object' && Object.keys(s.config).length) {
+      try { await sync.saveConfig(s.uid, s.config); } catch (e) { console.warn('config fallo', s.uid, e.message); }
+    }
+
+    // Plan de trading
+    if (s.tradingPlan && typeof s.tradingPlan === 'object' && (s.tradingPlan.content || s.tradingPlan.docUrl)) {
+      try { await sync.saveTradingPlan(s.uid, s.tradingPlan); } catch (e) { console.warn('tradingPlan fallo', s.uid, e.message); }
     }
 
     stats.students++;

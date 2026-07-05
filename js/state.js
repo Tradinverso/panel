@@ -151,9 +151,13 @@ function sanitizeCuenta(c) {
     initialBalance,
     cost: typeof c.cost === 'number' ? c.cost : (parseFloat(c.cost) || 0),
     targetUsd: c.targetUsd != null ? (typeof c.targetUsd === 'number' ? c.targetUsd : parseFloat(c.targetUsd) || 0) : 0,
+    targetPct: typeof c.targetPct === 'number' ? c.targetPct : (parseFloat(c.targetPct) || 0),  // objetivo como % del capital
     maxDdUsd: c.maxDdUsd != null ? (typeof c.maxDdUsd === 'number' ? c.maxDdUsd : parseFloat(c.maxDdUsd) || 0) : 0,
     status: VALID_STATUS.has(c.status) ? c.status : 'activa',
     fase: VALID_FASE.has(c.fase) ? c.fase : 'challenge_1',
+    numFases: c.numFases === 1 ? 1 : 2,   // nº de fases del challenge (1 ó 2)
+    fundedAt: c.fundedAt || null,         // fecha en que pasó a fondeada (calendario)
+    burnedAt: c.burnedAt || null,         // fecha en que se quemó (calendario)
     withdrawals: Array.isArray(c.withdrawals)
       ? c.withdrawals
           .filter(w => w && w.amount > 0)
@@ -168,7 +172,66 @@ function sanitizeCuenta(c) {
           }))
       : [],
     notes: String(c.notes || '').trim(),
+    // ── Inversión: historial de compras/reintentos de la cuenta ──
+    purchases: Array.isArray(c.purchases)
+      ? c.purchases.map(sanitizePurchase).filter(Boolean)
+      : [],
+    // ── Módulo de Riesgo/Rotación (escalado por niveles) ──────
+    // Config de riesgo de la cuenta. Defaults retrocompatibles: cuentas viejas
+    // sin estos campos arrancan con el perfil "Estándar" (0,5% × 1,3) en rotación.
+    riesgoBase: numPos(c.riesgoBase, 0.0050),
+    multiplicador: numPos(c.multiplicador, 1.300),
+    perfilId: c.perfilId != null && c.perfilId !== '' ? String(c.perfilId) : null,
+    enRotacion: c.enRotacion === false ? false : true,
+    rotacionOrden: typeof c.rotacionOrden === 'number' ? c.rotacionOrden : (parseFloat(c.rotacionOrden) || 0),
     createdAt: c.createdAt || Date.now(),
+  };
+}
+
+const VALID_CONCEPT = new Set(['challenge', 'reset', 'reintento', 'suscripcion', 'otro']);
+
+function sanitizePurchase(p) {
+  if (!p) return null;
+  const amount = typeof p.amount === 'number' ? p.amount : (parseFloat(p.amount) || 0);
+  if (!(amount > 0)) return null;
+  return {
+    id: p.id || uuid(),
+    date: p.date || new Date().toISOString().substring(0, 10),
+    amount,
+    concept: VALID_CONCEPT.has(p.concept) ? p.concept : 'challenge',
+    note: String(p.note || '').trim(),
+  };
+}
+
+// Coerción a número estrictamente positivo, con fallback.
+function numPos(v, fallback) {
+  const n = typeof v === 'number' ? v : parseFloat(v);
+  return isFinite(n) && n > 0 ? n : fallback;
+}
+
+const PERFIL_ID_RE = /^[A-Za-z0-9_-]+$/;
+
+function sanitizePerfil(p) {
+  if (!p) return null;
+  const nombre = String(p.nombre || '').trim();
+  if (!nombre) return null;
+  const id = p.id && PERFIL_ID_RE.test(p.id) ? p.id : uuid();
+  return {
+    id,
+    nombre,
+    riesgoBase: numPos(p.riesgoBase, 0.0050),
+    multiplicador: numPos(p.multiplicador, 1.300),
+    descripcion: String(p.descripcion || '').trim(),
+  };
+}
+
+function sanitizeTradingPlan(p) {
+  p = p || {};
+  const docUrl = String(p.docUrl || '').trim();
+  return {
+    content: String(p.content || ''),
+    docUrl: /^https?:\/\//i.test(docUrl) ? docUrl : '',
+    updatedAt: typeof p.updatedAt === 'number' ? p.updatedAt : 0,
   };
 }
 
@@ -208,6 +271,9 @@ export const state = {
   trades: [],
   cuentas: [],
   reflections: [],
+  perfiles: [],       // perfiles de riesgo CUSTOM del usuario (los built-in van en código)
+  config: {},         // preferencias del usuario (users/{uid}/config/data)
+  tradingPlan: {},    // plan de trading del usuario (users/{uid}/tradingPlan/data)
   viewAsUid: null,    // null = ves tus propios trades; uid = admin viendo a alumno
   viewAsProfile: null,// perfil del alumno que se está viendo (banner)
   readOnly: false,    // true cuando viewAsUid != null
@@ -220,25 +286,39 @@ export const state = {
       this.trades = [];
       this.cuentas = [];
       this.reflections = [];
+      this.perfiles = [];
+      this.config = {};
+      this.tradingPlan = {};
       this.emit();
       return;
     }
     this.loading = true;
     this.emit();
     try {
-      const [trades, cuentas, reflections] = await Promise.all([
+      const [trades, cuentas, reflections, perfiles, config, tradingPlan] = await Promise.all([
         sync.loadTrades(uid),
         sync.loadCuentas(uid),
         sync.loadReflections(uid),
+        // Colecciones nuevas: si las reglas de Firestore aún no las cubren, no
+        // deben tumbar la carga entera (caen a su valor por defecto).
+        sync.loadPerfiles(uid).catch(() => []),
+        sync.loadConfig(uid).catch(() => ({})),
+        sync.loadTradingPlan(uid).catch(() => ({})),
       ]);
       this.trades = trades.map(sanitizeTrade).filter(Boolean);
       this.cuentas = cuentas.map(sanitizeCuenta).filter(Boolean);
       this.reflections = reflections.map(sanitizeReflection).filter(Boolean);
+      this.perfiles = perfiles.map(sanitizePerfil).filter(Boolean);
+      this.config = config || {};
+      this.tradingPlan = sanitizeTradingPlan(tradingPlan);
     } catch (e) {
       console.error('[state] Error cargando datos:', e);
       this.trades = [];
       this.cuentas = [];
       this.reflections = [];
+      this.perfiles = [];
+      this.config = {};
+      this.tradingPlan = {};
     }
     this.loading = false;
     this.viewAsUid = null;
@@ -253,14 +333,20 @@ export const state = {
     this.loading = true;
     this.emit();
     try {
-      const [trades, cuentas, reflections] = await Promise.all([
+      const [trades, cuentas, reflections, perfiles, config, tradingPlan] = await Promise.all([
         sync.loadStudentTrades(studentUid),
         sync.loadCuentas(studentUid),
         sync.loadReflections(studentUid),
+        sync.loadPerfiles(studentUid).catch(() => []),
+        sync.loadConfig(studentUid).catch(() => ({})),
+        sync.loadTradingPlan(studentUid).catch(() => ({})),
       ]);
       this.trades = trades.map(sanitizeTrade).filter(Boolean);
       this.cuentas = cuentas.map(sanitizeCuenta).filter(Boolean);
       this.reflections = reflections.map(sanitizeReflection).filter(Boolean);
+      this.perfiles = perfiles.map(sanitizePerfil).filter(Boolean);
+      this.config = config || {};
+      this.tradingPlan = sanitizeTradingPlan(tradingPlan);
       this.viewAsUid = studentUid;
       this.viewAsProfile = profile;
       this.readOnly = true;
@@ -269,6 +355,9 @@ export const state = {
       this.trades = [];
       this.cuentas = [];
       this.reflections = [];
+      this.perfiles = [];
+      this.config = {};
+      this.tradingPlan = {};
     }
     this.loading = false;
     this.emit();
@@ -394,6 +483,45 @@ export const state = {
     }
   },
 
+  // ── Ciclo de vida de la cuenta ───────────────────────────
+  // Avanza de fase: challenge_1 → (1 fase ? fondeada : challenge_2) → fondeada.
+  advanceFase(cuentaId) {
+    const c = this.cuentas.find(x => x.id === cuentaId);
+    if (!c) return null;
+    let next = c.fase;
+    if (c.fase === 'challenge_1') next = c.numFases === 1 ? 'fondeada' : 'challenge_2';
+    else if (c.fase === 'challenge_2') next = 'fondeada';
+    else return c; // ya fondeada
+    const patch = { fase: next, status: 'activa' };
+    // Registrar la fecha de fondeo la primera vez (para el calendario de Contabilidad).
+    if (next === 'fondeada' && !c.fundedAt) patch.fundedAt = new Date().toISOString().substring(0, 10);
+    return this.updateCuenta(cuentaId, patch);
+  },
+
+  markQuemada(cuentaId) {
+    const c = this.cuentas.find(x => x.id === cuentaId);
+    const patch = { status: 'perdida' };
+    if (c && !c.burnedAt) patch.burnedAt = new Date().toISOString().substring(0, 10);
+    return this.updateCuenta(cuentaId, patch);
+  },
+
+  // Reordena la rotación: asigna rotacionOrden = posición a cada id de la lista.
+  reorderRotacion(orderedIds) {
+    orderedIds.forEach((id, i) => {
+      const c = this.cuentas.find(x => x.id === id);
+      if (c && c.rotacionOrden !== i) this.updateCuenta(id, { rotacionOrden: i });
+    });
+  },
+
+  // Salta directamente a Fondeada (sin pasar fase a fase).
+  markFondeada(cuentaId) {
+    const c = this.cuentas.find(x => x.id === cuentaId);
+    if (!c) return null;
+    const patch = { fase: 'fondeada', status: 'activa' };
+    if (!c.fundedAt) patch.fundedAt = new Date().toISOString().substring(0, 10);
+    return this.updateCuenta(cuentaId, patch);
+  },
+
   // ── Retiros (siempre dentro de una cuenta) ───────────────
   addWithdrawal(cuentaId, withdrawal) {
     const cuenta = this.cuentas.find(c => c.id === cuentaId);
@@ -421,6 +549,62 @@ export const state = {
     });
   },
 
+  // ── Compras / reintentos (historial de inversión de la cuenta) ──
+  addPurchase(cuentaId, purchase) {
+    const cuenta = this.cuentas.find(c => c.id === cuentaId);
+    if (!cuenta) return null;
+    const p = sanitizePurchase(purchase);
+    if (!p) return null;
+    const existing = [...(cuenta.purchases || [])];
+    // Migración: si la cuenta tenía coste legacy y aún no hay compras,
+    // sembrar ese coste como primera compra para no perderlo ni duplicarlo.
+    const patch = {};
+    if (existing.length === 0 && cuenta.cost > 0) {
+      existing.push(sanitizePurchase({
+        date: new Date(cuenta.createdAt || Date.now()).toISOString().substring(0, 10),
+        amount: cuenta.cost,
+        concept: 'challenge',
+        note: 'Coste inicial',
+      }));
+      patch.cost = 0; // el coste ya vive como compra
+    }
+    existing.push(p);
+    patch.purchases = existing;
+    return this.updateCuenta(cuentaId, patch);
+  },
+
+  removePurchase(cuentaId, purchaseId) {
+    const cuenta = this.cuentas.find(c => c.id === cuentaId);
+    if (!cuenta) return null;
+    return this.updateCuenta(cuentaId, {
+      purchases: (cuenta.purchases || []).filter(p => p.id !== purchaseId),
+    });
+  },
+
+  updatePurchase(cuentaId, purchaseId, patch) {
+    const cuenta = this.cuentas.find(c => c.id === cuentaId);
+    if (!cuenta) return null;
+    const existing = cuenta.purchases || [];
+    const isReal = existing.some(p => p.id === purchaseId);
+    // Compra "legacy": el coste vive en el campo viejo `cost` (no en purchases[]),
+    // se muestra como fila sintética `legacy-<id>`. Al editarla la materializamos
+    // como primera compra real con los valores editados y ponemos cost a 0.
+    if (!isReal) {
+      const p = sanitizePurchase({
+        date: patch.date,
+        amount: patch.amount != null ? patch.amount : cuenta.cost,
+        concept: patch.concept || 'challenge',
+        note: patch.note != null ? patch.note : 'Coste inicial',
+      });
+      if (!p) return null;
+      return this.updateCuenta(cuentaId, { purchases: [p, ...existing], cost: 0 });
+    }
+    const purchases = existing.map(p =>
+      p.id === purchaseId ? (sanitizePurchase({ ...p, ...patch, id: purchaseId }) || p) : p
+    );
+    return this.updateCuenta(cuentaId, { purchases });
+  },
+
   // ── Reflexiones de psicología ────────────────────────────
   saveReflection(type, period, content) {
     if (!VALID_REFL_TYPE.has(type) || !period) return null;
@@ -441,6 +625,68 @@ export const state = {
     if (this.reflections.length === before) return;
     this.emit();
     fireAndForget(sync.deleteReflection(targetUid(), id), 'deleteReflection');
+  },
+
+  // ── Perfiles de riesgo (CRUD optimista) ──────────────────
+  addPerfil(perfil) {
+    const p = sanitizePerfil(perfil);
+    if (!p) return null;
+    this.perfiles.push(p);
+    this.emit();
+    fireAndForget(sync.savePerfil(targetUid(), p), 'savePerfil');
+    return p;
+  },
+
+  updatePerfil(id, patch) {
+    const i = this.perfiles.findIndex(p => p.id === id);
+    if (i < 0) return null;
+    this.perfiles[i] = sanitizePerfil({ ...this.perfiles[i], ...patch, id });
+    this.emit();
+    fireAndForget(sync.savePerfil(targetUid(), this.perfiles[i]), 'savePerfil(update)');
+    return this.perfiles[i];
+  },
+
+  deletePerfil(id, { keepAssignments = false } = {}) {
+    // Desasignar el perfil de cualquier cuenta que lo use (espejo del PHP).
+    // keepAssignments=true al "restaurar" un preset: la cuenta sigue apuntando
+    // al preset, que vuelve a sus valores por defecto al quitar el override.
+    const cuentasAfectadas = [];
+    if (!keepAssignments) {
+      this.cuentas.forEach((c, idx) => {
+        if (c.perfilId === id) {
+          this.cuentas[idx] = sanitizeCuenta({ ...c, perfilId: null });
+          cuentasAfectadas.push(this.cuentas[idx]);
+        }
+      });
+    }
+    this.perfiles = this.perfiles.filter(p => p.id !== id);
+    this.emit();
+    const uid = targetUid();
+    fireAndForget(sync.deletePerfil(uid, id), 'deletePerfil');
+    cuentasAfectadas.forEach(c => fireAndForget(sync.saveCuenta(uid, c), 'saveCuenta(deletePerfil cleanup)'));
+  },
+
+  // ── Config del usuario (merge optimista) ─────────────────
+  setConfig(patch) {
+    this.config = { ...this.config, ...patch };
+    this.emit();
+    fireAndForget(sync.saveConfig(targetUid(), patch), 'saveConfig');
+    return this.config;
+  },
+
+  // Mapa id→cuenta del contexto actual (propio o alumno en viewAs). Lo usan los
+  // cálculos de "P&L real" ponderado por capital.
+  cuentaMap() {
+    return new Map(this.cuentas.map(c => [c.id, c]));
+  },
+
+  // ── Plan de trading (merge optimista) ────────────────────
+  saveTradingPlan(patch) {
+    const next = sanitizeTradingPlan({ ...this.tradingPlan, ...patch });
+    this.tradingPlan = next;
+    this.emit();
+    fireAndForget(sync.saveTradingPlan(targetUid(), next), 'saveTradingPlan');
+    return next;
   },
 
   // ── Bus de eventos ───────────────────────────────────────

@@ -20,21 +20,40 @@ const STATUS_OPTIONS = [
 
 const TIPO_OPTIONS = ['CFD', 'Futuros'];
 
+const FASES_OPTIONS = [
+  { value: '1', label: '1 fase' },
+  { value: '2', label: '2 fases' },
+];
+
 export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
   const isNew = !cuenta;
   // Si es edición y la cuenta tiene trades asignados, advertir al cambiar capital
   const tradesUsing = cuenta ? tradesForAccount(cuenta, state.trades).length : 0;
+  const today = new Date().toISOString().substring(0, 10);
+  // Primera compra (coste inicial) para poder editar su fecha/importe al editar la
+  // cuenta. Puede ser real (purchases[0]) o legacy (el campo `cost` sintetizado).
+  const initialPurchase = cuenta
+    ? (cuenta.purchases && cuenta.purchases.length
+        ? cuenta.purchases[0]
+        : (cuenta.cost > 0
+            ? { id: 'legacy-' + cuenta.id, date: new Date(cuenta.createdAt || Date.now()).toISOString().substring(0, 10), amount: cuenta.cost }
+            : null))
+    : null;
   const data = {
     empresa: cuenta?.empresa || '',
     tipo: cuenta?.tipo || 'CFD',
     numero: cuenta?.numero || '',
     capital: cuenta?.capital != null ? String(cuenta.capital) : '',
     initialBalance: cuenta?.initialBalance != null ? String(cuenta.initialBalance) : '',
-    cost: cuenta?.cost != null ? String(cuenta.cost) : '',
-    targetUsd: cuenta?.targetUsd != null && cuenta.targetUsd > 0 ? String(cuenta.targetUsd) : '',
+    cost: initialPurchase ? String(initialPurchase.amount) : (cuenta?.cost != null && cuenta.cost > 0 ? String(cuenta.cost) : ''),
+    costDate: initialPurchase ? (initialPurchase.date || today) : today,
+    targetPct: cuenta?.targetPct > 0
+      ? String(cuenta.targetPct)
+      : (cuenta?.targetUsd > 0 && cuenta?.capital ? String(+(cuenta.targetUsd / cuenta.capital * 100).toFixed(2)) : ''),
     maxDdUsd: cuenta?.maxDdUsd != null && cuenta.maxDdUsd > 0 ? String(cuenta.maxDdUsd) : '',
     fase: cuenta?.fase || 'challenge_1',
     status: cuenta?.status || 'activa',
+    numFases: cuenta?.numFases === 1 ? 1 : 2,
     notes: cuenta?.notes || '',
   };
   const originalCapital = cuenta?.capital;
@@ -64,7 +83,6 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
           <div class="form-field">
             <label class="form-label">Capital nominal ($) <span class="required">*</span></label>
             <input class="form-input" type="number" step="100" id="ce-capital" value="${esc(data.capital)}" placeholder="50000">
-            <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:4px;">El tamaño que dice el broker (FTMO 100K, MFF 50K…). Usado para sizing de trades.</div>
             ${tradesUsing > 0 ? `
               <div id="capital-warn" style="display:none;font-size:11px;color:var(--orange);font-family:var(--mono);margin-top:6px;line-height:1.5;background:var(--orange-bg);padding:8px 10px;border-radius:6px;border:1px solid rgba(255,165,2,0.3);">
                 ⚠ Esta cuenta tiene <strong>${tradesUsing} trade${tradesUsing !== 1 ? 's' : ''}</strong> asignados. Si cambias el capital nominal, todos los <strong>$ P&L históricos se recalcularán</strong>.
@@ -75,51 +93,56 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
 
         <div class="form-row">
           <div class="form-field">
-            <label class="form-label">Saldo actual ($)</label>
-            <input class="form-input" type="number" step="0.01" id="ce-initbal" value="${esc(data.initialBalance)}" placeholder="${esc(data.capital) || 'igual al capital'}">
-            <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:4px;line-height:1.5;">
-              Lo que tiene la cuenta AHORA en el broker. Editable cuando quieras: si el broker no coincide con los trades calculados, ajústalo aquí. Por defecto = capital nominal.
-            </div>
+            <label class="form-label">Fases del challenge <span class="required">*</span></label>
+            <div data-field="fases"></div>
+          </div>
+          <div class="form-field">
+            <label class="form-label">${isNew ? 'Coste pagado ($)' : 'Primera compra · coste ($)'}</label>
+            <input class="form-input" type="number" step="1" id="ce-cost" value="${esc(data.cost)}" placeholder="99">
+            <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:4px;">${isNew ? 'Se registra como la primera compra de la cuenta (Contabilidad).' : 'Edita el coste inicial (primera compra).'}</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">${isNew ? 'Fecha del pago' : 'Fecha de la primera compra'}</label>
+            <input class="form-input" type="date" id="ce-cost-date" value="${esc(data.costDate)}">
+            <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:4px;">${isNew ? 'Fecha de esa primera compra. Editable luego en Contabilidad → Compras.' : 'Cambia la fecha en la que compraste la cuenta.'}</div>
           </div>
           <div class="form-field"></div>
         </div>
 
-        <div class="form-row">
-          <div class="form-field">
-            <label class="form-label">Target ($)</label>
-            <input class="form-input" type="number" step="100" id="ce-target" value="${esc(data.targetUsd)}" placeholder="ej. 5000">
-            <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:4px;line-height:1.5;">
-              Profit en $ que necesitas para pasar el challenge (o weekly target en fondeada). Opcional.
+        <details class="ce-advanced">
+          <summary>Opciones avanzadas</summary>
+          <div class="form-field" style="margin-top:12px;">
+            <label class="form-label">Saldo actual ($)</label>
+            <input class="form-input" type="number" step="0.01" id="ce-initbal" value="${esc(data.initialBalance)}" placeholder="${esc(data.capital) || 'igual al capital'}">
+            <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:4px;line-height:1.5;">Lo que tiene la cuenta AHORA en el broker. Por defecto = capital nominal.</div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <label class="form-label">Objetivo (% del capital)</label>
+              <input class="form-input" type="number" step="0.5" id="ce-targetpct" value="${esc(data.targetPct)}" placeholder="ej. 8 = 8%">
+              <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:4px;">Profit para superar fase. Se calcula sobre el capital.</div>
+            </div>
+            <div class="form-field">
+              <label class="form-label">DD máximo firma ($)</label>
+              <input class="form-input" type="number" step="100" id="ce-maxdd" value="${esc(data.maxDdUsd)}" placeholder="ej. 8000">
             </div>
           </div>
+          ${isNew ? '' : `
           <div class="form-field">
-            <label class="form-label">DD máximo permitido por la firma ($)</label>
-            <input class="form-input" type="number" step="100" id="ce-maxdd" value="${esc(data.maxDdUsd)}" placeholder="ej. 8000">
-            <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:4px;line-height:1.5;">
-              Límite fijo en $ que define la prop firm (ej. en CFD un 8% sobre el capital nominal, en futuros el DD trailing que te marquen). Opcional.
-            </div>
+            <label class="form-label">Fase actual</label>
+            <div data-field="fase"></div>
           </div>
-        </div>
-
-        <div class="form-field">
-          <label class="form-label">Coste de la cuenta ($)</label>
-          <input class="form-input" type="number" step="1" id="ce-cost" value="${esc(data.cost)}" placeholder="99 (challenge fee, resets…)">
-        </div>
-
-        <div class="form-field">
-          <label class="form-label">Fase <span class="required">*</span></label>
-          <div data-field="fase"></div>
-        </div>
-
-        <div class="form-field">
-          <label class="form-label">Estado <span class="required">*</span></label>
-          <div data-field="status"></div>
-        </div>
-
-        <div class="form-field">
-          <label class="form-label">Notas</label>
-          <textarea class="form-textarea" id="ce-notes" placeholder="Reglas particulares, fecha de challenge, etc.">${esc(data.notes)}</textarea>
-        </div>
+          <div class="form-field">
+            <label class="form-label">Estado</label>
+            <div data-field="status"></div>
+          </div>`}
+          <div class="form-field">
+            <label class="form-label">Notas</label>
+            <textarea class="form-textarea" id="ce-notes" placeholder="Reglas particulares, fecha de challenge, etc.">${esc(data.notes)}</textarea>
+          </div>
+        </details>
 
         <div id="ce-err" class="auth-error" style="display:none;"></div>
       </div>
@@ -142,22 +165,25 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
       name: 'tipo', options: TIPO_OPTIONS, value: data.tipo,
       onChange: v => data.tipo = v,
     });
-    renderPills(root.querySelector('[data-field="fase"]'), {
-      name: 'fase',
-      options: FASE_OPTIONS,
-      value: data.fase,
+    renderPills(root.querySelector('[data-field="fases"]'), {
+      name: 'fases', options: FASES_OPTIONS, value: String(data.numFases),
+      onChange: v => data.numFases = +v,
+    });
+    const faseEl = root.querySelector('[data-field="fase"]');
+    if (faseEl) renderPills(faseEl, {
+      name: 'fase', options: FASE_OPTIONS, value: data.fase,
       onChange: v => data.fase = v,
     });
-    renderPills(root.querySelector('[data-field="status"]'), {
-      name: 'status',
-      options: STATUS_OPTIONS,
-      value: data.status,
+    const statusEl = root.querySelector('[data-field="status"]');
+    if (statusEl) renderPills(statusEl, {
+      name: 'status', options: STATUS_OPTIONS, value: data.status,
       onChange: v => data.status = v,
     });
     // Inputs sync
     root.querySelector('#ce-empresa').addEventListener('input', e => data.empresa = e.target.value);
     root.querySelector('#ce-numero').addEventListener('input', e => data.numero = e.target.value);
     root.querySelector('#ce-cost').addEventListener('input', e => data.cost = e.target.value);
+    root.querySelector('#ce-cost-date')?.addEventListener('input', e => data.costDate = e.target.value);
     root.querySelector('#ce-notes').addEventListener('input', e => data.notes = e.target.value);
 
     // Capital con aviso si ha cambiado y hay trades, y auto-sync de saldo inicial
@@ -181,8 +207,8 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
       initialBalanceManual = e.target.value !== '';
     });
 
-    const targetInput = root.querySelector('#ce-target');
-    if (targetInput) targetInput.addEventListener('input', e => data.targetUsd = e.target.value);
+    const targetInput = root.querySelector('#ce-targetpct');
+    if (targetInput) targetInput.addEventListener('input', e => data.targetPct = e.target.value);
     const maxDdInput = root.querySelector('#ce-maxdd');
     if (maxDdInput) maxDdInput.addEventListener('input', e => data.maxDdUsd = e.target.value);
   }, 0);
@@ -205,8 +231,9 @@ function doSave(cuenta, data, close, onSaved) {
   if (isNaN(initialBalance) || initialBalance < 0) return showErr('El saldo inicial no puede ser negativo.');
   const cost = data.cost === '' ? 0 : parseFloat(data.cost);
   if (isNaN(cost) || cost < 0) return showErr('El coste no puede ser negativo.');
-  const targetUsd = data.targetUsd === '' || data.targetUsd == null ? 0 : parseFloat(data.targetUsd);
-  if (isNaN(targetUsd) || targetUsd < 0) return showErr('El target no puede ser negativo.');
+  const targetPct = data.targetPct === '' || data.targetPct == null ? 0 : parseFloat(data.targetPct);
+  if (isNaN(targetPct) || targetPct < 0) return showErr('El objetivo (%) no puede ser negativo.');
+  const targetUsd = targetPct > 0 ? Math.round(capital * targetPct / 100) : 0;
   const maxDdUsd = data.maxDdUsd === '' || data.maxDdUsd == null ? 0 : parseFloat(data.maxDdUsd);
   if (isNaN(maxDdUsd) || maxDdUsd < 0) return showErr('El max DD no puede ser negativo.');
 
@@ -219,16 +246,37 @@ function doSave(cuenta, data, close, onSaved) {
     initialBalance,
     cost,
     targetUsd,
+    targetPct,
     maxDdUsd,
     fase: data.fase || 'challenge_1',
     status: data.status || 'activa',
+    numFases: data.numFases === 1 ? 1 : 2,
     notes: String(data.notes || '').trim(),
   };
 
   let saved;
   if (cuenta) {
+    // La primera compra (coste inicial) puede editarse aquí. El coste vive en
+    // purchases[], no en el campo legacy `cost`. Calculamos la primera compra
+    // ANTES de updateCuenta (que pone cost a 0).
+    const first = (cuenta.purchases && cuenta.purchases.length)
+      ? cuenta.purchases[0]
+      : (cuenta.cost > 0 ? { id: 'legacy-' + cuenta.id } : null);
+    payload.cost = 0;
     saved = state.updateCuenta(cuenta.id, payload);
+    if (cost > 0) {
+      if (first) state.updatePurchase(cuenta.id, first.id, { date: data.costDate, amount: cost });
+      else state.addPurchase(cuenta.id, { date: data.costDate, amount: cost, concept: 'challenge', note: 'Coste inicial' });
+    }
   } else {
+    // Coste inicial → primera compra (no como campo `cost` legacy).
+    if (cost > 0) {
+      payload.purchases = [{
+        date: data.costDate || new Date().toISOString().substring(0, 10),
+        amount: cost, concept: 'challenge', note: 'Coste inicial',
+      }];
+      payload.cost = 0;
+    }
     saved = state.addCuenta(payload);
   }
   close();

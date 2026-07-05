@@ -22,11 +22,21 @@ import { adminView } from './views/admin.js';
 import { grupoView } from './views/grupo.js';
 import { cuentasListView } from './views/cuentas.js';
 import { cuentaDetailView } from './views/cuenta.js';
+import { riesgoView } from './views/riesgo.js';
+import { tradingPlanView } from './views/plan.js';
+import { contabilidadView } from './views/contabilidad.js';
 
 theme.init();
 
 const view = document.getElementById('view');
 const sidebar = document.getElementById('sidebar');
+
+// ── Sidebar móvil (off-canvas con hamburguesa) ──────────────
+const navToggle = document.getElementById('navToggle');
+const navScrim = document.getElementById('navScrim');
+const closeNav = () => document.body.classList.remove('sidebar-open');
+if (navToggle) navToggle.addEventListener('click', () => document.body.classList.toggle('sidebar-open'));
+if (navScrim) navScrim.addEventListener('click', closeNav);
 
 // Splash mientras Firebase resuelve la sesión inicial
 showSplash();
@@ -48,9 +58,12 @@ router
   .add('#/admin',       (_, c) => adminView(c))
   .add('#/grupo',       (_, c) => grupoView(c))
   .add('#/cuentas',     (_, c) => cuentasListView(c))
-  .add('#/cuenta',      (params, c) => cuentaDetailView(c, params.id));
+  .add('#/cuenta',      (params, c) => cuentaDetailView(c, params.id))
+  .add('#/riesgo',      (_, c) => riesgoView(c))
+  .add('#/plan',        (_, c) => tradingPlanView(c))
+  .add('#/contabilidad', (_, c) => contabilidadView(c));
 
-router.onChange(() => renderSidebar(sidebar));
+router.onChange(() => { renderSidebar(sidebar); closeNav(); });
 
 // Cuando cambia el estado de auth: cargar datos + arrancar router
 let started = false;
@@ -94,6 +107,14 @@ auth.on(async () => {
 });
 
 auth.init();
+
+// ── PWA: registrar service worker (habilita "Instalar app") ──
+// Ruta relativa para que funcione bajo cualquier subcarpeta (p. ej. /panelprueba/).
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
 
 // ── Splash helpers ──────────────────────────────────────────
 function showSplash() {

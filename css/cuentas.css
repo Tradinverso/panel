@@ -17,60 +17,66 @@
 }
 .cuentas-hint b { color: var(--text); font-weight: 600; }
 
-/* ── Cuentas: lista de cards ─────────────────────────────── */
-.cuenta-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
+/* ── Cuentas: tablero por fase (columnas) ────────────────── */
+.cuenta-cols {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px; align-items: start; margin-bottom: 24px;
 }
+.cuenta-col {
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); overflow: hidden;
+}
+.cuenta-col-hdr { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.cuenta-col-title { font-size: 13px; font-weight: 700; flex: 1; }
+.cuenta-col-count { font-size: 11px; color: var(--muted); background: var(--surface); padding: 2px 8px; border-radius: 20px; font-family: var(--mono); }
+.cuenta-gtag { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+.cuenta-gtag.g1 { background: var(--liquidez-bg); color: var(--liquidez); }
+.cuenta-gtag.g2 { background: var(--zonas-bg); color: var(--zonas); }
+.cuenta-gtag.gf { background: var(--green-bg); color: var(--green); }
+.cuenta-col-body { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+
 .cuenta-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px 22px;
-  cursor: pointer;
-  transition: border-color .12s, transform .1s;
-  position: relative;
+  background: var(--glass); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px; cursor: pointer;
+  position: relative; overflow: hidden;
+  transition: transform .18s var(--ease, ease), border-color .18s, box-shadow .18s;
 }
-.cuenta-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
-.cuenta-card.st-pausada { opacity: 0.75; }
-.cuenta-card.st-perdida { opacity: 0.55; }
-.cuenta-card.st-pasada::after {
-  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
-  background: var(--green); border-radius: 12px 0 0 12px;
-}
-.cuenta-card-head {
-  display: flex; justify-content: space-between; align-items: flex-start;
-  gap: 10px; margin-bottom: 14px; padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
-}
-.cuenta-card-title {
-  font-size: 16px; font-weight: 600; color: var(--text-strong);
-  letter-spacing: -.2px; line-height: 1.3;
-}
-.cuenta-card-meta {
-  margin-top: 8px; font-size: 12px; font-family: var(--mono); color: var(--muted);
-  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
-}
+.cuenta-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--green); }
+.cuenta-card.st-activa::before  { background: linear-gradient(180deg, var(--green), var(--cyan)); }
+.cuenta-card.st-pausada::before { background: var(--orange); }
+.cuenta-card.st-pasada::before  { background: var(--dim); }
+.cuenta-card.st-perdida::before { background: var(--red); }
+.cuenta-card.st-pausada { opacity: .85; }
+.cuenta-card.st-perdida, .cuenta-card.st-pasada { opacity: .7; }
+.cuenta-card:hover { transform: translateY(-2px); border-color: var(--glass-border); box-shadow: var(--glow-card); }
+
+.cuenta-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+.cuenta-card-id { min-width: 0; }
+.cuenta-card-title { font-size: 14px; font-weight: 600; color: var(--text-strong); letter-spacing: -.2px; line-height: 1.25; }
+.cuenta-card-title .cc-cap { color: var(--muted); font-weight: 500; font-family: var(--mono); font-size: 12px; }
+.cuenta-card-sub { margin-top: 6px; font-size: 11px; font-family: var(--mono); color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .cuenta-card-actions { display: flex; gap: 4px; flex-shrink: 0; }
-.cuenta-card-actions .btn { padding: 5px 9px; font-size: 13px; }
-.cuenta-card-body { display: flex; flex-direction: column; gap: 9px; }
-.cc-row {
-  display: flex; justify-content: space-between; align-items: baseline;
-  font-size: 13px; gap: 8px;
-}
-.cc-label { color: var(--muted); font-family: var(--mono); font-size: 12px; }
-.cc-value { color: var(--text); font-weight: 500; font-family: var(--mono); font-size: 13px; text-align: right; }
+.cuenta-card-actions .btn { padding: 4px 8px; font-size: 12px; }
+
+.cuenta-equity { font-family: var(--font-display); font-size: 24px; font-weight: 600; letter-spacing: -.5px; line-height: 1; margin-bottom: 14px; }
+.cuenta-equity-pct { font-size: 12px; font-family: var(--mono); opacity: .8; font-weight: 400; }
+
+.cuenta-card-foot { display: flex; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.cuenta-card-foot .btn { flex: 1; padding: 6px 8px; font-size: 11px; justify-content: center; }
+
+.cuenta-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; }
+.cuenta-stat { display: flex; flex-direction: column; gap: 2px; }
+.cuenta-stat-l { font-size: 10px; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.cuenta-stat-v { font-size: 13px; font-family: var(--mono); color: var(--text); font-weight: 500; }
 
 /* ── Badges fase / estado ─────────────────────────────────── */
-.badge.fase-c1, .badge.fase-challenge_1 { background: rgba(91,141,239,.15); color: var(--accent); border-color: rgba(91,141,239,.4); }
+.badge.fase-c1, .badge.fase-challenge_1 { background: rgba(59,130,246,.15); color: var(--accent); border-color: rgba(59,130,246,.4); }
 .badge.fase-c2, .badge.fase-challenge_2 { background: rgba(168,85,247,.15); color: var(--zonas); border-color: rgba(168,85,247,.4); }
-.badge.fase-fond, .badge.fase-fondeada  { background: rgba(0,212,170,.15); color: var(--green); border-color: rgba(0,212,170,.4); }
-.badge.st-activa  { background: rgba(0,212,170,.12); color: var(--green); border-color: rgba(0,212,170,.3); }
+.badge.fase-fond, .badge.fase-fondeada  { background: rgba(16,185,129,.15); color: var(--green); border-color: rgba(16,185,129,.4); }
+.badge.st-activa  { background: rgba(16,185,129,.12); color: var(--green); border-color: rgba(16,185,129,.3); }
 .badge.st-pausada { background: rgba(255,165,2,.12); color: var(--orange); border-color: rgba(255,165,2,.3); }
-.badge.st-pasada  { background: rgba(0,212,170,.18); color: var(--green); border-color: rgba(0,212,170,.45); }
-.badge.st-perdida { background: rgba(255,71,87,.12); color: var(--red); border-color: rgba(255,71,87,.3); }
+.badge.st-pasada  { background: rgba(16,185,129,.18); color: var(--green); border-color: rgba(16,185,129,.45); }
+.badge.st-perdida { background: rgba(239,68,68,.12); color: var(--red); border-color: rgba(239,68,68,.3); }
 
 /* ── Cuenta-assign (componente en formularios) ───────────── */
 .ca-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
@@ -113,7 +119,7 @@
   font-family: var(--mono);
   font-weight: 500;
   white-space: nowrap;
-  border: 1px solid rgba(91,141,239,.3);
+  border: 1px solid rgba(59,130,246,.3);
 }
 .acc-badge.acc-more {
   background: var(--hover);

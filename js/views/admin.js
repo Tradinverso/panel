@@ -512,7 +512,7 @@ function openRestoreModal(adminContainer) {
             </label>
             <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;">
               <input type="radio" name="restoreMode" value="replace" style="margin-top:3px;">
-              <span style="color:var(--red);"><strong>Replace (peligroso)</strong> — borra TODOS los trades, cuentas y reflexiones de cada alumno antes de restaurar. Pierdes cambios posteriores al backup.</span>
+              <span style="color:var(--red);"><strong>Replace (peligroso)</strong> — borra TODOS los trades, cuentas, reflexiones y perfiles de cada alumno antes de restaurar. Pierdes cambios posteriores al backup.</span>
             </label>
           </div>
           <div id="restoreConfirm" style="display:none;margin-top:10px;padding:10px;background:var(--red-bg);border:1px solid rgba(255,71,87,0.4);border-radius:6px;">
@@ -562,7 +562,7 @@ function openRestoreModal(adminContainer) {
         summaryEl.style.display = 'block';
         summaryEl.innerHTML = `
           <strong>${new Date(s.exported_at).toLocaleString('es-ES')}</strong><br>
-          ${s.students} alumnos · ${s.trades} trades · ${s.cuentas} cuentas · ${s.reflections} reflexiones<br>
+          ${s.students} alumnos · ${s.trades} trades · ${s.cuentas} cuentas · ${s.reflections} reflexiones · ${s.perfiles} perfiles<br>
           <span style="color:var(--muted);">Exportado por: ${escapeHtml(s.exported_by || 'desconocido')}</span>
         `;
         modeEl.style.display = 'block';
@@ -613,7 +613,7 @@ function openRestoreModal(adminContainer) {
         progEl.textContent = `Restaurando ${i}/${total} · ${label}`;
       });
       progEl.style.color = 'var(--green)';
-      progEl.innerHTML = `✓ Restaurados <strong>${stats.trades}</strong> trades, <strong>${stats.cuentas}</strong> cuentas y <strong>${stats.reflections}</strong> reflexiones (${stats.students} alumnos).<br><span style="color:var(--muted);">Pulsa "Cancelar" para cerrar.</span>`;
+      progEl.innerHTML = `✓ Restaurados <strong>${stats.trades}</strong> trades, <strong>${stats.cuentas}</strong> cuentas, <strong>${stats.reflections}</strong> reflexiones y <strong>${stats.perfiles}</strong> perfiles (${stats.students} alumnos).<br><span style="color:var(--muted);">Pulsa "Cancelar" para cerrar.</span>`;
       // Invalidar cache de admin para forzar recarga al cerrar
       cache = null;
     } catch (err) {

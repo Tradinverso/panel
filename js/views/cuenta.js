@@ -51,6 +51,9 @@ function render(container, cuentaId) {
       </div>
       <div class="page-actions">
         <a class="btn" href="#/cuentas">← Cuentas</a>
+        ${cuenta.fase !== 'fondeada' ? `<button class="btn" id="advanceFaseBtn">✓ Superar fase</button>` : ''}
+        ${cuenta.fase !== 'fondeada' ? `<button class="btn" id="fondeadaBtn" title="Pasar a Fondeada directamente">★ A Fondeada</button>` : ''}
+        ${cuenta.status !== 'perdida' ? `<button class="btn danger" id="quemadaBtn">✗ Quemada</button>` : ''}
         <button class="btn" id="editCuentaBtn">✏️ Editar</button>
         <button class="btn danger" id="deleteCuentaBtn">× Borrar</button>
       </div>
@@ -107,6 +110,21 @@ function render(container, cuentaId) {
   container.querySelector('#deleteCuentaBtn').addEventListener('click', () => {
     confirmDeleteCuenta(cuenta, () => router.go('#/cuentas'));
   });
+  const advBtn = container.querySelector('#advanceFaseBtn');
+  if (advBtn) advBtn.addEventListener('click', () => state.advanceFase(cuenta.id));
+  const fondBtn = container.querySelector('#fondeadaBtn');
+  if (fondBtn) fondBtn.addEventListener('click', () => state.markFondeada(cuenta.id));
+  const quemadaBtn = container.querySelector('#quemadaBtn');
+  if (quemadaBtn) quemadaBtn.addEventListener('click', () => {
+    openModal({
+      title: 'Marcar cuenta quemada',
+      body: `¿Marcar <strong>${esc(cuenta.empresa)} ${esc(cuenta.numero || '')}</strong> como <strong>quemada</strong> (perdida)? Puedes revertirlo desde Editar.`,
+      actions: [
+        { label: 'Cancelar', onClick: close => close() },
+        { label: 'Sí, quemada', variant: 'danger', onClick: close => { state.markQuemada(cuenta.id); close(); } },
+      ],
+    });
+  });
   const newWBtn = container.querySelector('#newWithdrawalBtn');
   if (newWBtn) {
     newWBtn.addEventListener('click', () => {
@@ -130,9 +148,12 @@ function render(container, cuentaId) {
     });
   });
 
-  // Charts
-  paintEquityChart(container, curve);
-  if (monthly.length) paintMonthlyChart(container, monthly);
+  // Charts — en el siguiente frame (layout listo) para evitar lienzo en blanco.
+  requestAnimationFrame(() => {
+    if (!container.querySelector('#cuenta-equity')) return;
+    paintEquityChart(container, curve);
+    if (monthly.length) paintMonthlyChart(container, monthly);
+  });
 }
 
 function renderWithdrawalsSection(cuenta, stats) {

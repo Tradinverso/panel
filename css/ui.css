@@ -1,0 +1,186 @@
+/* ════════════════════════════════════════════════════════════════
+   Glass Command Center — capa de sistema de diseño.
+   Se carga la ÚLTIMA: refina/override de los componentes base sin
+   reescribir styles.css. Quitar el <link> de este archivo revierte
+   el rediseño por completo.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── Tipografía de titulares (display) ── */
+.page-header h1 { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.6px; font-size: 26px; }
+.brand-line2 { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.4px; }
+
+/* Acento en títulos de sección */
+.section-title { color: var(--text); }
+.section-title::before {
+  content: ''; flex-shrink: 0; width: 3px; height: 13px; border-radius: 2px;
+  background: linear-gradient(180deg, var(--cyan), var(--accent));
+}
+
+/* ── Shell: sidebar de cristal ── */
+#sidebar {
+  background: linear-gradient(180deg, var(--glass), var(--card2));
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border-right: 1px solid var(--border);
+}
+.brand-logo {
+  background: linear-gradient(135deg, var(--cyan), var(--accent));
+  color: #04121a; font-family: var(--font-display);
+  box-shadow: var(--glow-accent);
+}
+
+/* Nav activo: indicador y fondo con acento cian/azul + glow */
+.nav-item { transition: background var(--dur) var(--ease), color var(--dur), transform var(--dur); }
+.nav-item.active {
+  background: linear-gradient(90deg, var(--cyan-bg), transparent 80%);
+  color: var(--text-strong);
+  box-shadow: 0 1px 0 var(--glass-2) inset;
+}
+.nav-item.active::before {
+  background: linear-gradient(180deg, var(--cyan), var(--accent));
+  box-shadow: var(--glow-accent);
+}
+.nav-item.active .nav-icon { background: var(--cyan-bg); border-color: var(--glass-border); }
+/* Conservar el color por estrategia en el indicador activo */
+.nav-item.zonas.active::before    { background: var(--zonas); }
+.nav-item.liquidez.active::before { background: var(--liquidez); }
+.nav-item.nasdaq.active::before   { background: var(--nasdaq); }
+
+/* ── Tarjetas base con cristal + profundidad ── */
+.card, .kpi-card {
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--glow-card);
+}
+/* El cristal (backdrop-filter) solo en KPIs: en .card rompe el pintado de los
+   <canvas> de Chart.js en Chromium (gráficos en blanco hasta refrescar). */
+.kpi-card { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.card { backdrop-filter: none; -webkit-backdrop-filter: none; }
+.kpi-card { transition: transform var(--dur) var(--ease), border-color var(--dur), box-shadow var(--dur); }
+.kpi-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--glass-border);
+  box-shadow: var(--glow-card), var(--glow-accent);
+}
+.kpi-value { font-family: var(--font-display); font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }
+.kpi-label { letter-spacing: .12em; }
+.kpi-card { padding: 20px; position: relative; }
+
+/* Icono del KPI: badge circular arriba a la derecha, coloreado según el tono */
+.kpi-icon {
+  position: absolute; top: 16px; right: 16px;
+  width: 34px; height: 34px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 16px; line-height: 1;
+  background: var(--cyan-bg); border: 1px solid var(--border);
+}
+.kpi-icon.green  { background: var(--green-bg); }
+.kpi-icon.red    { background: var(--red-bg); }
+.kpi-icon.orange { background: var(--orange-bg); }
+.kpi-icon.blue   { background: var(--cyan-bg); }
+.kpi-icon.purple { background: var(--zonas-bg); }
+/* Deja sitio al icono para que no pise el valor */
+.kpi-card .kpi-label { padding-right: 42px; }
+.kpi-card::before { height: 3px; opacity: .9; }
+.kpi-card.green::before  { background: linear-gradient(90deg, var(--green), transparent); }
+.kpi-card.red::before    { background: linear-gradient(90deg, var(--red), transparent); }
+.kpi-card.orange::before { background: linear-gradient(90deg, var(--orange), transparent); }
+.kpi-card.blue::before   { background: linear-gradient(90deg, var(--accent), var(--cyan)); }
+.kpi-card.purple::before { background: linear-gradient(90deg, var(--zonas), transparent); }
+
+/* ── Botones ── */
+.btn { border-radius: var(--radius-sm); transition: transform var(--dur) var(--ease), background var(--dur), border-color var(--dur), box-shadow var(--dur), filter var(--dur); }
+.btn:hover { transform: translateY(-1px); }
+.btn.primary {
+  background: linear-gradient(135deg, var(--accent), var(--cyan));
+  border: 1px solid transparent; color: #04121a; font-weight: 600;
+  box-shadow: var(--glow-accent);
+}
+.btn.primary:hover { filter: brightness(1.06); box-shadow: var(--glow-accent), 0 6px 18px -8px rgba(34,211,238,.5); }
+
+/* ── Selects / inputs: foco con acento ── */
+.select:focus, .form-input:focus, .form-textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-bg); }
+
+/* ── Pills de tema sidebar (theme-toggle) ── */
+.theme-toggle { border-radius: var(--radius-sm); }
+
+/* ════════════════════════════════════════════════════════════════
+   Utilidades reutilizables para fases siguientes (bento, tiles, stats)
+   ════════════════════════════════════════════════════════════════ */
+
+/* Bento grid de 12 columnas */
+.bento { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; margin-bottom: 24px; }
+.bento > * { grid-column: span 12; min-width: 0; }
+@media (min-width: 760px) {
+  .col-3 { grid-column: span 3; } .col-4 { grid-column: span 4; }
+  .col-5 { grid-column: span 5; } .col-6 { grid-column: span 6; }
+  .col-7 { grid-column: span 7; } .col-8 { grid-column: span 8; }
+  .col-9 { grid-column: span 9; } .col-12 { grid-column: span 12; }
+}
+
+/* Tile = tarjeta del nuevo sistema */
+.tile {
+  background: var(--glass); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 18px;
+  box-shadow: var(--glow-card);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  position: relative; overflow: hidden;
+  transition: transform var(--dur) var(--ease), border-color var(--dur), box-shadow var(--dur);
+}
+.tile.interactive { cursor: pointer; }
+.tile.interactive:hover { transform: translateY(-3px); border-color: var(--glass-border); box-shadow: var(--glow-card), var(--glow-accent); }
+
+/* Stat = KPI con número grande, etiqueta y tendencia */
+.stat-label { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: 10px; }
+.stat-value { font-family: var(--font-display); font-size: 30px; font-weight: 600; letter-spacing: -1px; line-height: 1; color: var(--text-strong); }
+.stat-value.green { color: var(--green); } .stat-value.red { color: var(--red); } .stat-value.orange { color: var(--orange); }
+.stat-sub { font-size: 11px; color: var(--muted); margin-top: 8px; font-family: var(--mono); }
+.stat-trend { display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 20px; }
+.stat-trend.up { background: var(--green-bg); color: var(--green); }
+.stat-trend.down { background: var(--red-bg); color: var(--red); }
+
+/* Chart.js a veces no pinta su <canvas> dentro de un elemento con
+   backdrop-filter (bug de compositing en Chromium → "se ve al refrescar").
+   Se quita el blur SOLO en las tarjetas que contienen un gráfico. */
+.card:has(.chart-wrap), .tile:has(.chart-wrap), .kpi-card:has(.chart-wrap) {
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+
+/* ── Markdown renderizado (Plan de trading) ── */
+.md-content { line-height: 1.7; }
+.md-content > *:first-child { margin-top: 0; }
+.md-content h1 { font-family: var(--font-display); font-size: 22px; font-weight: 600; letter-spacing: -.3px; margin: 4px 0 12px; }
+.md-content h2 { font-family: var(--font-display); font-size: 18px; font-weight: 600; margin: 24px 0 10px; }
+.md-content h3 { font-size: 15px; font-weight: 600; color: var(--text-strong); margin: 18px 0 8px; }
+.md-content p { margin: 0 0 12px; color: var(--text); }
+.md-content ul { list-style: disc; margin: 0 0 12px 22px; }
+.md-content ol { list-style: decimal; margin: 0 0 12px 22px; }
+.md-content li { margin-bottom: 4px; color: var(--text); }
+.md-content strong { color: var(--text-strong); font-weight: 600; }
+.md-content a { color: var(--cyan); text-decoration: none; }
+.md-content a:hover { text-decoration: underline; }
+.md-content code { font-family: var(--mono); font-size: 12px; background: var(--card2); border: 1px solid var(--border); padding: 2px 6px; border-radius: 6px; }
+.md-content pre { background: var(--card2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; overflow: auto; margin: 0 0 12px; }
+.md-content pre code { background: none; border: none; padding: 0; }
+.md-content hr { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+
+/* ── Scrollbar afinada ── */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--card); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--surface); }
+
+/* ── Selección y foco accesible ── */
+::selection { background: var(--cyan-bg); color: var(--text-strong); }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+/* ── Entrada suave de vista ── */
+@media (prefers-reduced-motion: no-preference) {
+  /* Solo opacidad: un transform aquí rompe la medición de tamaño de los
+     canvas de Chart.js durante su creación y los deja en blanco. */
+  #view { animation: viewIn .28s var(--ease); }
+  @keyframes viewIn { from { opacity: 0; } to { opacity: 1; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

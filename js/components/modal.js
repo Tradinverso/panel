@@ -17,8 +17,14 @@ export function openModal({ title = '', meta = '', body = '', actions = [], size
         `<button class="btn ${a.variant || ''}" data-action="${i}">${a.label}</button>`).join('')}</div>` : ''}
     </div>
   `;
+  // Cerrar al pulsar el fondo SOLO si el mousedown también empezó en el fondo.
+  // Evita que el modal se cierre al arrastrar para seleccionar texto dentro de
+  // un campo y soltar el ratón fuera del cuadro.
+  let downOnBackdrop = false;
+  el.addEventListener('mousedown', e => { downOnBackdrop = (e.target === el); });
   el.addEventListener('click', e => {
-    if (e.target === el || e.target.matches('[data-close]')) closeModal();
+    if (e.target.matches('[data-close]')) { closeModal(); return; }
+    if (e.target === el) { if (downOnBackdrop) closeModal(); return; }
     const idx = e.target.getAttribute && e.target.getAttribute('data-action');
     if (idx != null) {
       const a = actions[+idx];

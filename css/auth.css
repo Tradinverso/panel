@@ -4,27 +4,28 @@ body[data-auth="false"] { grid-template-columns: 1fr; }
 body[data-auth="false"] #view {
   max-width: none; padding: 0;
   display: flex; align-items: center; justify-content: center;
-  min-height: 100vh; background: var(--bg);
+  min-height: 100vh; background: transparent;
 }
 
 .auth-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
-  padding: 36px 32px;
-  width: 100%; max-width: 380px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+  padding: 38px 34px;
+  width: 100%; max-width: 390px;
+  box-shadow: var(--glow-soft), var(--glow-card);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
 }
 .auth-brand {
   display: flex; flex-direction: column; align-items: center;
   margin-bottom: 28px; gap: 12px;
 }
 .auth-logo {
-  width: 56px; height: 56px; border-radius: 14px;
-  background: linear-gradient(135deg, var(--green), var(--accent));
+  width: 58px; height: 58px; border-radius: 16px;
+  background: linear-gradient(135deg, var(--cyan), var(--accent));
   display: flex; align-items: center; justify-content: center;
-  font-weight: 800; color: #0A0F1E; font-size: 24px;
-  box-shadow: 0 8px 24px rgba(0,212,170,0.35);
+  font-family: var(--font-display); font-weight: 700; color: #04121a; font-size: 24px;
+  box-shadow: var(--glow-accent);
 }
 .auth-tagline { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: .14em; text-transform: uppercase; }
 .auth-logo-img {
@@ -37,7 +38,7 @@ body[data-auth="false"] #view {
   padding: 12px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.25);
 }
-.auth-title { font-size: 20px; font-weight: 700; letter-spacing: -0.4px; color: var(--text-strong); }
+.auth-title { font-family: var(--font-display); font-size: 22px; font-weight: 600; letter-spacing: -0.4px; color: var(--text-strong); }
 
 .auth-form { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
 .auth-form .form-input { padding: 12px 14px; font-size: 14px; }
@@ -46,7 +47,7 @@ body[data-auth="false"] #view {
 
 .auth-error {
   background: var(--red-bg);
-  border: 1px solid rgba(255,71,87,0.25);
+  border: 1px solid rgba(239,68,68,0.25);
   color: var(--red);
   padding: 10px 12px;
   border-radius: 8px;
@@ -85,7 +86,7 @@ body[data-auth="false"] #view {
 .btn .spinner-sm {
   width: 14px; height: 14px;
   border: 2px solid rgba(10,15,30,0.2);
-  border-top-color: #0A0F1E;
+  border-top-color: #080B12;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }

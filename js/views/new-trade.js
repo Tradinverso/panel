@@ -66,91 +66,105 @@ function init(sheet) {
 function renderForm(wrap, sheet, data, getter) {
   const meta = STRAT_META[sheet];
   wrap.innerHTML = `
-    <div class="form">
-      <div class="form-row">
-        ${!meta.pairFixed ? `<div class="form-field">
-          <label class="form-label">Par <span class="required">*</span></label>
-          <div data-field="pair"></div>
-        </div>` : `<div class="form-field">
-          <label class="form-label">Par</label>
-          <div class="form-input" style="background:var(--card);">${meta.pairs[0]}</div>
-        </div>`}
-        <div class="form-field">
-          <label class="form-label">Setup <span class="required">*</span></label>
-          <div data-field="setup"></div>
+    <div class="form nt-form">
+      <div class="nt-section">
+        <div class="nt-section-title">Operativa</div>
+        <div class="form-row">
+          ${!meta.pairFixed ? `<div class="form-field">
+            <label class="form-label">Par <span class="required">*</span></label>
+            <div data-field="pair"></div>
+          </div>` : `<div class="form-field">
+            <label class="form-label">Par</label>
+            <div class="form-input" style="background:var(--card);">${meta.pairs[0]}</div>
+          </div>`}
+          <div class="form-field">
+            <label class="form-label">Setup <span class="required">*</span></label>
+            <div data-field="setup"></div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">Zona <span class="required">*</span></label>
+            <div data-field="zone"></div>
+          </div>
+          ${meta.showEntry ? `<div class="form-field">
+            <label class="form-label">Tipo de entrada <span class="required">*</span></label>
+            <div data-field="entry"></div>
+          </div>` : ''}
         </div>
       </div>
 
-      <div class="form-row">
-        <div class="form-field">
-          <label class="form-label">Zona <span class="required">*</span></label>
-          <div data-field="zone"></div>
-        </div>
-        ${meta.showEntry ? `<div class="form-field">
-          <label class="form-label">Tipo de entrada <span class="required">*</span></label>
-          <div data-field="entry"></div>
-        </div>` : ''}
-      </div>
-
-      <div class="form-row cols-3">
-        <div class="form-field">
-          <label class="form-label">Fecha <span class="required">*</span></label>
-          <input class="form-input" type="date" data-input="date" value="${data.date}">
-        </div>
-        <div class="form-field">
-          <label class="form-label">Hora apertura <span class="required">*</span></label>
-          <input class="form-input" type="time" data-input="open_str" value="${data.open_str}">
-        </div>
-        <div class="form-field">
-          <label class="form-label">Hora cierre</label>
-          <input class="form-input" type="time" data-input="close_str" value="${data.close_str}">
+      <div class="nt-section">
+        <div class="nt-section-title">Tiempos</div>
+        <div class="form-row cols-3">
+          <div class="form-field">
+            <label class="form-label">Fecha <span class="required">*</span></label>
+            <input class="form-input" type="date" data-input="date" value="${data.date}">
+          </div>
+          <div class="form-field">
+            <label class="form-label">Hora apertura <span class="required">*</span></label>
+            <input class="form-input" type="time" data-input="open_str" value="${data.open_str}">
+          </div>
+          <div class="form-field">
+            <label class="form-label">Hora cierre</label>
+            <input class="form-input" type="time" data-input="close_str" value="${data.close_str}">
+          </div>
         </div>
       </div>
 
-      <div class="form-row cols-3">
+      <div class="nt-section">
+        <div class="nt-section-title">Resultado y riesgo</div>
+        <div class="form-row cols-3">
+          <div class="form-field">
+            <label class="form-label">% P&L sistema <span class="required">*</span></label>
+            <input class="form-input" type="number" step="0.01" data-input="pnl_pct" value="${data.pnl_pct}" placeholder="2.00 = TP / -1.00 = SL">
+          </div>
+          <div class="form-field">
+            <label class="form-label">Riesgo real (%)</label>
+            <input class="form-input" type="number" step="0.01" min="0" data-input="risk_real_pct" value="${data.risk_real_pct}" placeholder="1.00">
+          </div>
+          ${meta.showRR ? `<div class="form-field">
+            <label class="form-label">RR</label>
+            <input class="form-input" type="number" step="0.1" data-input="rr" value="${data.rr}" placeholder="2">
+          </div>` : ''}
+          ${meta.showPip ? `<div class="form-field">
+            <label class="form-label">${sheet === 'ZONAS' ? 'Pips SL' : 'Pip SL'}</label>
+            <input class="form-input" type="number" step="0.1" data-input="pips" value="${data.pips}" placeholder="5.0">
+          </div>` : ''}
+        </div>
+      </div>
+
+      <div class="nt-section">
+        <div class="nt-section-title">Ejecución</div>
         <div class="form-field">
-          <label class="form-label">% P&L sistema <span class="required">*</span></label>
-          <input class="form-input" type="number" step="0.01" data-input="pnl_pct" value="${data.pnl_pct}" placeholder="2.00 = TP / -1.00 = SL">
+          <label class="form-label">¿Has seguido el plan? <span class="required">*</span></label>
+          <div data-field="plan_followed"></div>
         </div>
         <div class="form-field">
-          <label class="form-label">Riesgo real (%)</label>
-          <input class="form-input" type="number" step="0.01" min="0" data-input="risk_real_pct" value="${data.risk_real_pct}" placeholder="1.00">
+          <label class="form-label">Sensación al ejecutar <span class="required">*</span></label>
+          <div data-field="sensacion"></div>
         </div>
-        ${meta.showRR ? `<div class="form-field">
-          <label class="form-label">RR</label>
-          <input class="form-input" type="number" step="0.1" data-input="rr" value="${data.rr}" placeholder="2">
-        </div>` : ''}
-        ${meta.showPip ? `<div class="form-field">
-          <label class="form-label">${sheet === 'ZONAS' ? 'Pips SL' : 'Pip SL'}</label>
-          <input class="form-input" type="number" step="0.1" data-input="pips" value="${data.pips}" placeholder="5.0">
-        </div>` : ''}
       </div>
 
-      <div class="form-field">
-        <label class="form-label">¿Has seguido el plan? <span class="required">*</span></label>
-        <div data-field="plan_followed"></div>
-      </div>
-
-      <div class="form-field">
-        <label class="form-label">Sensación al ejecutar <span class="required">*</span></label>
-        <div data-field="sensacion"></div>
-      </div>
-
-      ${meta.links.map(l => `
+      <div class="nt-section">
+        <div class="nt-section-title">Notas y enlaces</div>
+        ${meta.links.map(l => `
+          <div class="form-field">
+            <label class="form-label">${l.label}</label>
+            <input class="form-input" type="url" data-input="${l.key}" value="${data[l.key] || ''}" placeholder="https://www.tradingview.com/x/...">
+          </div>
+        `).join('')}
         <div class="form-field">
-          <label class="form-label">${l.label}</label>
-          <input class="form-input" type="url" data-input="${l.key}" value="${data[l.key] || ''}" placeholder="https://www.tradingview.com/x/...">
+          <label class="form-label">Reflexión</label>
+          <textarea class="form-textarea" data-input="reflexion" placeholder="Notas sobre el trade, lo que hiciste bien o mal, qué aprender...">${data.reflexion}</textarea>
         </div>
-      `).join('')}
-
-      <div class="form-field">
-        <label class="form-label">Reflexión</label>
-        <textarea class="form-textarea" data-input="reflexion" placeholder="Notas sobre el trade, lo que hiciste bien o mal, qué aprender...">${data.reflexion}</textarea>
       </div>
 
-      <div class="form-field">
-        <label class="form-label">Asignación a cuentas (opcional)</label>
-        <div id="cuentaAssignBox"></div>
+      <div class="nt-section">
+        <div class="nt-section-title">Cuentas (opcional)</div>
+        <div class="form-field" style="margin:0;">
+          <div id="cuentaAssignBox"></div>
+        </div>
       </div>
 
       <div class="form-actions">

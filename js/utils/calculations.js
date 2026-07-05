@@ -35,7 +35,8 @@ export function pnlPct(trades) {
   return s;
 }
 
-// P&L real per trade = pnl_pct × risk_real_pct (default risk = 1)
+// P&L real por trade = pnl_pct × risk_real_pct (default risk = 1).
+// Métrica por idea/trade (independiente de en cuántas cuentas se metió).
 export function tradeRealPnl(t) {
   if (!t || t.result === 'BE') return 0;
   const r = typeof t.risk_real_pct === 'number' && isFinite(t.risk_real_pct) ? t.risk_real_pct : 1;

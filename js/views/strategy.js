@@ -180,16 +180,19 @@ function render(container, sheet) {
     });
   }
 
-  // Charts
+  // Charts — en el siguiente frame (layout listo) para evitar lienzo en blanco.
   const eqCurve = perfMode === 'real' ? equityCurveReal : equityCurve;
-  createEquity(container.querySelector('#equityChart'),
-    [{ key: sheet, label: meta.label, data: eqCurve(all) },
-     { key: 'ALL', label: 'Global', data: eqCurve(all) }].slice(0, 1));
-  createDonut(container.querySelector('#donut'), c.tp, c.sl, c.be);
-  const m = monthlyPnl(all);
-  createBar(container.querySelector('#monthlyChart'),
-    m.map(d => MONTHS_ES_SHORT[+d.month.split('-')[1] - 1] + ' ' + d.month.substring(2, 4)),
-    m.map(d => +(perfMode === 'real' ? d.pnlReal : d.pnl).toFixed(2)));
+  requestAnimationFrame(() => {
+    if (!container.querySelector('#equityChart')) return;
+    createEquity(container.querySelector('#equityChart'),
+      [{ key: sheet, label: meta.label, data: eqCurve(all) },
+       { key: 'ALL', label: 'Global', data: eqCurve(all) }].slice(0, 1));
+    createDonut(container.querySelector('#donut'), c.tp, c.sl, c.be);
+    const m = monthlyPnl(all);
+    createBar(container.querySelector('#monthlyChart'),
+      m.map(d => MONTHS_ES_SHORT[+d.month.split('-')[1] - 1] + ' ' + d.month.substring(2, 4)),
+      m.map(d => +(perfMode === 'real' ? d.pnlReal : d.pnl).toFixed(2)));
+  });
 
   // Pairs (only ZONAS)
   if (meta.pairs.length > 1) {
@@ -224,7 +227,10 @@ function render(container, sheet) {
   }
 
   // L/S
-  createLongShort(container.querySelector('#lsChart'), [{ label: meta.label, ...longVsShort(all) }]);
+  requestAnimationFrame(() => {
+    const lsCanvas = container.querySelector('#lsChart');
+    if (lsCanvas) createLongShort(lsCanvas, [{ label: meta.label, ...longVsShort(all) }]);
+  });
   const ls = longVsShort(all);
   const longSub = all.filter(t => t.setup === 'LONG');
   const shortSub = all.filter(t => t.setup === 'SHORT');

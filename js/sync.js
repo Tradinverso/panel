@@ -60,6 +60,16 @@ export const sync = {
     await setDoc(doc(db, 'users', uid, 'config', 'data'), patch, { merge: true });
   },
 
+  // ── Plan de trading (doc único por usuario) ────────────────
+  async loadTradingPlan(uid) {
+    const snap = await getDoc(doc(db, 'users', uid, 'tradingPlan', 'data'));
+    return snap.exists() ? snap.data() : {};
+  },
+
+  async saveTradingPlan(uid, patch) {
+    await setDoc(doc(db, 'users', uid, 'tradingPlan', 'data'), patch, { merge: true });
+  },
+
   // ── Trades ─────────────────────────────────────────────────
   async loadTrades(uid) {
     const snap = await getDocs(collection(db, 'users', uid, 'trades'));
@@ -132,6 +142,36 @@ export const sync = {
       const batch = writeBatch(db);
       for (const id of ids.slice(i, i + FIRESTORE_BATCH_LIMIT)) {
         batch.delete(doc(db, 'users', uid, 'cuentas', id));
+      }
+      await batch.commit();
+    }
+    return ids.length;
+  },
+
+  // ── Perfiles de riesgo (módulo de Riesgo/Rotación) ─────────
+  // Solo persistimos los perfiles CUSTOM del usuario. Los presets built-in
+  // viven en código (risk-levels.js PERFILES_BUILTIN) y no se guardan.
+  async loadPerfiles(uid) {
+    const snap = await getDocs(collection(db, 'users', uid, 'perfiles'));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  },
+
+  async savePerfil(uid, perfil) {
+    if (!perfil.id) throw new Error('Perfil necesita id');
+    await setDoc(doc(db, 'users', uid, 'perfiles', perfil.id), perfil);
+  },
+
+  async deletePerfil(uid, perfilId) {
+    await deleteDoc(doc(db, 'users', uid, 'perfiles', perfilId));
+  },
+
+  async wipeAllPerfiles(uid) {
+    const all = await this.loadPerfiles(uid);
+    const ids = all.map(p => p.id);
+    for (let i = 0; i < ids.length; i += FIRESTORE_BATCH_LIMIT) {
+      const batch = writeBatch(db);
+      for (const id of ids.slice(i, i + FIRESTORE_BATCH_LIMIT)) {
+        batch.delete(doc(db, 'users', uid, 'perfiles', id));
       }
       await batch.commit();
     }

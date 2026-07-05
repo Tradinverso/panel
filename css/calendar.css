@@ -56,8 +56,8 @@
 .cal-cell.in-week:not(.selected):not(.cal-today) { background: var(--hover); }
 .cal-cell.other { opacity: .25; cursor: default; }
 .cal-cell:hover:not(.other) { background: var(--hover); }
-.cal-cell.has-data.profit { background: rgba(0,160,110,.12); outline: 1px solid rgba(0,212,170,.3); outline-offset: -1px; }
-.cal-cell.has-data.loss   { background: rgba(180,30,50,.12); outline: 1px solid rgba(255,71,87,.3); outline-offset: -1px; }
+.cal-cell.has-data.profit { background: rgba(0,160,110,.12); outline: 1px solid rgba(16,185,129,.3); outline-offset: -1px; }
+.cal-cell.has-data.loss   { background: rgba(180,30,50,.12); outline: 1px solid rgba(239,68,68,.3); outline-offset: -1px; }
 .cal-cell.has-data.be     { background: rgba(200,120,0,.12); outline: 1px solid rgba(255,165,2,.3); outline-offset: -1px; }
 .cal-cell.cal-today { outline: 2px solid var(--green) !important; outline-offset: -2px; }
 .cal-cell.selected { outline: 2px solid var(--accent) !important; outline-offset: -2px; }
@@ -89,8 +89,8 @@
   position: absolute; top: 6px; right: 6px;
   width: 22px; height: 22px;
   display: inline-flex; align-items: center; justify-content: center;
-  background: rgba(91,141,239,0.18);
-  border: 1px solid rgba(91,141,239,0.4);
+  background: rgba(59,130,246,0.18);
+  border: 1px solid rgba(59,130,246,0.4);
   border-radius: 5px;
   cursor: pointer;
   font-size: 12px;
@@ -159,3 +159,20 @@
 .trade-table .reflex-btn:hover { background: var(--zonas-bg); color: var(--zonas); }
 .trade-table .view-btn:hover { background: var(--accent-bg); color: var(--accent); }
 .trade-table .edit-btn:hover { background: var(--accent-bg); color: var(--accent); }
+
+/* ── Móvil ───────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  /* KPIs del calendario: 5 columnas → 2 */
+  .cal-summary { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+  /* Calendario técnico: se desplaza en horizontal en vez de recortarse.
+     min-width mantiene celdas + columna SEM usables. */
+  .cal-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .cal-wrap .cal-dow-row,
+  .cal-wrap .cal-grid { min-width: 680px; }
+  .cal-cell { min-height: 68px; }
+
+  /* Heatmap: columna de etiqueta más estrecha + fuente menor para que quepa */
+  .heatmap { grid-template-columns: 42px repeat(5, 1fr); gap: 2px; font-size: 9px; }
+  .hm-cell { padding: 8px 2px; font-size: 10px; }
+}

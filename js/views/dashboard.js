@@ -55,14 +55,22 @@ function render(container) {
     });
   }
 
+  // KPIs y tablas (HTML puro) se pintan ya.
   paintKpis(container, filtered);
-  paintEquity(container, filtered);
-  paintMonthly(container, allTrades);
-  ['ZONAS', 'LIQUIDEZ', 'NASDAQ'].forEach(s => paintStrategy(container, s, filtered));
-  paintTiming(container, filtered);
-  paintDirectionAndPairs(container, filtered);
   paintStreaks(container, filtered);
   paintDurations(container, filtered);
+
+  // Gráficos (Chart.js): en el siguiente frame, cuando el layout del contenedor
+  // ya está calculado. Crearlos en el mismo tick que el innerHTML provoca que a
+  // veces midan tamaño 0 y salgan en blanco hasta refrescar.
+  requestAnimationFrame(() => {
+    if (!container.querySelector('#equityChart')) return; // la vista cambió
+    paintEquity(container, filtered);
+    paintMonthly(container, allTrades);
+    ['ZONAS', 'LIQUIDEZ', 'NASDAQ'].forEach(s => paintStrategy(container, s, filtered));
+    paintTiming(container, filtered);
+    paintDirectionAndPairs(container, filtered);
+  });
 }
 
 function impersonationBanner() {
@@ -189,12 +197,12 @@ function renderShell(allTrades, filtered) {
             <span class="strat-pill nasdaq">Nasdaq</span>
           </div>
         </div>
-        <div class="chart-wrap" style="height:220px;"><canvas id="equityChart"></canvas></div>
+        <div class="chart-wrap" style="height:300px;"><canvas id="equityChart"></canvas></div>
       </div>
       <div class="card">
         <div class="card-title">P&L mensual</div>
         <div class="card-sub">${perfMode === 'real' ? 'Porcentaje según riesgo real' : 'Porcentaje sistema 1R'}</div>
-        <div class="chart-wrap" style="height:220px;"><canvas id="monthlyChart"></canvas></div>
+        <div class="chart-wrap" style="height:300px;"><canvas id="monthlyChart"></canvas></div>
       </div>
     </div>
 
