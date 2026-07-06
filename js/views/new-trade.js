@@ -276,6 +276,8 @@ function attemptSave(sheet, data, wrap) {
         label: 'Confirmar y guardar', variant: 'primary',
         onClick: close => {
           state.add(trade);
+          // Si es un SL sobre la cuenta activa de la rotación, avanza a la siguiente.
+          state.rotateAfterSL(trade);
           close();
           router.go('#/dashboard');
         },

@@ -513,6 +513,33 @@ export const state = {
     });
   },
 
+  // Lista de rotación: cuentas activas en rotación, ordenadas por rotacionOrden
+  // y antigüedad. (Misma lógica que rotacionList() en la vista Riesgo.)
+  rotacionOrdenada() {
+    return (this.cuentas || [])
+      .filter(c => c.status === 'activa' && c.enRotacion !== false)
+      .sort((a, b) => (a.rotacionOrden || 0) - (b.rotacionOrden || 0) || (a.createdAt || 0) - (b.createdAt || 0));
+  },
+
+  // Al registrar un SL sobre la cuenta ACTIVA de la rotación, avanza el puntero a
+  // la siguiente cuenta (TP/BE se quedan). Refleja la operativa real del equipo.
+  rotateAfterSL(trade) {
+    if (!trade || trade.result !== 'SL') return;
+    if (this.config && this.config.riskModuleEnabled === false) return;
+    const accts = (trade.accounts || []).map(a => a.accountId).filter(Boolean);
+    if (!accts.length) return;
+    const rot = this.rotacionOrdenada();
+    if (rot.length < 2) return;
+    const activaId = (this.config && this.config.rotacionActivaId && rot.some(c => c.id === this.config.rotacionActivaId))
+      ? this.config.rotacionActivaId
+      : rot[0].id;
+    // Solo avanza si el SL se ha asignado a la cuenta que estaba activa (la que tocaba).
+    if (!accts.includes(activaId)) return;
+    const idx = rot.findIndex(c => c.id === activaId);
+    const next = rot[(idx + 1) % rot.length];
+    if (next && next.id !== activaId) this.setConfig({ rotacionActivaId: next.id });
+  },
+
   // Salta directamente a Fondeada (sin pasar fase a fase).
   markFondeada(cuentaId) {
     const c = this.cuentas.find(x => x.id === cuentaId);
