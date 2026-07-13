@@ -8,7 +8,7 @@ import { openCuentaEditModal, confirmDeleteCuenta } from '../components/cuenta-e
 import { openWithdrawalModal } from '../components/withdrawal-modal.js';
 import { openModal } from '../components/modal.js';
 import {
-  accountStats, tradesForAccount, totalWithdrawn, accountEquityCurve,
+  accountStats, tradesForAccountPhase, totalWithdrawn, accountEquityCurve,
   monthlyPnlUsd, fmtUsd, computeUsdPnl,
 } from '../utils/account-stats.js';
 import { kpiCard } from '../components/kpi-card.js';
@@ -18,6 +18,36 @@ import { formatDateShort, MONTHS_ES_SHORT } from '../utils/date-helpers.js';
 const FASE_LABEL = { challenge_1: 'Challenge 1ª', challenge_2: 'Challenge 2ª', fondeada: 'Fondeada' };
 const STATUS_LABEL = { activa: 'Activa', pausada: 'Pausada', pasada: 'Pasada', perdida: 'Perdida' };
 const STATUS_DOT = { activa: '🟢', pausada: '⏸', pasada: '✓', perdida: '✗' };
+
+// Registro de hitos de la cuenta (fases superadas / quemada). Se conserva aunque
+// el profit/WR de esas fases ya no se muestre (se reinician al superar fase).
+function renderPhaseHistory(cuenta) {
+  let h = [...(cuenta.phaseHistory || [])];
+  if (!h.length) {
+    // Cuentas antiguas sin historial: reconstruir desde fundedAt/burnedAt.
+    if (cuenta.fundedAt) h.push({ type: 'superada', to: 'fondeada', date: cuenta.fundedAt });
+    if (cuenta.burnedAt) h.push({ type: 'quemada', date: cuenta.burnedAt });
+  }
+  if (!h.length) return '';
+  const label = m => {
+    if (m.type === 'quemada') return 'Cuenta quemada';
+    if (m.to === 'fondeada') return 'Superó a Fondeada';
+    return `Superó ${FASE_LABEL[m.from] || 'fase'}`;
+  };
+  const rows = h.map(m => {
+    const ok = m.type !== 'quemada';
+    return `<div style="display:flex;align-items:center;gap:10px;font-size:13px;">
+      <span style="width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;background:${ok ? 'var(--green-bg)' : 'var(--red-bg)'};color:${ok ? 'var(--green)' : 'var(--red)'};font-weight:700;flex:none;">${ok ? '✓' : '✗'}</span>
+      <span style="flex:1;color:var(--text);">${label(m)}</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--muted);">${m.date ? formatDateShort(m.date) : ''}</span>
+    </div>`;
+  }).join('');
+  return `
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-title">Historial de fases</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">${rows}</div>
+    </div>`;
+}
 
 function render(container, cuentaId) {
   const cuenta = state.cuentas.find(c => c.id === cuentaId);
@@ -34,7 +64,7 @@ function render(container, cuentaId) {
 
   const s = accountStats(cuenta, state.trades);
   const isFondeada = cuenta.fase === 'fondeada';
-  const items = tradesForAccount(cuenta, state.trades);
+  const items = tradesForAccountPhase(cuenta, state.trades);
   const monthly = monthlyPnlUsd(cuenta, state.trades);
   const curve = accountEquityCurve(cuenta, state.trades);
 
@@ -60,6 +90,8 @@ function render(container, cuentaId) {
     </div>
 
     ${cuenta.notes ? `<div class="card" style="margin-bottom:20px;"><div class="card-sub" style="margin-bottom:0;">📝 ${esc(cuenta.notes)}</div></div>` : ''}
+
+    ${renderPhaseHistory(cuenta)}
 
     <div class="kpi-grid">
       ${kpiCard({ label: 'Capital nominal', value: fmtUsd(s.capital), sub: cuenta.tipo, tone: 'blue' })}

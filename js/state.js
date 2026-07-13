@@ -158,6 +158,13 @@ function sanitizeCuenta(c) {
     numFases: c.numFases === 1 ? 1 : 2,   // nº de fases del challenge (1 ó 2)
     fundedAt: c.fundedAt || null,         // fecha en que pasó a fondeada (calendario)
     burnedAt: c.burnedAt || null,         // fecha en que se quemó (calendario)
+    // Fecha de inicio de la FASE actual: el equity/stats solo cuentan los trades
+    // desde aquí (al superar fase se reinicia al capital). Migración: cuentas ya
+    // fondeadas usan su fundedAt como base para que su equity se reinicie también.
+    equityBaseAt: c.equityBaseAt || (c.fase === 'fondeada' ? (c.fundedAt || null) : null),
+    // Registro de hitos de la cuenta (fases superadas / quemada), para dejar
+    // constancia aunque el profit/WR de esa fase ya no se muestre.
+    phaseHistory: Array.isArray(c.phaseHistory) ? c.phaseHistory : [],
     withdrawals: Array.isArray(c.withdrawals)
       ? c.withdrawals
           .filter(w => w && w.amount > 0)
@@ -492,16 +499,29 @@ export const state = {
     if (c.fase === 'challenge_1') next = c.numFases === 1 ? 'fondeada' : 'challenge_2';
     else if (c.fase === 'challenge_2') next = 'fondeada';
     else return c; // ya fondeada
-    const patch = { fase: next, status: 'activa' };
-    // Registrar la fecha de fondeo la primera vez (para el calendario de Contabilidad).
-    if (next === 'fondeada' && !c.fundedAt) patch.fundedAt = new Date().toISOString().substring(0, 10);
+    const today = new Date().toISOString().substring(0, 10);
+    // La nueva fase empieza fresca: el equity vuelve al capital nominal y los
+    // trades/stats solo cuentan desde hoy (equityBaseAt). Se deja constancia del
+    // hito en phaseHistory (aunque el profit/WR de la fase anterior ya no se vea).
+    const patch = {
+      fase: next,
+      status: 'activa',
+      equityBaseAt: today,
+      initialBalance: c.capital || 0,
+      phaseHistory: [...(c.phaseHistory || []), { type: 'superada', from: c.fase, to: next, date: today }],
+    };
+    if (next === 'fondeada' && !c.fundedAt) patch.fundedAt = today;
     return this.updateCuenta(cuentaId, patch);
   },
 
   markQuemada(cuentaId) {
     const c = this.cuentas.find(x => x.id === cuentaId);
     const patch = { status: 'perdida' };
-    if (c && !c.burnedAt) patch.burnedAt = new Date().toISOString().substring(0, 10);
+    if (c && !c.burnedAt) {
+      const today = new Date().toISOString().substring(0, 10);
+      patch.burnedAt = today;
+      patch.phaseHistory = [...(c.phaseHistory || []), { type: 'quemada', from: c.fase, date: today }];
+    }
     return this.updateCuenta(cuentaId, patch);
   },
 
@@ -544,8 +564,17 @@ export const state = {
   markFondeada(cuentaId) {
     const c = this.cuentas.find(x => x.id === cuentaId);
     if (!c) return null;
-    const patch = { fase: 'fondeada', status: 'activa' };
-    if (!c.fundedAt) patch.fundedAt = new Date().toISOString().substring(0, 10);
+    if (c.fase === 'fondeada') return c;
+    const today = new Date().toISOString().substring(0, 10);
+    // Reset de fase: empieza fresca en el capital, stats desde hoy, y hito registrado.
+    const patch = {
+      fase: 'fondeada',
+      status: 'activa',
+      equityBaseAt: today,
+      initialBalance: c.capital || 0,
+      phaseHistory: [...(c.phaseHistory || []), { type: 'superada', from: c.fase, to: 'fondeada', date: today }],
+    };
+    if (!c.fundedAt) patch.fundedAt = today;
     return this.updateCuenta(cuentaId, patch);
   },
 

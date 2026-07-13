@@ -39,6 +39,15 @@ export function tradesForAccount(account, allTrades) {
   return out;
 }
 
+// Igual que tradesForAccount pero solo los trades de la FASE actual (desde
+// equityBaseAt). Al superar fase, el equity/stats se reinician al capital.
+// Sin base definida (1ª fase) devuelve todos.
+export function tradesForAccountPhase(account, allTrades) {
+  const all = tradesForAccount(account, allTrades);
+  const base = account && account.equityBaseAt;
+  return base ? all.filter(x => (x.trade && x.trade.date || '') >= base) : all;
+}
+
 // Legacy: USD = pnl_pct × riskPct × capital / 100. Solo se usa como fallback
 // para trades antiguos que no tienen `usdPnl` persistido.
 export function computeUsdPnl(pnl_pct, riskPct, capital) {
@@ -100,7 +109,9 @@ export function accountStats(account, allTrades) {
   };
   if (!account) return empty;
 
-  const items = tradesForAccount(account, allTrades);
+  // Solo cuentan los trades de la FASE actual: al superar fase se reinicia el
+  // equity al capital (equityBaseAt = fecha de inicio de la fase).
+  const items = tradesForAccountPhase(account, allTrades);
   const capital = account.capital || 0;
   const initial = account.initialBalance != null ? account.initialBalance : capital;
   const cost = account.cost || 0;
@@ -194,7 +205,7 @@ export function accountStats(account, allTrades) {
 
 // Curva de equity ordenada cronológicamente.
 export function accountEquityCurve(account, allTrades) {
-  const events = buildEvents(account, tradesForAccount(account, allTrades));
+  const events = buildEvents(account, tradesForAccountPhase(account, allTrades));
   const initial = account.initialBalance != null ? account.initialBalance : (account.capital || 0);
   let equity = initial;
   const points = [{ x: 'inicio', y: initial, type: 'start' }];
@@ -480,7 +491,7 @@ export function monthlyInvested(cuentas) {
 }
 
 export function monthlyPnlUsd(account, allTrades) {
-  const items = tradesForAccount(account, allTrades);
+  const items = tradesForAccountPhase(account, allTrades);
   const months = {};
   for (const x of items) {
     const m = x.trade.date.substring(0, 7);
