@@ -179,6 +179,15 @@ body[data-auth="false"] #view {
 .user-info { flex: 1; min-width: 0; }
 .user-name { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .user-email { font-size: 10px; color: var(--muted); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Zona horaria del usuario, bajo su nombre */
+.user-tz {
+  display: block; margin-top: 3px; font-size: 9.5px; font-family: var(--mono);
+  color: var(--dim); text-decoration: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.user-tz:hover { color: var(--cyan); }
+.user-tz.warn { color: var(--orange); }
+.user-tz.warn:hover { color: var(--orange); text-decoration: underline; }
 .user-logout {
   background: none; border: none; cursor: pointer;
   color: var(--muted); padding: 6px; border-radius: 6px;

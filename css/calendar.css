@@ -114,7 +114,7 @@
 .heatmap { display: grid; grid-template-columns: 60px repeat(5, 1fr); gap: 3px; font-family: var(--mono); font-size: 10px; }
 .hm-corner, .hm-day-label { color: var(--muted); text-align: center; padding: 6px 4px; font-weight: 500; display: flex; align-items: center; justify-content: center; }
 .hm-hour-label { color: var(--muted); display: flex; align-items: center; font-size: 9px; }
-.hm-cell { padding: 10px 4px; text-align: center; border-radius: 6px; font-size: 11px; font-weight: 500; cursor: default; background: rgba(255,255,255,0.03); color: var(--dim); }
+.hm-cell { padding: 9px 4px; text-align: center; border-radius: 6px; font-size: 11px; font-weight: 500; cursor: default; background: rgba(255,255,255,0.03); color: var(--dim); }
 
 /* ── Filter bar (encima de la tabla de trades) ───────────── */
 .filter-bar {

@@ -4,6 +4,7 @@ import { auth } from '../auth.js';
 import { IMPORT_HEADERS, rowToTrade } from '../utils/sheet-parsers.js';
 import { parsePastedText } from '../utils/paste-parser.js';
 import { fetchAppsScript, mapAppsScriptTrade } from '../utils/apps-script-import.js';
+import { ajustesTabs } from '../components/ajustes-tabs.js';
 import { parseCsv, toCsv, downloadFile } from '../utils/csv.js';
 
 let activeTab = 'paste';
@@ -26,6 +27,7 @@ export function importView(container) {
 
 function render(container) {
   container.innerHTML = `
+    ${ajustesTabs('importar')}
     <div class="page-header">
       <div>
         <h1>Importar trades</h1>

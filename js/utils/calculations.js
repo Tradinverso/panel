@@ -1,4 +1,4 @@
-import { dayOfWeekIndex, hourSlot, HOUR_SLOTS, dateCompare, yearMonth } from './date-helpers.js';
+import { dayOfWeekIndex, hourSlots, dateCompare, yearMonth } from './date-helpers.js';
 
 export function sortChrono(trades) {
   return [...trades].sort((a, b) => {
@@ -212,9 +212,9 @@ export function durationStats(trades) {
   };
 }
 
-// WR per hour-slot
+// WR per hour-slot (bandas de 1h, rango ampliado a los datos)
 export function wrByHour(trades) {
-  return HOUR_SLOTS.map(s => {
+  return hourSlots(trades).map(s => {
     const sub = trades.filter(t => t.open_hour != null && t.open_hour >= s.from && t.open_hour < s.to);
     return {
       label: s.label,

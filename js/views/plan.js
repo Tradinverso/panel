@@ -39,7 +39,8 @@ function render(container) {
       <div class="card" style="margin-bottom:16px;">
         <div class="form-field">
           <label class="form-label">Enlace a documento (opcional)</label>
-          <input class="form-input" id="planUrl" type="url" placeholder="https://docs.google.com/..." value="${esc(plan.docUrl || '')}">
+          <input class="form-input" id="planUrl" type="url" placeholder="https://drive.google.com/... o https://docs.google.com/..." value="${esc(plan.docUrl || '')}">
+          <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:4px;">Pega tu enlace de Google Drive/Docs. Compártelo como <strong>“Cualquiera con el enlace”</strong> para verlo aquí en grande sin salir de la app.</div>
         </div>
       </div>
       <div class="card">
@@ -72,19 +73,61 @@ function render(container) {
         <div class="sub">${plan.updatedAt ? 'Actualizado ' + fmtDate(plan.updatedAt) : 'Tu plan de trading personal'}</div>
       </div>
       <div class="page-actions">
-        ${hasUrl ? `<a class="btn" href="${esc(plan.docUrl)}" target="_blank" rel="noopener noreferrer">📄 Abrir documento</a>` : ''}
         <button class="btn primary" id="planEdit">${hasContent || hasUrl ? '✏️ Editar' : '+ Escribir plan'}</button>
       </div>
     </div>
-    ${hasContent
-      ? `<div class="card md-content">${renderMarkdown(plan.content)}</div>`
-      : `<div class="empty">
+    ${hasContent ? `<div class="card md-content" style="margin-bottom:16px;">${renderMarkdown(plan.content)}</div>` : ''}
+    ${hasUrl ? docBlock(plan.docUrl) : ''}
+    ${(!hasContent && !hasUrl)
+      ? `<div class="empty">
            <div class="big">📋</div>
            <div>Aún no has escrito tu plan de trading.</div>
-           <div style="margin-top:8px;font-size:11px;color:var(--muted);">Define tus reglas, setups, gestión del riesgo y rutina. Acepta formato Markdown.</div>
-         </div>`}
+           <div style="margin-top:8px;font-size:11px;color:var(--muted);">Escríbelo aquí (formato Markdown) o pega el <strong>enlace de tu Google Drive/Docs</strong> para verlo directamente aquí.</div>
+         </div>`
+      : ''}
   `;
   container.querySelector('#planEdit').addEventListener('click', () => { editing = true; render(container); });
+}
+
+// Convierte un enlace de Google Drive/Docs en su URL embebible (/preview).
+// Devuelve null si no se puede embeber (otro dominio, carpeta, etc.).
+function embedUrl(url) {
+  let u;
+  try { u = new URL(url); } catch (_) { return null; }
+  if (u.hostname === 'docs.google.com') {
+    const m = u.pathname.match(/\/(document|spreadsheets|presentation)\/d\/([^/]+)/);
+    if (m) return `https://docs.google.com/${m[1]}/d/${m[2]}/preview`;
+  }
+  if (u.hostname === 'drive.google.com') {
+    const m = u.pathname.match(/\/file\/d\/([^/]+)/);
+    if (m) return `https://drive.google.com/file/d/${m[1]}/preview`;
+    const id = u.searchParams.get('id');
+    if (id) return `https://drive.google.com/file/d/${id}/preview`;
+  }
+  return null;
+}
+
+// Bloque grande del documento: vista previa embebida si es Drive/Docs,
+// o un botón grande para abrirlo en pestaña nueva.
+function docBlock(url) {
+  const embed = embedUrl(url);
+  if (embed) {
+    return `
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="card-head" style="padding:14px 16px;">
+          <div class="card-title">📄 Documento del plan</div>
+          <a class="btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Abrir en Drive ↗</a>
+        </div>
+        <iframe class="plan-embed" src="${esc(embed)}" loading="lazy" allowfullscreen></iframe>
+        <div class="plan-embed-note">¿No se ve? El documento debe estar compartido como <strong>“Cualquiera con el enlace”</strong> en Drive.</div>
+      </div>`;
+  }
+  return `
+    <a class="card plan-doc-cta" href="${esc(url)}" target="_blank" rel="noopener noreferrer">
+      <span class="pd-icon">📄</span>
+      <span class="pd-text"><strong>Abrir documento</strong><small>Tu plan está en un enlace externo · se abre en una pestaña nueva</small></span>
+      <span class="pd-arrow">↗</span>
+    </a>`;
 }
 
 export function tradingPlanView(container) {

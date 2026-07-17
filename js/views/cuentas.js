@@ -7,7 +7,7 @@ import { openCuentaEditModal, confirmDeleteCuenta } from '../components/cuenta-e
 import { openModal } from '../components/modal.js';
 import { gestionTabs } from '../components/gestion-tabs.js';
 import {
-  accountStats, fmtUsd,
+  accountStats, fmtUsd, advanceInfo,
   portfolioStats, portfolioEquityCurve, portfolioMonthlyWithdrawals,
 } from '../utils/account-stats.js';
 import { kpiCard } from '../components/kpi-card.js';
@@ -270,6 +270,7 @@ function renderGroupedCards(list) {
 function card(c) {
   const s = accountStats(c, state.trades);
   const isFondeada = c.fase === 'fondeada';
+  const adv = advanceInfo(c);
   const equityColor = s.equityPct >= 0 ? 'var(--green)' : 'var(--red)';
   const wr = s.tp + s.sl > 0 ? s.wr.toFixed(0) + '%' : '–';
   const racha = s.currentSlStreak >= 3 ? `🔴 ${s.currentSlStreak} SL`
@@ -311,7 +312,7 @@ function card(c) {
 
       ${(c.fase !== 'fondeada' || c.status !== 'perdida') ? `
       <div class="cuenta-card-foot" data-stop>
-        ${c.fase !== 'fondeada' ? `<button class="btn ghost" data-advance="${c.id}" data-stop>✓ Superar fase</button>` : ''}
+        ${adv ? `<button class="btn ghost" data-advance="${c.id}" data-stop>${adv.toFondeada ? '★' : '✓'} ${adv.label}</button>` : ''}
         ${c.status !== 'perdida' ? `<button class="btn ghost danger" data-quemada="${c.id}" data-stop>✗ Quemada</button>` : ''}
       </div>` : ''}
     </div>

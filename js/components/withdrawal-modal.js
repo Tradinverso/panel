@@ -11,12 +11,14 @@
 
 import { state } from '../state.js';
 import { openModal } from './modal.js';
+import { auth } from '../auth.js';
+import { todayLocal } from '../utils/timezone.js';
 
 export function openWithdrawalModal(cuenta, onSaved = () => {}) {
   if (!cuenta) return;
   if (cuenta.fase !== 'fondeada') return;
 
-  const today = new Date().toISOString().substring(0, 10);
+  const today = todayLocal(auth.timezone());
   const data = { date: today, amount: '', commissionPct: '', note: '' };
 
   openModal({

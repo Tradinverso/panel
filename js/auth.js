@@ -10,6 +10,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { setDoc, doc, serverTimestamp, getFirestore } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { guessTz } from './utils/timezone.js';
 import { sync } from './sync.js';
 
 const listeners = new Set();
@@ -56,6 +57,11 @@ export const auth = {
   isAdmin() { return this.profile?.role === 'admin'; },
   isStudent() { return this.profile?.role === 'student'; },
   uid() { return this.currentUser?.uid || null; },
+  // Huso del usuario LOGUEADO. Sobrevive a viewAs (this.profile nunca se toca al
+  // impersonar), así que el admin siempre puede convertir a SU hora.
+  // Si no lo ha configurado, se usa el del navegador.
+  timezone() { return this.profile?.timezone || guessTz(); },
+  hasTimezone() { return !!this.profile?.timezone; },
   displayName() {
     if (this.profile?.nombre) return this.profile.nombre;
     if (this.currentUser?.email) return this.currentUser.email.split('@')[0];
@@ -117,6 +123,15 @@ export const auth = {
     if (!this.currentUser) throw new Error('No hay usuario activo');
     await sync.updateProfile(this.currentUser.uid, { nombre });
     this.profile = { ...this.profile, nombre };
+    this.emit();
+  },
+
+  // Guarda el huso SIEMPRE en el perfil del usuario logueado (nunca en el del
+  // alumno que se esté viendo: no se usa targetUid a propósito).
+  async updateTimezone(timezone) {
+    if (!this.currentUser) throw new Error('No hay usuario activo');
+    await sync.updateProfile(this.currentUser.uid, { timezone });
+    this.profile = { ...this.profile, timezone };
     this.emit();
   },
 

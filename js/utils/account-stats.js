@@ -39,6 +39,14 @@ export function tradesForAccount(account, allTrades) {
   return out;
 }
 
+// Botón "avanzar de fase": si el siguiente paso ya funda la cuenta (2ª fase, o
+// cuentas de 1 sola fase), el botón dice "Fondear" en vez de "Superar fase".
+export function advanceInfo(cuenta) {
+  if (!cuenta || cuenta.fase === 'fondeada') return null;
+  const toFondeada = cuenta.fase === 'challenge_2' || (cuenta.fase === 'challenge_1' && cuenta.numFases === 1);
+  return { toFondeada, label: toFondeada ? 'Fondear' : 'Superar fase' };
+}
+
 // Igual que tradesForAccount pero solo los trades de la FASE actual (desde
 // equityBaseAt). Al superar fase, el equity/stats se reinician al capital.
 // Sin base definida (1ª fase) devuelve todos.

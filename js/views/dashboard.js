@@ -301,7 +301,7 @@ function paintKpis(container, trades) {
   const days = activeDays(trades);
   const avgPerDay = days > 0 ? (c.total / days).toFixed(1) : '0';
   container.querySelector('#kpis').innerHTML = [
-    kpiCard({ label: 'Winrate global', value: wr.toFixed(1) + '%', sub: `${c.tp} TP · ${c.sl} SL · ${c.be} BE`, tone: 'orange' }),
+    kpiCard({ label: 'Winrate global', value: wr.toFixed(1) + '%', sub: `${c.tp} TP · ${c.sl} SL · ${c.be} BE`, tone: (c.tp + c.sl) > 0 && wr < 40 ? 'red' : 'blue' }),
     kpiCard({ label: 'P&L sistema', value: fmtPct(pnl, 1), sub: 'trades al 1%', tone: pnl >= 0 ? 'green' : 'red' }),
     kpiCard({ label: 'P&L real', value: fmtPct(pnlReal, 1), sub: 'según riesgo real', tone: pnlReal >= 0 ? 'green' : 'red' }),
     kpiCard({ label: 'DD máximo', value: '-' + dd.toFixed(1) + '%', sub: 'equity combinada', tone: 'red' }),
@@ -335,7 +335,11 @@ function paintStrategy(container, sheet, trades) {
   const c = tradeCounts(sub);
   const subPnl = pnlPct(sub);
   const subPnlReal = pnlPctReal(sub);
-  card.querySelector('[data-field="wr"]').textContent = fmtPctNoSign(winrate(sub));
+  const wrEl = card.querySelector('[data-field="wr"]');
+  const subWr = winrate(sub);
+  wrEl.textContent = fmtPctNoSign(subWr);
+  // Winrate: cian de marca siempre, rojo si < 40%.
+  wrEl.style.color = (c.tp + c.sl) > 0 && subWr < 40 ? 'var(--red)' : 'var(--cyan)';
   const pnlEl = card.querySelector('[data-field="pnl"]');
   pnlEl.textContent = fmtPct(subPnl, 1);
   pnlEl.style.color = subPnl >= 0 ? 'var(--green)' : 'var(--red)';

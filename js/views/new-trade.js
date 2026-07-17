@@ -5,6 +5,8 @@ import { renderCuentaAssign } from '../components/cuenta-assign.js';
 import { router } from '../router.js';
 import { TODAS as SENS_OPTIONS } from '../utils/sensaciones.js';
 import { parseTime, durationMinutes, formatDateEs } from '../utils/date-helpers.js';
+import { auth } from '../auth.js';
+import { todayLocal } from '../utils/timezone.js';
 import { fmtPct } from '../utils/number-format-es.js';
 import { fmtUsd } from '../utils/account-stats.js';
 import { STRATEGIES as STRAT_META } from '../utils/strategy-config.js';
@@ -38,7 +40,9 @@ export function newTradeView(container) {
 }
 
 function init(sheet) {
-  const today = new Date().toISOString().substring(0, 10);
+  // Fecha de hoy en el huso del usuario. Con toISOString un UTC-3 veía la fecha
+  // de MAÑANA a partir de las 21:00 locales.
+  const today = todayLocal(auth.timezone());
   const meta = STRAT_META[sheet];
   return {
     sheet,
@@ -331,6 +335,9 @@ function buildTrade(sheet, data) {
     url2: data.url2 || '',
     reflexion: data.reflexion || '',
     accounts: Array.isArray(data.accounts) ? data.accounts : [],
+    // Huso en el que se escribieron estas horas. Permite que el admin las
+    // convierta a la suya sin tocar lo guardado.
+    entry_tz: auth.timezone(),
   };
 }
 

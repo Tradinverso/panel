@@ -59,7 +59,7 @@ function render(container, sheet) {
 
     <div class="kpi-grid">
       ${kpiCard({ label: 'Trades', value: c.total, sub: `${c.tp} TP · ${c.sl} SL · ${c.be} BE`, tone: 'blue' })}
-      ${kpiCard({ label: 'Winrate', value: fmtPctNoSign(wr), sub: 'TP / (TP+SL)', tone: 'orange' })}
+      ${kpiCard({ label: 'Winrate', value: fmtPctNoSign(wr), sub: 'TP / (TP+SL)', tone: (c.tp + c.sl) > 0 && wr < 40 ? 'red' : 'blue' })}
       ${kpiCard({ label: 'P&L sistema', value: fmtPct(pnl, 1), sub: 'Sistema 1R', tone: pnl >= 0 ? 'green' : 'red' })}
       ${kpiCard({ label: 'P&L real', value: fmtPct(pnlReal, 1), sub: 'según riesgo real', tone: pnlReal >= 0 ? 'green' : 'red' })}
       ${kpiCard({ label: 'Profit Factor', value: isFinite(pf) ? pf.toFixed(2) : '∞', sub: 'wins / |losses|', tone: 'purple' })}

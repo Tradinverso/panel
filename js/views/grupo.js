@@ -15,6 +15,7 @@ import {
 import { sensacionStats, withSensacion, TODAS as SENS_TODAS, POSITIVAS, NEGATIVAS } from '../utils/sensaciones.js';
 import { fmtPct, fmtPctNoSign, fmtNum } from '../utils/number-format-es.js';
 import { MONTHS_ES, MONTHS_ES_SHORT, formatDateShort, yearMonth } from '../utils/date-helpers.js';
+import { convertTradesTz, DEFAULT_TZ } from '../utils/timezone.js';
 import { kpiCard } from '../components/kpi-card.js';
 import { createEquity, createDonut, createBar, createHourBar, createDayBar, createLongShort } from '../components/charts.js';
 import { renderHeatmap } from '../components/heatmap.js';
@@ -83,7 +84,12 @@ function paint(container) {
   const studentsSel = filterStudentsByGroups(students, selectedGroups);
 
   // 2. Agregar trades + aplicar filtro temporal
-  const allTrades = studentsSel.flatMap(s => (s.trades || []).map(t => ({ ...t, _ownerUid: s.uid })));
+  // Cada alumno escribe en SU huso: se convierten al del admin para que las
+  // estadísticas por hora del grupo sean comparables. Solo afecta a la vista.
+  const adminTz = auth.timezone();
+  const allTrades = studentsSel.flatMap(s =>
+    convertTradesTz(s.trades || [], (s.profile && s.profile.timezone) || DEFAULT_TZ, adminTz)
+      .map(t => ({ ...t, _ownerUid: s.uid })));
   const filtered = filterByPeriod(allTrades, yearFilter, monthFilter);
 
   // ── Sub header + filtros temporales ───────────────────────

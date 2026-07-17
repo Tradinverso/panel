@@ -9,7 +9,7 @@ import { openWithdrawalModal } from '../components/withdrawal-modal.js';
 import { openModal } from '../components/modal.js';
 import {
   accountStats, tradesForAccountPhase, totalWithdrawn, accountEquityCurve,
-  monthlyPnlUsd, fmtUsd, computeUsdPnl,
+  monthlyPnlUsd, fmtUsd, computeUsdPnl, advanceInfo,
 } from '../utils/account-stats.js';
 import { kpiCard } from '../components/kpi-card.js';
 import { sortChrono } from '../utils/calculations.js';
@@ -64,6 +64,7 @@ function render(container, cuentaId) {
 
   const s = accountStats(cuenta, state.trades);
   const isFondeada = cuenta.fase === 'fondeada';
+  const adv = advanceInfo(cuenta);
   const items = tradesForAccountPhase(cuenta, state.trades);
   const monthly = monthlyPnlUsd(cuenta, state.trades);
   const curve = accountEquityCurve(cuenta, state.trades);
@@ -81,8 +82,8 @@ function render(container, cuentaId) {
       </div>
       <div class="page-actions">
         <a class="btn" href="#/cuentas">← Cuentas</a>
-        ${cuenta.fase !== 'fondeada' ? `<button class="btn" id="advanceFaseBtn">✓ Superar fase</button>` : ''}
-        ${cuenta.fase !== 'fondeada' ? `<button class="btn" id="fondeadaBtn" title="Pasar a Fondeada directamente">★ A Fondeada</button>` : ''}
+        ${adv ? `<button class="btn" id="advanceFaseBtn">${adv.toFondeada ? '★' : '✓'} ${adv.label}</button>` : ''}
+        ${(adv && !adv.toFondeada) ? `<button class="btn" id="fondeadaBtn" title="Pasar a Fondeada directamente (saltando la 2ª fase)">★ A Fondeada</button>` : ''}
         ${cuenta.status !== 'perdida' ? `<button class="btn danger" id="quemadaBtn">✗ Quemada</button>` : ''}
         <button class="btn" id="editCuentaBtn">✏️ Editar</button>
         <button class="btn danger" id="deleteCuentaBtn">× Borrar</button>
@@ -106,7 +107,7 @@ function render(container, cuentaId) {
         tone: 'purple',
       }) : ''}
       ${kpiCard({ label: 'Trades', value: s.count, sub: `${s.tp} TP · ${s.sl} SL · ${s.be} BE`, tone: 'orange' })}
-      ${kpiCard({ label: 'Winrate', value: (s.tp + s.sl > 0 ? s.wr.toFixed(0) + '%' : '–'), sub: 'TP / (TP+SL)', tone: 'orange' })}
+      ${kpiCard({ label: 'Winrate', value: (s.tp + s.sl > 0 ? s.wr.toFixed(0) + '%' : '–'), sub: 'TP / (TP+SL)', tone: (s.tp + s.sl) > 0 && s.wr < 40 ? 'red' : 'blue' })}
       ${kpiCard({ label: 'Profit Factor', value: isFinite(s.pf) ? s.pf.toFixed(2) : '∞', sub: '$ wins / |$ losses|', tone: 'green' })}
       ${cuenta.cost > 0 && isFondeada ? kpiCard({ label: 'Net to pocket', value: fmtUsd(s.netToPocket, true), sub: 'retirado − coste', tone: s.netToPocket >= 0 ? 'green' : 'red' }) : ''}
     </div>

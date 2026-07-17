@@ -31,6 +31,16 @@ function vGrad(canvas, color, a0, a1) {
   return g;
 }
 
+// Degradado vertical entre DOS colores sólidos (para los aros del donut).
+function grad2(canvas, c0, c1) {
+  const ctx = canvas.getContext('2d');
+  const h = canvas.clientHeight || canvas.height || 200;
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, c0);
+  g.addColorStop(1, c1);
+  return g;
+}
+
 function defaults() {
   Chart.defaults.color = READ('--muted');
   Chart.defaults.borderColor = READ('--border');
@@ -102,22 +112,30 @@ export function createEquity(canvas, datasets, opts = {}) {
 export function createDonut(canvas, tp, sl, be) {
   defaults();
   Chart.getChart(canvas)?.destroy();
+  const DIM = READ('--dim');
+  // El centro va vacío a propósito: el WR y el nº de trades ya se muestran
+  // arriba en la tarjeta, no hace falta repetirlos dentro del aro.
+  // Aros anchos con degradado; se descartan segmentos a 0 (sin punto flotante).
+  const defs = [
+    { v: tp, label: 'TP', color: grad2(canvas, '#7DF3C4', '#2FB889') },
+    { v: sl, label: 'SL', color: grad2(canvas, '#FF9DB4', '#DE4A6E') },
+    { v: be, label: 'BE', color: rgba(DIM, 0.55) },
+  ].filter(d => d.v > 0);
   return new Chart(canvas, {
     type: 'doughnut',
     data: {
-      labels: ['TP', 'SL', 'BE'],
+      labels: defs.map(d => d.label),
       datasets: [{
-        data: [tp, sl, be],
-        backgroundColor: [READ('--green'), READ('--red'), READ('--dim')],
-        borderColor: READ('--card2'),
-        borderWidth: 3,
-        spacing: 2,
+        data: defs.map(d => d.v),
+        backgroundColor: defs.map(d => d.color),
+        borderWidth: 0,
+        spacing: defs.length > 1 ? 4 : 0,
         hoverOffset: 6,
-        borderRadius: 6,
+        borderRadius: 22,
       }],
     },
     options: {
-      responsive: true, maintainAspectRatio: false, cutout: '74%',
+      responsive: true, maintainAspectRatio: false, cutout: '64%',
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw}` } } },
     },
   });
@@ -176,7 +194,9 @@ export function createHourBar(canvas, hourData) {
       interaction: { mode: 'index', intersect: false },
       plugins: { legend: { display: false } },
       scales: {
-        x: { grid: { display: false }, border: { display: false } },
+        // Bandas de 1h → hasta ~17+ etiquetas. Sin autoSkip:false, Chart.js
+        // esconde etiquetas silenciosamente.
+        x: { grid: { display: false }, border: { display: false }, ticks: { autoSkip: false, maxRotation: 90, minRotation: 0, font: { size: 9 } } },
         y: { ticks: { callback: v => v + '%' }, grid: { color: READ('--border') }, border: { display: false }, min: 0, max: 110 },
         y2: { position: 'right', grid: { display: false }, border: { display: false }, ticks: { color: BLUE } },
       },

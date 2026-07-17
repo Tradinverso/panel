@@ -17,6 +17,8 @@ import {
   withSensacion, groupByEmotion, sensacionStats,
   classify, NEGATIVAS,
 } from './sensaciones.js';
+import { tzHourDiff } from './timezone.js';
+import { auth } from '../auth.js';
 
 const A = (type, icon, title, body) => ({ type, icon, title, body });
 const danger  = (icon, title, body) => A('danger', icon, title, body);
@@ -290,7 +292,9 @@ export function buildAlerts(trades) {
   }
 
   // ── Peor franja horaria (DANGER, va a Alertas) ──
-  const hours = wrByHour(trades).filter(h => h.n >= 5);
+  // Con bandas de 1h cada franja tiene menos trades que con las de 2h → bajamos
+  // el mínimo para que los insights sigan saliendo.
+  const hours = wrByHour(trades).filter(h => h.n >= 3);
   if (hours.length) {
     const worstH = [...hours].sort((a, b) => a.wr - b.wr)[0];
     if (worstH.wr < globalWR - 8) {
@@ -353,9 +357,15 @@ export function buildAlerts(trades) {
     }
   }
 
-  // Londres vs NY
-  const london = trades.filter(t => t.open_hour != null && t.open_hour >= 8 && t.open_hour < 12);
-  const ny = trades.filter(t => t.open_hour != null && t.open_hour >= 14 && t.open_hour < 18);
+  // Londres vs NY. Las ventanas están definidas en hora de MADRID; como cada
+  // usuario ve sus horas en su huso local, se trasladan a su hora.
+  const d = tzHourDiff('Europe/Madrid', auth.timezone());
+  const inWin = (h, from, to) => {
+    const f = ((from + d) % 24 + 24) % 24, t2 = ((to + d) % 24 + 24) % 24;
+    return f <= t2 ? (h >= f && h < t2) : (h >= f || h < t2); // ventana que cruza medianoche
+  };
+  const london = trades.filter(t => t.open_hour != null && inWin(t.open_hour, 8, 12));
+  const ny = trades.filter(t => t.open_hour != null && inWin(t.open_hour, 14, 18));
   if (london.length >= 5 && ny.length >= 5) {
     const lwr = winrate(london), nwr = winrate(ny);
     if (Math.abs(lwr - nwr) >= 10) {

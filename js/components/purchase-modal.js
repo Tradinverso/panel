@@ -4,12 +4,15 @@
 
 import { state } from '../state.js';
 import { openModal } from './modal.js';
+import { auth } from '../auth.js';
+import { todayLocal } from '../utils/timezone.js';
 
 const CONCEPTOS = [
   { value: 'challenge', label: 'Challenge / evaluación' },
   { value: 'reset', label: 'Reset' },
   { value: 'reintento', label: 'Reintento' },
   { value: 'suscripcion', label: 'Suscripción (mensual)' },
+  { value: 'activacion', label: 'Activación' },
   { value: 'otro', label: 'Otro' },
 ];
 
@@ -17,7 +20,7 @@ const CONCEPTOS = [
 // (precarga los campos, oculta el selector de cuenta y actualiza en vez de crear).
 export function openPurchaseModal(cuenta = null, onSaved = () => {}, existing = null) {
   const isEdit = !!existing;
-  const today = new Date().toISOString().substring(0, 10);
+  const today = todayLocal(auth.timezone());
   const cuentas = state.cuentas;
   if (!cuenta && !cuentas.length) return;
 

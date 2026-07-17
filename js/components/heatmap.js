@@ -1,16 +1,23 @@
-import { dayOfWeekIndex, HOUR_SLOTS, DAYS_ES } from '../utils/date-helpers.js';
+import { dayOfWeekIndex, hourSlots, DAYS_ES } from '../utils/date-helpers.js';
 import { winrate } from '../utils/calculations.js';
 
 export function renderHeatmap(container, trades) {
   container.className = 'heatmap';
   container.innerHTML = '';
-  const matrix = HOUR_SLOTS.map(() => DAYS_ES.map(() => ({ tp: 0, sl: 0, total: 0 })));
+  // Bandas de 2h (no 1h como las barras): este mapa divide por hora Y por día,
+  // así que sus celdas tienen ~5x menos trades; con 1h la mayoría quedaría con
+  // 1-2 trades y un 0%/100% que parece señal pero es ruido.
+  // Ajustadas SOLO a los trades que pinta (lun-vie con hora): si no, un trade de
+  // fin de semana crearía una fila vacía en el borde.
+  const counted = (trades || []).filter(t => dayOfWeekIndex(t.date) != null && t.open_hour != null);
+  const SLOTS = hourSlots(counted, 2);
+  const matrix = SLOTS.map(() => DAYS_ES.map(() => ({ tp: 0, sl: 0, total: 0 })));
   for (const t of trades) {
     const di = dayOfWeekIndex(t.date);
     if (di == null) continue;
     if (t.open_hour == null) continue;
-    for (let h = 0; h < HOUR_SLOTS.length; h++) {
-      const s = HOUR_SLOTS[h];
+    for (let h = 0; h < SLOTS.length; h++) {
+      const s = SLOTS[h];
       if (t.open_hour >= s.from && t.open_hour < s.to) {
         matrix[h][di].total++;
         if (t.result === 'TP') matrix[h][di].tp++;
@@ -23,8 +30,8 @@ export function renderHeatmap(container, trades) {
   container.appendChild(div('hm-corner', ''));
   for (const d of DAYS_ES) container.appendChild(div('hm-day-label', d));
   // Body
-  HOUR_SLOTS.forEach((slot, hi) => {
-    container.appendChild(div('hm-hour-label', slot.label.replace('h', '')));
+  SLOTS.forEach((slot, hi) => {
+    container.appendChild(div('hm-hour-label', slot.label + 'h'));
     matrix[hi].forEach(cell => {
       const c = div('hm-cell', '');
       if (cell.total === 0) {

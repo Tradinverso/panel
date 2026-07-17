@@ -7,6 +7,7 @@ import { uuid } from './utils/uuid.js';
 import { parseTime, durationMinutes } from './utils/date-helpers.js';
 import { sync } from './sync.js';
 import { auth } from './auth.js';
+import { convertTradesTz, DEFAULT_TZ } from './utils/timezone.js';
 
 const SENS_VALID = new Set([
   'Seguro - Confiado',
@@ -125,6 +126,9 @@ function sanitizeTrade(t) {
     url2: t.url2 || '',
     reflexion: t.reflexion || '',
     accounts,
+    // Huso en el que se escribieron las horas (trades nuevos). Los antiguos no lo
+    // tienen: se resuelve con el perfil de su dueño al mostrarlos.
+    entry_tz: t.entry_tz || null,
     createdAt: t.createdAt || Date.now(),
   };
 }
@@ -195,7 +199,7 @@ function sanitizeCuenta(c) {
   };
 }
 
-const VALID_CONCEPT = new Set(['challenge', 'reset', 'reintento', 'suscripcion', 'otro']);
+const VALID_CONCEPT = new Set(['challenge', 'reset', 'reintento', 'suscripcion', 'activacion', 'otro']);
 
 function sanitizePurchase(p) {
   if (!p) return null;
@@ -312,7 +316,13 @@ export const state = {
         sync.loadConfig(uid).catch(() => ({})),
         sync.loadTradingPlan(uid).catch(() => ({})),
       ]);
-      this.trades = trades.map(sanitizeTrade).filter(Boolean);
+      // Datos propios: normalmente no-op (los escribiste en tu mismo huso). Solo
+      // convierte si algún trade se metió desde otro país (entry_tz distinto).
+      this.trades = convertTradesTz(
+        trades.map(sanitizeTrade).filter(Boolean),
+        auth.timezone(),
+        auth.timezone(),
+      );
       this.cuentas = cuentas.map(sanitizeCuenta).filter(Boolean);
       this.reflections = reflections.map(sanitizeReflection).filter(Boolean);
       this.perfiles = perfiles.map(sanitizePerfil).filter(Boolean);
@@ -348,7 +358,13 @@ export const state = {
         sync.loadConfig(studentUid).catch(() => ({})),
         sync.loadTradingPlan(studentUid).catch(() => ({})),
       ]);
-      this.trades = trades.map(sanitizeTrade).filter(Boolean);
+      // Las horas del alumno se convierten a la hora del ADMIN (auth.timezone()
+      // sobrevive a viewAs). Solo para mostrar: lo guardado no se toca.
+      this.trades = convertTradesTz(
+        trades.map(sanitizeTrade).filter(Boolean),
+        (profile && profile.timezone) || DEFAULT_TZ,
+        auth.timezone(),
+      );
       this.cuentas = cuentas.map(sanitizeCuenta).filter(Boolean);
       this.reflections = reflections.map(sanitizeReflection).filter(Boolean);
       this.perfiles = perfiles.map(sanitizePerfil).filter(Boolean);

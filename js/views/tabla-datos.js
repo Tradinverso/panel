@@ -12,6 +12,7 @@ import { openModal } from '../components/modal.js';
 import { openViewTradeModal } from '../components/trade-view-modal.js';
 import { sortChrono } from '../utils/calculations.js';
 import { parseTime, durationMinutes } from '../utils/date-helpers.js';
+import { ajustesTabs } from '../components/ajustes-tabs.js';
 
 let filterSheet = 'all';
 let filterResult = 'all';
@@ -51,6 +52,7 @@ function render(container) {
   const sorted = sortChrono(filtered).reverse();
 
   container.innerHTML = `
+    ${ajustesTabs('tabla')}
     <div class="page-header">
       <div>
         <h1>Tabla de datos</h1>

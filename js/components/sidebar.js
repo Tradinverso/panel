@@ -2,6 +2,7 @@ import { theme } from '../theme.js';
 import { router } from '../router.js';
 import { state } from '../state.js';
 import { auth } from '../auth.js';
+import { tzLabel } from '../utils/timezone.js';
 
 // hideInViewAs: oculto cuando admin está viendo/editando a un alumno
 // (Ajustes muestra info personal del admin, así que no tiene sentido).
@@ -24,12 +25,12 @@ const NAV_BASE = [
   { path: '#/diagnostico', label: 'Diagnóstico', icon: '🩺', class: '' },
   { path: '#/psicologia',  label: 'Reflexiones', icon: '🧘', class: '' },
   { path: '#/plan',        label: 'Plan de trading', icon: '📋', class: '' },
-
-  { section: 'Datos' },
-  { path: '#/importar', label: 'Importar', icon: '📥', class: '' },
-  { path: '#/tabla',    label: 'Tabla',    icon: '🗃️', class: '' },
-  { path: '#/ajustes',  label: 'Ajustes',  icon: '⚙️', class: '' },
+  // Ajustes (que ahora engloba Importar y Tabla como pestañas) se renderiza
+  // aparte, al final del sidebar, encima del tema (ver renderSidebar).
 ];
+
+// Rutas que "viven dentro" de Ajustes (pestañas): marcan activo el ítem Ajustes.
+const AJUSTES_ROUTES = ['#/ajustes', '#/importar', '#/tabla'];
 
 const NAV_ADMIN = [
   { section: 'Admin' },
@@ -106,6 +107,20 @@ export function renderSidebar(container) {
           </a>`;
       }).join('')}
     </nav>
+    <a class="formacion-cta" href="https://tradinverso.thinkific.com/enrollments" target="_blank" rel="noopener noreferrer" title="Acceder a la formación">
+      <span class="fc-icon">🎓</span>
+      <span class="fc-text"><strong>Formación</strong><small>Cursos · directos · más</small></span>
+      <span class="fc-arrow">↗</span>
+    </a>
+    <div class="news-lbl">Noticias</div>
+    <div class="news-links">
+      <a class="news-link" href="https://www.forexfactory.com/calendar" target="_blank" rel="noopener noreferrer" title="Calendario económico de ForexFactory"><span>📰</span> ForexFactory</a>
+      <a class="news-link" href="https://es.investing.com/economic-calendar" target="_blank" rel="noopener noreferrer" title="Calendario económico de Investing"><span>📰</span> Investing</a>
+    </div>
+    <a href="#/ajustes" class="nav-item ${AJUSTES_ROUTES.includes(current) ? 'active' : ''}" title="Ajustes · Importar · Tabla">
+      <span class="nav-icon">⚙️</span>
+      <span class="nav-label">Ajustes</span>
+    </a>
     <button class="theme-toggle" id="themeToggle" title="Cambiar tema">
       <span class="theme-toggle-icon">${theme.current() === 'dark' ? '🌙' : '☀️'}</span>
       <span>${theme.current() === 'dark' ? 'Modo oscuro' : 'Modo claro'}</span>
@@ -115,6 +130,9 @@ export function renderSidebar(container) {
       <div class="user-info">
         <div class="user-name">${escapeHtml(auth.displayName())}</div>
         <div class="user-email">${escapeHtml(auth.currentUser.email)}</div>
+        ${auth.hasTimezone()
+          ? `<a class="user-tz" href="#/ajustes" title="Cambiar zona horaria">🕗 ${escapeHtml(tzLabel(auth.timezone()))}</a>`
+          : `<a class="user-tz warn" href="#/ajustes" title="Configura tu zona horaria">⚠ Configura tu zona horaria</a>`}
       </div>
       <button class="user-logout" id="logoutBtn" title="Cerrar sesión">⏻</button>
     </div>

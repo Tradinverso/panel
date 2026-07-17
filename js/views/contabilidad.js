@@ -12,7 +12,7 @@ import { openCuentaEditModal, confirmDeleteCuenta } from '../components/cuenta-e
 import {
   fmtUsd, totalInvested, investmentStats, monthlyInvested, empresaStats,
   totalWithdrawn, totalWithdrawnNet, portfolioMonthlyWithdrawals,
-  allWithdrawals, allPurchases, accountingEvents,
+  allWithdrawals, allPurchases, accountingEvents, advanceInfo,
 } from '../utils/account-stats.js';
 import { MONTHS_ES_SHORT, MONTHS_ES, formatDateShort } from '../utils/date-helpers.js';
 
@@ -26,7 +26,7 @@ let calAll = false;          // calendario: ver todos los eventos (lista) en vez
 let calYear = null, calMonth = null;
 
 const STATUS_LABEL = { activa: 'Activa', pausada: 'Pausada', pasada: 'Pasada', perdida: 'Quemada' };
-const CONCEPT_LABEL = { challenge: 'Challenge', reset: 'Reset', reintento: 'Reintento', suscripcion: 'Suscripción', otro: 'Otro' };
+const CONCEPT_LABEL = { challenge: 'Challenge', reset: 'Reset', reintento: 'Reintento', suscripcion: 'Suscripción', activacion: 'Activación', otro: 'Otro' };
 const fmtRoi = v => !isFinite(v) ? '∞' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
 
 function currentRange() {
@@ -191,6 +191,7 @@ function accountRows(cuentas) {
     const neto = totalWithdrawnNet(c);
     const ben = neto - inv;
     const roi = inv > 0 ? (ben / inv) * 100 : (ben > 0 ? Infinity : 0);
+    const adv = advanceInfo(c);
     return `
       <tr>
         <td><div style="font-weight:600;">${esc(c.empresa)} ${esc(c.numero || '')}</div><span style="font-size:10px;color:var(--muted);font-family:var(--mono);">${esc(c.tipo)}</span></td>
@@ -201,8 +202,8 @@ function accountRows(cuentas) {
         <td class="mono" style="color:${ben >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600;">${fmtUsd(ben, true)}</td>
         <td class="mono" style="color:${roi >= 0 ? 'var(--green)' : 'var(--red)'};">${fmtRoi(roi)}</td>
         <td style="text-align:right;white-space:nowrap;">
-          ${(c.fase !== 'fondeada' && c.status !== 'perdida') ? `<button class="btn ghost" data-cont-advance="${c.id}" title="Superar fase" style="padding:4px 7px;font-size:11px;">✓</button>` : ''}
-          ${(c.fase !== 'fondeada' && c.status !== 'perdida') ? `<button class="btn ghost" data-cont-fondeada="${c.id}" title="Pasar a Fondeada directamente" style="padding:4px 7px;font-size:11px;">★</button>` : ''}
+          ${(adv && c.status !== 'perdida') ? `<button class="btn ghost" data-cont-advance="${c.id}" title="${adv.label}" style="padding:4px 7px;font-size:11px;">${adv.toFondeada ? '★' : '✓'}</button>` : ''}
+          ${(adv && !adv.toFondeada && c.status !== 'perdida') ? `<button class="btn ghost" data-cont-fondeada="${c.id}" title="Pasar a Fondeada directamente (saltando 2ª fase)" style="padding:4px 7px;font-size:11px;">★</button>` : ''}
           ${(c.fase === 'fondeada' && c.status !== 'perdida') ? `<button class="btn ghost" data-cont-retiro="${c.id}" title="Registrar retiro" style="padding:4px 7px;font-size:11px;">💵</button>` : ''}
           ${c.status !== 'perdida' ? `<button class="btn ghost danger" data-cont-quemada="${c.id}" title="Marcar quemada" style="padding:4px 7px;font-size:11px;">✗</button>` : ''}
           <button class="btn ghost" data-cont-edit="${c.id}" title="Editar cuenta" style="padding:4px 7px;font-size:11px;">✏️</button>

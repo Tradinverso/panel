@@ -4,6 +4,8 @@ import { state } from '../state.js';
 import { renderPills } from './pills.js';
 import { openModal, closeModal } from './modal.js';
 import { tradesForAccount, totalWithdrawn } from '../utils/account-stats.js';
+import { auth } from '../auth.js';
+import { todayLocal } from '../utils/timezone.js';
 
 const FASE_OPTIONS = [
   { value: 'challenge_1', label: 'Challenge 1ª fase' },
@@ -29,7 +31,7 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
   const isNew = !cuenta;
   // Si es edición y la cuenta tiene trades asignados, advertir al cambiar capital
   const tradesUsing = cuenta ? tradesForAccount(cuenta, state.trades).length : 0;
-  const today = new Date().toISOString().substring(0, 10);
+  const today = todayLocal(auth.timezone());
   // Primera compra (coste inicial) para poder editar su fecha/importe al editar la
   // cuenta. Puede ser real (purchases[0]) o legacy (el campo `cost` sintetizado).
   const initialPurchase = cuenta
@@ -272,7 +274,7 @@ function doSave(cuenta, data, close, onSaved) {
     // Coste inicial → primera compra (no como campo `cost` legacy).
     if (cost > 0) {
       payload.purchases = [{
-        date: data.costDate || new Date().toISOString().substring(0, 10),
+        date: data.costDate || todayLocal(auth.timezone()),
         amount: cost, concept: 'challenge', note: 'Coste inicial',
       }];
       payload.cost = 0;
