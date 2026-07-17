@@ -11,6 +11,7 @@ import { createEquity, createDonut, createBar, createHourBar, createDayBar, crea
 import { renderHeatmap } from '../components/heatmap.js';
 import { renderTradeTable } from '../components/trade-table.js';
 import { renderPills } from '../components/pills.js';
+import { strategyTabs } from '../components/strategy-tabs.js';
 
 import { STRATEGIES as STRAT_META } from '../utils/strategy-config.js';
 
@@ -22,6 +23,7 @@ function render(container, sheet) {
 
   if (!all.length) {
     container.innerHTML = `
+      ${strategyTabs(sheet)}
       <div class="page-header">
         <div>
           <h1>${meta.label} <span style="color:${meta.color}">·</span> Análisis</h1>
@@ -47,6 +49,7 @@ function render(container, sheet) {
   const slS = maxStreak(all, 'SL');
 
   container.innerHTML = `
+    ${strategyTabs(sheet)}
     <div class="page-header">
       <div>
         <h1>${meta.label} <span style="color:${meta.color}">·</span> Análisis</h1>

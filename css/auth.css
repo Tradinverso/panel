@@ -188,6 +188,8 @@ body[data-auth="false"] #view {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   transition: color var(--dur), border-color var(--dur), background var(--dur);
 }
+.user-tz svg { width: 12px; height: 12px; flex: none; }
+.user-tz span { overflow: hidden; text-overflow: ellipsis; }
 .user-tz:hover { color: var(--text); border-color: var(--glass-border); background: var(--cyan-bg); }
 .user-tz.warn { color: var(--orange); border-color: rgba(255,162,58,0.35); background: var(--orange-bg); }
 .user-tz.warn:hover { color: var(--orange); border-color: var(--orange); }

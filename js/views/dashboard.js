@@ -56,7 +56,7 @@ function render(container) {
   }
 
   // KPIs y tablas (HTML puro) se pintan ya.
-  paintKpis(container, filtered);
+  paintKpis(container, filtered, allTrades);
   paintStreaks(container, filtered);
   paintDurations(container, filtered);
 
@@ -143,6 +143,31 @@ function filterTrades(trades, year, month) {
     if (month !== 'all' && !t.date.startsWith(month)) return false;
     return true;
   });
+}
+
+// Trades del periodo ANTERIOR equivalente al filtro actual, para comparar.
+// Mes seleccionado → mes anterior · Año → año anterior · "Todos" → null (sin
+// comparación posible: no hay un "antes" con el que medir).
+function prevPeriodTrades(allTrades, year, month) {
+  if (month !== 'all') {
+    const [y, m] = month.split('-').map(Number);
+    const d = new Date(y, m - 2, 1);            // mes anterior (m-1 es el actual)
+    const prev = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    return { trades: allTrades.filter(t => t.date.startsWith(prev)), ref: 'vs mes anterior' };
+  }
+  if (year !== 'all') {
+    const prev = String(Number(year) - 1);
+    return { trades: allTrades.filter(t => t.date.startsWith(prev)), ref: 'vs ' + prev };
+  }
+  return null;
+}
+
+// Construye la píldora de tendencia. `better` decide el color: en el DD, menos es mejor.
+function trend(curr, prev, ref, { unit = 'pp', lowerIsBetter = false } = {}) {
+  if (prev == null || !isFinite(curr) || !isFinite(prev)) return null;
+  const delta = curr - prev;
+  const txt = (delta > 0 ? '+' : '−') + fmtNum(Math.abs(delta), 1) + unit;
+  return { delta, text: txt, ref, better: lowerIsBetter ? delta < 0 : delta > 0 };
 }
 
 // ── Shell HTML ───────────────────────────────────────────────
@@ -290,7 +315,7 @@ function stratCardShell(s) {
 }
 
 // ── Painters ─────────────────────────────────────────────────
-function paintKpis(container, trades) {
+function paintKpis(container, trades, allTrades) {
   const c = tradeCounts(trades);
   const wr = winrate(trades);
   const pnl = pnlPct(trades);
@@ -300,11 +325,21 @@ function paintKpis(container, trades) {
   const tpStreakPct = bestTpStreakPnl(trades);
   const days = activeDays(trades);
   const avgPerDay = days > 0 ? (c.total / days).toFixed(1) : '0';
+
+  // Comparación con el periodo anterior (solo si hay un mes/año seleccionado y
+  // ese periodo anterior tiene trades: comparar contra cero no dice nada).
+  const prev = allTrades ? prevPeriodTrades(allTrades, yearFilter, monthFilter) : null;
+  const p = prev && prev.trades.length ? prev : null;
+  const tWr   = p ? trend(wr, winrate(p.trades), p.ref) : null;
+  const tPnl  = p ? trend(pnl, pnlPct(p.trades), p.ref) : null;
+  const tReal = p ? trend(pnlReal, pnlPctReal(p.trades), p.ref) : null;
+  const tDd   = p ? trend(dd, maxDrawdown(p.trades), p.ref, { lowerIsBetter: true }) : null;
+
   container.querySelector('#kpis').innerHTML = [
-    kpiCard({ label: 'Winrate global', value: wr.toFixed(1) + '%', sub: `${c.tp} TP · ${c.sl} SL · ${c.be} BE`, tone: (c.tp + c.sl) > 0 && wr < 40 ? 'red' : 'blue' }),
-    kpiCard({ label: 'P&L sistema', value: fmtPct(pnl, 1), sub: 'trades al 1%', tone: pnl >= 0 ? 'green' : 'red' }),
-    kpiCard({ label: 'P&L real', value: fmtPct(pnlReal, 1), sub: 'según riesgo real', tone: pnlReal >= 0 ? 'green' : 'red' }),
-    kpiCard({ label: 'DD máximo', value: '-' + dd.toFixed(1) + '%', sub: 'equity combinada', tone: 'red' }),
+    kpiCard({ label: 'Winrate global', value: wr.toFixed(1) + '%', sub: `${c.tp} TP · ${c.sl} SL · ${c.be} BE`, tone: (c.tp + c.sl) > 0 && wr < 40 ? 'red' : 'blue', trend: tWr }),
+    kpiCard({ label: 'P&L sistema', value: fmtPct(pnl, 1), sub: 'trades al 1%', tone: pnl >= 0 ? 'green' : 'red', trend: tPnl }),
+    kpiCard({ label: 'P&L real', value: fmtPct(pnlReal, 1), sub: 'según riesgo real', tone: pnlReal >= 0 ? 'green' : 'red', trend: tReal }),
+    kpiCard({ label: 'DD máximo', value: '-' + dd.toFixed(1) + '%', sub: 'equity combinada', tone: 'red', trend: tDd }),
     kpiCardComposite({ label: 'Racha TP máx', primary: tpStreak, secondary: 'TP · ' + fmtPct(tpStreakPct, 1), sub: 'consecutivos · acumulado', tone: 'green' }),
     kpiCard({ label: 'Días activos', value: days, sub: `${c.total} trades · ${avgPerDay}/día`, tone: 'purple' }),
   ].join('');

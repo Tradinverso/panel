@@ -117,7 +117,8 @@
   background: var(--glass-2); border: 1px solid var(--border);
   transition: color var(--dur), border-color var(--dur), background var(--dur), transform var(--dur) var(--ease);
 }
-.news-link span { font-size: 12px; }
+.news-link svg { width: 13px; height: 13px; flex: none; }
+.news-link span { overflow: hidden; text-overflow: ellipsis; }
 .news-link:hover { color: var(--text); border-color: var(--glass-border); background: var(--cyan-bg); transform: translateY(-1px); }
 
 /* ── CTA "Formación": tarjeta con acento cian/azul de marca ── */
@@ -133,9 +134,10 @@
 .formacion-cta:hover { transform: translateY(-1px); border-color: var(--cyan); box-shadow: var(--glow-accent); }
 .formacion-cta .fc-icon {
   width: 34px; height: 34px; border-radius: 10px; flex: none;
-  display: flex; align-items: center; justify-content: center; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
   background: linear-gradient(140deg, var(--cyan), var(--accent)); color: #04121a;
 }
+.formacion-cta .fc-icon svg { width: 17px; height: 17px; }
 .formacion-cta .fc-text { display: flex; flex-direction: column; line-height: 1.18; flex: 1; min-width: 0; }
 .formacion-cta .fc-text strong { font-family: var(--font-display); font-weight: 650; font-size: 13.5px; letter-spacing: -0.1px; }
 .formacion-cta .fc-text small { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: 0.02em; }
@@ -175,6 +177,12 @@
 .stat-trend { display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 20px; }
 .stat-trend.up { background: var(--green-bg); color: var(--green); }
 .stat-trend.down { background: var(--red-bg); color: var(--red); }
+.stat-trend.flat { background: var(--glass-2); color: var(--muted); }
+
+/* Tendencia vs periodo anterior dentro de un KPI */
+.kpi-trend { display: flex; align-items: center; gap: 7px; margin-top: 8px; flex-wrap: wrap; }
+.kpi-trend .stat-trend { font-size: 10px; padding: 2px 7px; font-weight: 600; }
+.kpi-trend .kt-ref { font-family: var(--mono); font-size: 9.5px; color: var(--dim); }
 
 /* Chart.js a veces no pinta su <canvas> dentro de un elemento con
    backdrop-filter (bug de compositing en Chromium → "se ve al refrescar").

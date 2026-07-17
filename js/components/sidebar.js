@@ -2,29 +2,33 @@ import { theme } from '../theme.js';
 import { router } from '../router.js';
 import { state } from '../state.js';
 import { auth } from '../auth.js';
+import { storage } from '../storage.js';
 import { tzLabel } from '../utils/timezone.js';
+import { icon } from './icons.js';
+import { STRATEGY_ROUTES } from './strategy-tabs.js';
+
+const STRATEGY_ROUTES_LIST = Object.values(STRATEGY_ROUTES);
 
 // hideInViewAs: oculto cuando admin está viendo/editando a un alumno
 // (Ajustes muestra info personal del admin, así que no tiene sentido).
 // Importar y Nuevo trade SÍ se permiten — admin puede dar de alta datos a alumnos.
 const NAV_BASE = [
-  { path: '#/dashboard',  label: 'Dashboard',   icon: '📊', class: '' },
+  { path: '#/dashboard',  label: 'Dashboard',   icon: 'dashboard', class: '' },
 
   { section: 'Operativa' },
-  { path: '#/nuevo',      label: 'Nuevo trade', icon: '✏️', class: '' },
-  { path: '#/calendario', label: 'Calendario',  icon: '📅', class: '' },
-  { path: '#/zonas',      label: 'Zonas',    icon: '🎯', class: 'zonas',    sheet: 'ZONAS' },
-  { path: '#/liquidez',   label: 'Liquidez', icon: '💧', class: 'liquidez', sheet: 'LIQUIDEZ' },
-  { path: '#/nasdaq',     label: 'Nasdaq',   icon: '🚀', class: 'nasdaq',   sheet: 'NASDAQ' },
+  { path: '#/nuevo',      label: 'Nuevo trade', icon: 'nuevo', class: '' },
+  { path: '#/calendario', label: 'Calendario',  icon: 'calendario', class: '' },
+  // Las 3 estrategias son un único ítem: dentro se cambia con pestañas.
+  { path: '#/zonas', label: 'Estrategias', icon: 'zonas', class: '', match: STRATEGY_ROUTES_LIST },
 
   { section: 'Gestión' },
-  { path: '#/cuentas',      label: 'Cuentas',      icon: '🏦', class: '', countActiveCuentas: true },
-  { path: '#/contabilidad', label: 'Contabilidad', icon: '🧮', class: '' },
+  { path: '#/cuentas',      label: 'Cuentas',      icon: 'cuentas', class: '', countActiveCuentas: true },
+  { path: '#/contabilidad', label: 'Contabilidad', icon: 'contabilidad', class: '' },
 
   { section: 'Análisis' },
-  { path: '#/diagnostico', label: 'Diagnóstico', icon: '🩺', class: '' },
-  { path: '#/psicologia',  label: 'Reflexiones', icon: '🧘', class: '' },
-  { path: '#/plan',        label: 'Plan de trading', icon: '📋', class: '' },
+  { path: '#/diagnostico', label: 'Diagnóstico', icon: 'diagnostico', class: '' },
+  { path: '#/psicologia',  label: 'Reflexiones', icon: 'reflexiones', class: '' },
+  { path: '#/plan',        label: 'Plan de trading', icon: 'plan', class: '' },
   // Ajustes (que ahora engloba Importar y Tabla como pestañas) se renderiza
   // aparte, al final del sidebar, encima del tema (ver renderSidebar).
 ];
@@ -32,21 +36,11 @@ const NAV_BASE = [
 // Rutas que "viven dentro" de Ajustes (pestañas): marcan activo el ítem Ajustes.
 const AJUSTES_ROUTES = ['#/ajustes', '#/importar', '#/tabla'];
 
-// Globo de la marca (el del logo de Tradinverso). En SVG en vez de imagen para
-// que se vea nítido a cualquier tamaño y herede el color del tema.
-const GLOBE_SVG = `
-  <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
-    <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="2.6"/>
-    <ellipse cx="24" cy="24" rx="8.5" ry="20" stroke="currentColor" stroke-width="2.2"/>
-    <line x1="4" y1="24" x2="44" y2="24" stroke="currentColor" stroke-width="2.2"/>
-    <path d="M9 12.5c4 2.6 9.2 4.1 15 4.1s11-1.5 15-4.1" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
-    <path d="M9 35.5c4-2.6 9.2-4.1 15-4.1s11 1.5 15 4.1" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
-  </svg>`;
 
 const NAV_ADMIN = [
   { section: 'Admin' },
-  { path: '#/admin', label: 'Mis Alumnos',    icon: '👥', class: '' },
-  { path: '#/grupo', label: 'Stats grupales', icon: '📊', class: '' },
+  { path: '#/admin', label: 'Mis Alumnos',    icon: 'alumnos', class: '' },
+  { path: '#/grupo', label: 'Stats grupales', icon: 'grupo', class: '' },
 ];
 
 let unsubAuth = null;
@@ -82,17 +76,17 @@ export function renderSidebar(container) {
   // Si normal → solo el nombre del usuario.
   const viewingContext = inViewAs && state.viewAsProfile
     ? `<div class="brand-context viewing-as">
-         <div class="bc-label">📍 VIENDO A</div>
+         <div class="bc-label">VIENDO A</div>
          <div class="bc-name">${escapeHtml(state.viewAsProfile.nombre || state.viewAsProfile.email)}</div>
-         <button class="bc-exit" id="exitViewAsTopBtn" title="Volver a tu cuenta">↩ Volver</button>
+         <button class="bc-exit" id="exitViewAsTopBtn" title="Volver a tu cuenta">${icon('volver')} Volver</button>
        </div>`
     : `<div class="brand-context">
          <div class="bc-name-self">${escapeHtml(auth.displayName())}</div>
        </div>`;
 
   container.innerHTML = `
-    <a href="${auth.isAdmin() && !inViewAs ? '#/admin' : '#/dashboard'}" class="brand">
-      <div class="brand-logo">${GLOBE_SVG}</div>
+    <a href="${auth.isAdmin() && !inViewAs ? '#/admin' : '#/dashboard'}" class="brand" title="Tradinverso">
+      <div class="brand-logo">${icon('globo')}</div>
       <div class="brand-text">
         <span class="brand-line2">TRADINVERSO</span>
         <span class="brand-line1">Trading Journal</span>
@@ -100,13 +94,16 @@ export function renderSidebar(container) {
       </div>
     </a>
     ${auth.hasTimezone()
-      ? `<a class="user-tz" href="#/ajustes" title="Cambiar zona horaria">🕗 ${escapeHtml(tzLabel(auth.timezone()))}</a>`
-      : `<a class="user-tz warn" href="#/ajustes" title="Configura tu zona horaria">⚠ Configura tu zona horaria</a>`}
+      ? `<a class="user-tz" href="#/ajustes" title="Zona horaria: ${escapeHtml(tzLabel(auth.timezone()))} · pulsa para cambiarla">${icon('reloj')}<span>${escapeHtml(tzLabel(auth.timezone()))}</span></a>`
+      : `<a class="user-tz warn" href="#/ajustes" title="Configura tu zona horaria">${icon('aviso')}<span>Configura tu zona horaria</span></a>`}
     ${viewingContext}
     <nav class="nav">
       ${nav.map(item => {
         if (item.section) return `<div class="nav-section">${item.section}</div>`;
-        const active = item.path === current ? 'active' : '';
+        // `match`: ítems que agrupan varias rutas (Estrategias) se marcan activos
+        // con cualquiera de ellas.
+        const isActive = item.match ? item.match.includes(current) : item.path === current;
+        const active = isActive ? 'active' : '';
         let meta = '';
         if (item.sheet) {
           meta = `<span class="nav-meta">${counts[item.sheet] || 0}</span>`;
@@ -115,29 +112,33 @@ export function renderSidebar(container) {
           meta = n ? `<span class="nav-meta">${n}</span>` : '';
         }
         return `
-          <a href="${item.path}" class="nav-item ${item.class} ${active}">
-            <span class="nav-icon">${item.icon}</span>
+          <a href="${item.path}" class="nav-item ${item.class} ${active}" title="${escapeHtml(item.label)}">
+            <span class="nav-icon">${icon(item.icon)}</span>
             <span class="nav-label">${item.label}</span>
             ${meta}
           </a>`;
       }).join('')}
     </nav>
-    <a class="formacion-cta" href="https://tradinverso.thinkific.com/enrollments" target="_blank" rel="noopener noreferrer" title="Acceder a la formación">
-      <span class="fc-icon">🎓</span>
+    <a class="formacion-cta" href="https://tradinverso.thinkific.com/enrollments" target="_blank" rel="noopener noreferrer" title="Formación · cursos y directos">
+      <span class="fc-icon">${icon('formacion')}</span>
       <span class="fc-text"><strong>Formación</strong><small>Cursos · directos · más</small></span>
       <span class="fc-arrow">↗</span>
     </a>
     <div class="news-lbl">Noticias</div>
     <div class="news-links">
-      <a class="news-link" href="https://www.forexfactory.com/calendar" target="_blank" rel="noopener noreferrer" title="Calendario económico de ForexFactory"><span>📰</span> ForexFactory</a>
-      <a class="news-link" href="https://es.investing.com/economic-calendar" target="_blank" rel="noopener noreferrer" title="Calendario económico de Investing"><span>📰</span> Investing</a>
+      <a class="news-link" href="https://www.forexfactory.com/calendar" target="_blank" rel="noopener noreferrer" title="Calendario económico de ForexFactory">${icon('noticias')}<span>ForexFactory</span></a>
+      <a class="news-link" href="https://es.investing.com/economic-calendar" target="_blank" rel="noopener noreferrer" title="Calendario económico de Investing">${icon('noticias')}<span>Investing</span></a>
     </div>
     <a href="#/ajustes" class="nav-item ${AJUSTES_ROUTES.includes(current) ? 'active' : ''}" title="Ajustes · Importar · Tabla">
-      <span class="nav-icon">⚙️</span>
+      <span class="nav-icon">${icon('ajustes')}</span>
       <span class="nav-label">Ajustes</span>
     </a>
+    <button class="theme-toggle sidebar-collapse" id="sidebarCollapse" title="Plegar / desplegar el menú">
+      <span class="theme-toggle-icon">${icon('colapsar')}</span>
+      <span>Plegar menú</span>
+    </button>
     <button class="theme-toggle" id="themeToggle" title="Cambiar tema">
-      <span class="theme-toggle-icon">${theme.current() === 'dark' ? '🌙' : '☀️'}</span>
+      <span class="theme-toggle-icon">${theme.current() === 'dark' ? icon('luna') : icon('sol')}</span>
       <span>${theme.current() === 'dark' ? 'Modo oscuro' : 'Modo claro'}</span>
     </button>
     <div class="user-block">
@@ -146,9 +147,18 @@ export function renderSidebar(container) {
         <div class="user-name">${escapeHtml(auth.displayName())}</div>
         <div class="user-email">${escapeHtml(auth.currentUser.email)}</div>
       </div>
-      <button class="user-logout" id="logoutBtn" title="Cerrar sesión">⏻</button>
+      <button class="user-logout" id="logoutBtn" title="Cerrar sesión">${icon('salir')}</button>
     </div>
   `;
+
+  // Menú plegado: se aplica en <body> para que el grid del shell reaccione.
+  document.body.classList.toggle('sidebar-collapsed', storage.getSidebarCollapsed());
+  const collapseBtn = container.querySelector('#sidebarCollapse');
+  if (collapseBtn) collapseBtn.addEventListener('click', () => {
+    const next = !storage.getSidebarCollapsed();
+    storage.setSidebarCollapsed(next);
+    document.body.classList.toggle('sidebar-collapsed', next);
+  });
 
   container.querySelector('#themeToggle').addEventListener('click', () => {
     theme.toggle();

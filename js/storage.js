@@ -3,6 +3,7 @@ const KEYS = {
   theme: 'tradinverso_theme',
   url: 'tradinverso_apps_script_url',
   version: 'tradinverso_schema_version',
+  sidebar: 'tradinverso_sidebar_collapsed',
 };
 
 const SCHEMA_VERSION = 1;
@@ -26,6 +27,13 @@ export const storage = {
   },
   setTheme(t) {
     localStorage.setItem(KEYS.theme, t);
+  },
+  // Menú plegado a rail de iconos (solo escritorio; se recuerda entre sesiones).
+  getSidebarCollapsed() {
+    return localStorage.getItem(KEYS.sidebar) === '1';
+  },
+  setSidebarCollapsed(v) {
+    localStorage.setItem(KEYS.sidebar, v ? '1' : '0');
   },
   getAppsScriptUrl() {
     return localStorage.getItem(KEYS.url) || '';

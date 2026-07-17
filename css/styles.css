@@ -34,6 +34,49 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
 /* ── Botón hamburguesa + fondo (solo móvil) ─────────────── */
 .nav-toggle, .nav-scrim { display: none; }
 
+/* ── Menú plegable a rail de iconos ──────────────────────── */
+/* SOLO escritorio (≥901px): por debajo manda el sidebar off-canvas y, como
+   `body.sidebar-collapsed` tiene más especificidad que el `body` de la media
+   query móvil, sin acotarlo aquí le pisaría la rejilla al móvil. */
+.sidebar-collapse .theme-toggle-icon { transition: transform .18s var(--ease, ease); }
+
+@media (min-width: 901px) {
+  body.sidebar-collapsed { grid-template-columns: 68px 1fr; }
+  body.sidebar-collapsed #sidebar { padding: 24px 10px; }
+  /* La flecha gira: ahora despliega */
+  body.sidebar-collapsed .sidebar-collapse .theme-toggle-icon { transform: rotate(180deg); }
+  /* Se oculta todo lo que es texto; quedan solo los iconos */
+  body.sidebar-collapsed .brand-text,
+  body.sidebar-collapsed .nav-label,
+  body.sidebar-collapsed .nav-meta,
+  body.sidebar-collapsed .nav-section,
+  body.sidebar-collapsed .news-lbl,
+  body.sidebar-collapsed .user-tz span,
+  body.sidebar-collapsed .brand-context,
+  body.sidebar-collapsed .fc-text,
+  body.sidebar-collapsed .fc-arrow,
+  body.sidebar-collapsed .news-link span,
+  body.sidebar-collapsed .theme-toggle span:not(.theme-toggle-icon),
+  body.sidebar-collapsed .user-info { display: none; }
+  /* Y lo que queda se centra */
+  body.sidebar-collapsed .brand,
+  body.sidebar-collapsed .nav-item,
+  body.sidebar-collapsed .theme-toggle,
+  body.sidebar-collapsed .user-block,
+  body.sidebar-collapsed .formacion-cta,
+  body.sidebar-collapsed .news-link,
+  body.sidebar-collapsed .user-tz { justify-content: center; padding-left: 0; padding-right: 0; }
+  body.sidebar-collapsed .brand { padding: 4px 0 18px; }
+  body.sidebar-collapsed .nav-item { padding: 9px 0; }
+  body.sidebar-collapsed .user-tz { margin: -10px 0 12px; gap: 0; }
+  body.sidebar-collapsed .news-links { flex-direction: column; }
+  body.sidebar-collapsed .news-link { flex: none; padding: 8px 0; }
+  body.sidebar-collapsed .formacion-cta { padding: 9px 0; }
+  body.sidebar-collapsed .nav-item.active::before { left: -10px; }
+}
+/* En móvil el menú es un cajón: plegar no aplica */
+@media (max-width: 900px) { .sidebar-collapse { display: none; } }
+
 /* ── Responsive ──────────────────────────────────────────── */
 /* Rejillas multi-columna → 1 columna en pantallas estrechas */
 @media (max-width: 880px) {
@@ -145,6 +188,8 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
   font-size: 14px; flex-shrink: 0;
   transition: background .12s, border-color .12s;
 }
+/* Iconos SVG: heredan el color del .nav-item (incl. el color por estrategia) */
+.nav-icon svg { width: 15px; height: 15px; display: block; }
 .nav-item:hover .nav-icon { border-color: var(--border-strong); }
 .nav-item.active .nav-icon { background: var(--surface); border-color: var(--border-strong); }
 .nav-item.zonas .nav-icon { color: var(--zonas); }
@@ -239,7 +284,9 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
   gap: 10px;
 }
 .theme-toggle:hover { color: var(--text); border-color: var(--border-strong); background: var(--surface); }
-.theme-toggle-icon { font-size: 16px; }
+.theme-toggle-icon { font-size: 16px; display: flex; align-items: center; }
+.theme-toggle-icon svg { width: 15px; height: 15px; }
+.bc-exit svg { width: 12px; height: 12px; vertical-align: -2px; }
 
 /* ── Headings + section dividers ─────────────────────────── */
 .page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 16px; }
