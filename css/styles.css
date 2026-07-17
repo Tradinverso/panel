@@ -35,16 +35,33 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
 .nav-toggle, .nav-scrim { display: none; }
 
 /* ── Menú plegable a rail de iconos ──────────────────────── */
+/* Flechita arriba a la derecha (estilo Notion). Va DENTRO del borde: el sidebar
+   tiene overflow-y:auto y si sobresaliera, lo recortaría. */
+.sidebar-collapse {
+  position: absolute; top: 16px; right: 10px; z-index: 5;
+  width: 24px; height: 24px; border-radius: 7px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid transparent;
+  color: var(--dim); cursor: pointer; opacity: .6;
+  transition: opacity .15s, color .15s, background .15s, border-color .15s, transform .18s var(--ease, ease);
+}
+.sidebar-collapse svg { width: 14px; height: 14px; }
+#sidebar:hover .sidebar-collapse { opacity: 1; }
+.sidebar-collapse:hover { color: var(--cyan); background: var(--hover); border-color: var(--border); }
+
 /* SOLO escritorio (≥901px): por debajo manda el sidebar off-canvas y, como
    `body.sidebar-collapsed` tiene más especificidad que el `body` de la media
    query móvil, sin acotarlo aquí le pisaría la rejilla al móvil. */
-.sidebar-collapse .theme-toggle-icon { transition: transform .18s var(--ease, ease); }
+@media (min-width: 901px) {
+  /* Plegado: la flecha baja al flujo, centrada bajo el globo, y gira */
+  body.sidebar-collapsed .sidebar-collapse {
+    position: static; margin: 0 auto 10px; transform: rotate(180deg); opacity: 1;
+  }
+}
 
 @media (min-width: 901px) {
   body.sidebar-collapsed { grid-template-columns: 68px 1fr; }
   body.sidebar-collapsed #sidebar { padding: 24px 10px; }
-  /* La flecha gira: ahora despliega */
-  body.sidebar-collapsed .sidebar-collapse .theme-toggle-icon { transform: rotate(180deg); }
   /* Se oculta todo lo que es texto; quedan solo los iconos */
   body.sidebar-collapsed .brand-text,
   body.sidebar-collapsed .nav-label,

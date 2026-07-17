@@ -70,6 +70,7 @@ export function renderSidebar(container) {
   if (auth.isAdmin()) nav = nav.concat(NAV_ADMIN);
 
   const initial = (auth.displayName() || '?').charAt(0).toUpperCase();
+  const collapsed = storage.getSidebarCollapsed();
 
   // Indicador de contexto: a quién pertenece la vista actual.
   // Si admin está en viewAs → "Viendo a [Alumno]" con icono y opción de volver.
@@ -93,6 +94,7 @@ export function renderSidebar(container) {
         <span class="brand-ver">v.2.1</span>
       </div>
     </a>
+    <button class="sidebar-collapse" id="sidebarCollapse" title="${collapsed ? 'Desplegar menú' : 'Plegar menú'}" aria-label="${collapsed ? 'Desplegar menú' : 'Plegar menú'}">${icon('colapsar')}</button>
     ${auth.hasTimezone()
       ? `<a class="user-tz" href="#/ajustes" title="Zona horaria: ${escapeHtml(tzLabel(auth.timezone()))} · pulsa para cambiarla">${icon('reloj')}<span>${escapeHtml(tzLabel(auth.timezone()))}</span></a>`
       : `<a class="user-tz warn" href="#/ajustes" title="Configura tu zona horaria">${icon('aviso')}<span>Configura tu zona horaria</span></a>`}
@@ -133,10 +135,6 @@ export function renderSidebar(container) {
       <span class="nav-icon">${icon('ajustes')}</span>
       <span class="nav-label">Ajustes</span>
     </a>
-    <button class="theme-toggle sidebar-collapse" id="sidebarCollapse" title="Plegar / desplegar el menú">
-      <span class="theme-toggle-icon">${icon('colapsar')}</span>
-      <span>Plegar menú</span>
-    </button>
     <button class="theme-toggle" id="themeToggle" title="Cambiar tema">
       <span class="theme-toggle-icon">${theme.current() === 'dark' ? icon('luna') : icon('sol')}</span>
       <span>${theme.current() === 'dark' ? 'Modo oscuro' : 'Modo claro'}</span>
@@ -152,12 +150,11 @@ export function renderSidebar(container) {
   `;
 
   // Menú plegado: se aplica en <body> para que el grid del shell reaccione.
-  document.body.classList.toggle('sidebar-collapsed', storage.getSidebarCollapsed());
+  document.body.classList.toggle('sidebar-collapsed', collapsed);
   const collapseBtn = container.querySelector('#sidebarCollapse');
   if (collapseBtn) collapseBtn.addEventListener('click', () => {
-    const next = !storage.getSidebarCollapsed();
-    storage.setSidebarCollapsed(next);
-    document.body.classList.toggle('sidebar-collapsed', next);
+    storage.setSidebarCollapsed(!collapsed);
+    renderSidebar(container);   // re-render: refresca el estado y el tooltip
   });
 
   container.querySelector('#themeToggle').addEventListener('click', () => {
