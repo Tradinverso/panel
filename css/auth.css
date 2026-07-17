@@ -179,15 +179,18 @@ body[data-auth="false"] #view {
 .user-info { flex: 1; min-width: 0; }
 .user-name { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .user-email { font-size: 10px; color: var(--muted); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* Zona horaria del usuario, bajo su nombre */
+/* Zona horaria del usuario — chip bajo la marca, arriba del sidebar */
 .user-tz {
-  display: block; margin-top: 3px; font-size: 9.5px; font-family: var(--mono);
-  color: var(--dim); text-decoration: none;
+  display: flex; align-items: center; gap: 5px;
+  margin: -14px 8px 14px; padding: 6px 10px; border-radius: 8px;
+  font-size: 10px; font-family: var(--mono); color: var(--muted);
+  text-decoration: none; background: var(--glass-2); border: 1px solid var(--border);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: color var(--dur), border-color var(--dur), background var(--dur);
 }
-.user-tz:hover { color: var(--cyan); }
-.user-tz.warn { color: var(--orange); }
-.user-tz.warn:hover { color: var(--orange); text-decoration: underline; }
+.user-tz:hover { color: var(--text); border-color: var(--glass-border); background: var(--cyan-bg); }
+.user-tz.warn { color: var(--orange); border-color: rgba(255,162,58,0.35); background: var(--orange-bg); }
+.user-tz.warn:hover { color: var(--orange); border-color: var(--orange); }
 .user-logout {
   background: none; border: none; cursor: pointer;
   color: var(--muted); padding: 6px; border-radius: 6px;

@@ -7,7 +7,7 @@
 
 /* ── Tipografía de titulares (display) ── */
 .page-header h1 { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.6px; font-size: 26px; }
-.brand-line2 { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.4px; }
+.brand-line2 { font-family: var(--font-display); font-weight: 700; letter-spacing: .06em; }
 
 /* Acento en títulos de sección */
 .section-title { color: var(--text); }
@@ -22,10 +22,12 @@
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   border-right: 1px solid var(--border);
 }
+/* El globo va suelto (sin caja ni gradiente): solo el trazo con un leve glow. */
 .brand-logo {
-  background: linear-gradient(135deg, var(--cyan), var(--accent));
-  color: #04121a; font-family: var(--font-display);
-  box-shadow: var(--glow-accent);
+  background: none;
+  box-shadow: none;
+  color: var(--cyan);
+  filter: drop-shadow(0 0 10px rgba(34,211,238,0.35));
 }
 
 /* Nav activo: indicador y fondo con acento cian/azul + glow */

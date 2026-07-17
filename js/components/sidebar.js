@@ -32,6 +32,17 @@ const NAV_BASE = [
 // Rutas que "viven dentro" de Ajustes (pestañas): marcan activo el ítem Ajustes.
 const AJUSTES_ROUTES = ['#/ajustes', '#/importar', '#/tabla'];
 
+// Globo de la marca (el del logo de Tradinverso). En SVG en vez de imagen para
+// que se vea nítido a cualquier tamaño y herede el color del tema.
+const GLOBE_SVG = `
+  <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
+    <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="2.6"/>
+    <ellipse cx="24" cy="24" rx="8.5" ry="20" stroke="currentColor" stroke-width="2.2"/>
+    <line x1="4" y1="24" x2="44" y2="24" stroke="currentColor" stroke-width="2.2"/>
+    <path d="M9 12.5c4 2.6 9.2 4.1 15 4.1s11-1.5 15-4.1" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M9 35.5c4-2.6 9.2-4.1 15-4.1s11 1.5 15 4.1" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+  </svg>`;
+
 const NAV_ADMIN = [
   { section: 'Admin' },
   { path: '#/admin', label: 'Mis Alumnos',    icon: '👥', class: '' },
@@ -81,12 +92,16 @@ export function renderSidebar(container) {
 
   container.innerHTML = `
     <a href="${auth.isAdmin() && !inViewAs ? '#/admin' : '#/dashboard'}" class="brand">
-      <div class="brand-logo">T</div>
+      <div class="brand-logo">${GLOBE_SVG}</div>
       <div class="brand-text">
-        <span class="brand-line1">Trading Journal · V2.0</span>
-        <span class="brand-line2">Tradinverso</span>
+        <span class="brand-line2">TRADINVERSO</span>
+        <span class="brand-line1">Trading Journal</span>
+        <span class="brand-ver">v.2.1</span>
       </div>
     </a>
+    ${auth.hasTimezone()
+      ? `<a class="user-tz" href="#/ajustes" title="Cambiar zona horaria">🕗 ${escapeHtml(tzLabel(auth.timezone()))}</a>`
+      : `<a class="user-tz warn" href="#/ajustes" title="Configura tu zona horaria">⚠ Configura tu zona horaria</a>`}
     ${viewingContext}
     <nav class="nav">
       ${nav.map(item => {
@@ -130,9 +145,6 @@ export function renderSidebar(container) {
       <div class="user-info">
         <div class="user-name">${escapeHtml(auth.displayName())}</div>
         <div class="user-email">${escapeHtml(auth.currentUser.email)}</div>
-        ${auth.hasTimezone()
-          ? `<a class="user-tz" href="#/ajustes" title="Cambiar zona horaria">🕗 ${escapeHtml(tzLabel(auth.timezone()))}</a>`
-          : `<a class="user-tz warn" href="#/ajustes" title="Configura tu zona horaria">⚠ Configura tu zona horaria</a>`}
       </div>
       <button class="user-logout" id="logoutBtn" title="Cerrar sesión">⏻</button>
     </div>
