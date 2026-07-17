@@ -31,13 +31,17 @@
   --cyan: #22D3EE;
   --cyan-bg: rgba(34,211,238,0.14);
 
-  /* Estrategias */
-  --zonas: #A855F7;
-  --zonas-bg: rgba(168,85,247,0.15);
-  --liquidez: #38BDF8;
-  --liquidez-bg: rgba(56,189,248,0.15);
-  --nasdaq: #FF5C7A;
-  --nasdaq-bg: rgba(255,92,122,0.15);
+  /* Estrategias — Zonas naranja · Liquidez violeta · Nasdaq azul.
+     Trío muy separado en la rueda de color: nunca se confunden entre sí, y el
+     verde/rojo quedan libres solo para P&L.
+     Ojo: este naranja es más saturado que --orange (#FFA23A, el de avisos) a
+     propósito, para que "estrategia Zonas" y "aviso" no se lean igual. */
+  --zonas: #F97316;
+  --zonas-bg: rgba(249,115,22,0.15);
+  --liquidez: #A855F7;
+  --liquidez-bg: rgba(168,85,247,0.15);
+  --nasdaq: #4D9AFF;
+  --nasdaq-bg: rgba(77,154,255,0.15);
 
   --pos: #10E0A0;
   --neu: #FFA23A;
@@ -93,11 +97,14 @@
   --cyan: #0891B2;
   --cyan-bg: rgba(8,145,178,0.12);
 
-  --zonas-bg: rgba(168,85,247,0.12);
-  --liquidez: #0EA5E9;
-  --liquidez-bg: rgba(14,165,233,0.12);
-  --nasdaq: #E23150;
-  --nasdaq-bg: rgba(226,49,80,0.12);
+  /* Estrategias en claro: mismos tonos, más oscuros para contrastar sobre blanco.
+     (Antes --zonas no se redefinía aquí y heredaba el del tema oscuro.) */
+  --zonas: #EA580C;
+  --zonas-bg: rgba(234,88,12,0.12);
+  --liquidez: #9333EA;
+  --liquidez-bg: rgba(147,51,234,0.12);
+  --nasdaq: #2563EB;
+  --nasdaq-bg: rgba(37,99,235,0.12);
 
   --glow-accent: 0 0 22px -8px rgba(37,99,235,0.35);
   --glow-soft: 0 12px 30px -18px rgba(30,50,90,0.25);

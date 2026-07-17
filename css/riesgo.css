@@ -16,9 +16,28 @@
 .rg-tab:hover { color: var(--text); }
 .rg-tab.active { background: var(--surface); color: var(--text-strong); font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
 a.rg-tab { text-decoration: none; display: inline-flex; align-items: center; }
-/* Pestañas de estrategia: la activa lleva el color de SU estrategia (--tab-accent) */
-.strat-tabs .rg-tab.active { box-shadow: 0 1px 4px rgba(0,0,0,.25), inset 0 -2px 0 var(--tab-accent, var(--cyan)); }
-.strat-tabs .rg-tab.active { color: var(--tab-accent, var(--text-strong)); }
+
+/* ── Pestañas de estrategia: grandes y centradas ── */
+.strat-tabs {
+  margin: 0 auto 26px;          /* centradas (el contenedor es width: fit-content) */
+  padding: 6px; gap: 6px;
+}
+.strat-tabs .rg-tab {
+  padding: 13px 38px; font-size: 15px; font-weight: 600;
+  min-width: 160px; justify-content: center; letter-spacing: -.1px;
+}
+/* La activa lleva el color de SU estrategia (--tab-accent, lo pone el JS) */
+.strat-tabs .rg-tab.active {
+  background: var(--surface);
+  color: var(--tab-accent, var(--text-strong));
+  box-shadow: 0 2px 8px rgba(0,0,0,.28), inset 0 -3px 0 var(--tab-accent, var(--cyan));
+}
+.strat-tabs .rg-tab:not(.active):hover { color: var(--text); background: var(--hover); }
+
+@media (max-width: 700px) {
+  .strat-tabs .rg-tab { padding: 11px 0; font-size: 14px; min-width: 0; flex: 1 1 0; }
+  .strat-tabs { width: 100%; }
+}
 
 /* ── Banner de rotación ── */
 .rg-banner {
