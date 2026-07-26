@@ -1,0 +1,17 @@
+AUDIOS DE MEDITACIONES
+======================
+
+Deja aquí los MP3 con EXACTAMENTE estos nombres (respeta minúsculas y guiones):
+
+  meditacion-pre-operativa.mp3
+  mario-alonso-puig-estar-presente.mp3
+  mario-alonso-puig-del-corazon.mp3
+
+La lista y los títulos se editan en:  js/utils/meditaciones.js
+
+Para añadir un audio nuevo:
+  1. Sube el MP3 a esta carpeta (assets/audio/).
+  2. Añade una entrada en js/utils/meditaciones.js con su nombre de archivo.
+
+Nota: los nombres deben ir sin espacios ni acentos (por eso "del-corazon", no
+"del-corazón"). Si prefieres otros nombres, cámbialos también en meditaciones.js.
