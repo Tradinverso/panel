@@ -22,17 +22,45 @@ export function newTradeView(container) {
         <div class="sub">Selecciona la estrategia y rellena el formulario</div>
       </div>
     </div>
-    <div class="strat-chooser pill-group" id="stratChooser"></div>
+    <div id="stratChooser"></div>
     <div class="card" id="formWrap"></div>
   `;
 
+  // Selector de estrategia: mismas pestañas grandes/centradas que la sección
+  // Estrategias, con el color de cada una en la activa. Son botones (cambian
+  // el formulario), no enlaces de navegación.
   const stratC = container.querySelector('#stratChooser');
-  renderPills(stratC, {
-    name: 'sheet',
-    options: ['ZONAS', 'LIQUIDEZ', 'NASDAQ'],
-    value: sheet,
-    onChange: v => { sheet = v; formData = init(sheet); rerender(); },
-  });
+  function paintChooser() {
+    stratC.innerHTML = `
+      <div class="rg-tabs gestion-tabs strat-tabs">
+        ${['ZONAS', 'LIQUIDEZ', 'NASDAQ'].map(k => {
+          const meta = STRAT_META[k] || { label: k };
+          const on = sheet === k;
+          return `<button type="button" class="rg-tab ${on ? 'active' : ''}" data-sheet="${k}"
+                    ${on && meta.color ? `style="--tab-accent:${meta.color};"` : ''}>${meta.label}</button>`;
+        }).join('')}
+      </div>`;
+    stratC.querySelectorAll('[data-sheet]').forEach(b => b.addEventListener('click', () => {
+      if (b.dataset.sheet === sheet) return;
+      sheet = b.dataset.sheet;
+      // Conservar lo que no depende de la estrategia (fechas, P&L, riesgo,
+      // sensación, plan, links, reflexión, cuentas). Antes se borraba TODO el
+      // formulario al cambiar de pestaña — pérdida de datos real.
+      const prev = formData;
+      formData = {
+        ...init(sheet),
+        date: prev.date, open_str: prev.open_str, close_str: prev.close_str,
+        pnl_pct: prev.pnl_pct, risk_real_pct: prev.risk_real_pct,
+        rr: prev.rr, pips: prev.pips,
+        sensacion: prev.sensacion, plan_followed: prev.plan_followed,
+        url1: prev.url1, url2: prev.url2, reflexion: prev.reflexion,
+        accounts: prev.accounts,
+      };
+      paintChooser();
+      rerender();
+    }));
+  }
+  paintChooser();
 
   const formWrap = container.querySelector('#formWrap');
   function rerender() { renderForm(formWrap, sheet, formData, () => formData); }
@@ -351,32 +379,41 @@ function confirmBody(t) {
       const usdColor = usd > 0 ? 'var(--green)' : usd < 0 ? 'var(--red)' : 'var(--muted)';
       const usdStr = `<strong style="color:${usdColor};">${fmtUsd(usd, true)}</strong>`;
       if (!c) return `${a.accountId.substring(0, 6)}… (no encontrada) · ${usdStr}`;
-      return `${c.empresa} ${capShort(c.capital)}${c.numero ? ' #' + c.numero : ''} · ${usdStr}`;
+      return `${esc(c.empresa)} ${capShort(c.capital)}${c.numero ? ' #' + esc(c.numero) : ''} · ${usdStr}`;
     });
     cuentasLine = `<dt>Cuentas</dt><dd>${lines.join('<br>')}</dd>`;
   }
   return `
     <dl class="confirm-grid">
       <dt>Fecha</dt><dd>${formatDateEs(t.date)}</dd>
-      <dt>Hora</dt><dd>${t.open_str}${t.close_str ? ' → ' + t.close_str : ''}${t.dur != null ? ` (${t.dur} min)` : ''}</dd>
-      <dt>Par</dt><dd>${t.pair}</dd>
-      <dt>Setup</dt><dd>${t.setup}</dd>
-      <dt>Zona</dt><dd>${(t.zone || []).join(' · ')}</dd>
-      ${t.entry && t.entry.length ? `<dt>Entrada</dt><dd>${t.entry.join(' · ')}</dd>` : ''}
+      <dt>Hora</dt><dd>${esc(t.open_str)}${t.close_str ? ' → ' + esc(t.close_str) : ''}${t.dur != null ? ` (${t.dur} min)` : ''}</dd>
+      <dt>Par</dt><dd>${esc(t.pair)}</dd>
+      <dt>Setup</dt><dd>${esc(t.setup)}</dd>
+      <dt>Zona</dt><dd>${esc((t.zone || []).join(' · '))}</dd>
+      ${t.entry && t.entry.length ? `<dt>Entrada</dt><dd>${esc(t.entry.join(' · '))}</dd>` : ''}
       ${t.rr != null ? `<dt>RR</dt><dd>${t.rr}</dd>` : ''}
       ${t.pips != null ? `<dt>Pips</dt><dd>${t.pips}</dd>` : ''}
       <dt>% P&L sistema</dt><dd><strong style="color:${t.result === 'TP' ? 'var(--green)' : t.result === 'SL' ? 'var(--red)' : 'var(--orange)'};">${fmtPct(t.pnl_pct)}</strong> · <span class="res-pill res-${t.result.toLowerCase()}">${t.result}</span></dd>
       <dt>Riesgo real</dt><dd>${fmtPct(t.risk_real_pct)}</dd>
       <dt>% P&L real</dt><dd><strong style="color:${t.result === 'TP' ? 'var(--green)' : t.result === 'SL' ? 'var(--red)' : 'var(--orange)'};">${fmtPct(t.pnl_pct * t.risk_real_pct)}</strong></dd>
-      <dt>Sensación al ejecutar</dt><dd><span class="sens-pill" data-s="${t.sensacion}">${t.sensacion}</span></dd>
+      <dt>Sensación al ejecutar</dt><dd><span class="sens-pill" data-s="${esc(t.sensacion)}">${esc(t.sensacion)}</span></dd>
       ${t.plan_followed === true ? '<dt>Plan</dt><dd><span style="color:var(--green);">✓ Seguido</span></dd>' : t.plan_followed === false ? '<dt>Plan</dt><dd><span style="color:var(--red);">✗ Fuera de plan</span></dd>' : ''}
       ${cuentasLine}
-      ${t.reflexion ? `<dt>Reflexión</dt><dd style="white-space:pre-wrap;">${t.reflexion}</dd>` : ''}
+      ${t.reflexion ? `<dt>Reflexión</dt><dd style="white-space:pre-wrap;">${esc(t.reflexion)}</dd>` : ''}
     </dl>
   `;
 }
 
+// La reflexión y otros campos vienen de texto libre: sin escapar, un "<"
+// rompe el modal (y con datos importados es un vector de inyección).
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
 function capShort(c) {
-  if (c >= 1000) return Math.round(c / 1000) + 'K';
+  if (c >= 1000) {
+    const k = c / 1000;
+    return (k % 1 === 0 ? k : +k.toFixed(1)) + 'K';   // $2500 → "2.5K", no "3K"
+  }
   return String(c);
 }

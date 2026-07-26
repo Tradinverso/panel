@@ -270,40 +270,40 @@ function paint(container) {
   // Divisor para calcular MEDIA por alumno (no suma)
   const nStudents = Math.max(1, studentsSel.length);
 
-  // ── Charts: equity + monthly (en MEDIA por alumno) ─────────
+  // ── Por estrategia (HTML antes de los charts) ─────────────
+  body.querySelector('#grupoStrats').innerHTML = ['ZONAS', 'LIQUIDEZ', 'NASDAQ'].map(s => stratCard(s, filtered.filter(t => t.sheet === s), nStudents)).join('');
+
+  // ── Charts — en el siguiente frame (layout listo) para evitar el lienzo
+  //    en blanco en el primer pintado (mismo patrón que dashboard/estrategias).
   const eqCurve = perfMode === 'real' ? equityCurveReal : equityCurve;
   const avgCurve = trades => eqCurve(trades).map(p => ({ x: p.x, y: +(p.y / nStudents).toFixed(2) }));
-  createEquity(body.querySelector('#grupoEquity'), [
-    { key: 'ALL', label: 'Global', data: avgCurve(filtered) },
-    { key: 'ZONAS',    label: 'Zonas',    data: avgCurve(filtered.filter(t => t.sheet === 'ZONAS')) },
-    { key: 'LIQUIDEZ', label: 'Liquidez', data: avgCurve(filtered.filter(t => t.sheet === 'LIQUIDEZ')) },
-    { key: 'NASDAQ',   label: 'Nasdaq',   data: avgCurve(filtered.filter(t => t.sheet === 'NASDAQ')) },
-  ]);
-  const m = monthlyPnl(filtered);
-  createBar(body.querySelector('#grupoMonthly'),
-    m.map(d => MONTHS_ES_SHORT[+d.month.split('-')[1] - 1] + ' ' + d.month.substring(2, 4)),
-    m.map(d => +((perfMode === 'real' ? d.pnlReal : d.pnl) / nStudents).toFixed(2)));
-
-  // ── Por estrategia ────────────────────────────────────────
-  body.querySelector('#grupoStrats').innerHTML = ['ZONAS', 'LIQUIDEZ', 'NASDAQ'].map(s => stratCard(s, filtered.filter(t => t.sheet === s), nStudents)).join('');
-  ['ZONAS', 'LIQUIDEZ', 'NASDAQ'].forEach(s => {
-    const sub = filtered.filter(t => t.sheet === s);
-    const c = tradeCounts(sub);
-    const donut = body.querySelector(`[data-strat-donut="${s}"]`);
-    if (donut) createDonut(donut, c.tp, c.sl, c.be);
+  requestAnimationFrame(() => {
+    if (!body.querySelector('#grupoEquity')) return;   // la vista cambió
+    createEquity(body.querySelector('#grupoEquity'), [
+      { key: 'ALL', label: 'Global', data: avgCurve(filtered) },
+      { key: 'ZONAS',    label: 'Zonas',    data: avgCurve(filtered.filter(t => t.sheet === 'ZONAS')) },
+      { key: 'LIQUIDEZ', label: 'Liquidez', data: avgCurve(filtered.filter(t => t.sheet === 'LIQUIDEZ')) },
+      { key: 'NASDAQ',   label: 'Nasdaq',   data: avgCurve(filtered.filter(t => t.sheet === 'NASDAQ')) },
+    ]);
+    const m = monthlyPnl(filtered);
+    createBar(body.querySelector('#grupoMonthly'),
+      m.map(d => MONTHS_ES_SHORT[+d.month.split('-')[1] - 1] + ' ' + d.month.substring(2, 4)),
+      m.map(d => +((perfMode === 'real' ? d.pnlReal : d.pnl) / nStudents).toFixed(2)));
+    ['ZONAS', 'LIQUIDEZ', 'NASDAQ'].forEach(s => {
+      const sub = filtered.filter(t => t.sheet === s);
+      const c = tradeCounts(sub);
+      const donut = body.querySelector(`[data-strat-donut="${s}"]`);
+      if (donut) createDonut(donut, c.tp, c.sl, c.be);
+    });
+    createHourBar(body.querySelector('#grupoHour'), wrByHour(filtered));
+    createDayBar(body.querySelector('#grupoDay'), wrByDay(filtered));
+    renderHeatmap(body.querySelector('#grupoHeatmap'), filtered);
+    const ls = ['ZONAS', 'LIQUIDEZ', 'NASDAQ'].map(sheet => ({
+      label: sheet.charAt(0) + sheet.slice(1).toLowerCase(),
+      ...longVsShort(filtered.filter(t => t.sheet === sheet)),
+    }));
+    createLongShort(body.querySelector('#grupoLs'), ls);
   });
-
-  // ── Timing ────────────────────────────────────────────────
-  createHourBar(body.querySelector('#grupoHour'), wrByHour(filtered));
-  createDayBar(body.querySelector('#grupoDay'), wrByDay(filtered));
-  renderHeatmap(body.querySelector('#grupoHeatmap'), filtered);
-
-  // ── Long vs Short + pares ─────────────────────────────────
-  const ls = ['ZONAS', 'LIQUIDEZ', 'NASDAQ'].map(sheet => ({
-    label: sheet.charAt(0) + sheet.slice(1).toLowerCase(),
-    ...longVsShort(filtered.filter(t => t.sheet === sheet)),
-  }));
-  createLongShort(body.querySelector('#grupoLs'), ls);
 
   const byPair = statsByGroup(filtered, t => t.pair || '–').filter(p => p.total >= 1).sort((a, b) => b.total - a.total);
   body.querySelector('#grupoPairs').innerHTML = byPair.map(p => {

@@ -6,10 +6,10 @@
   --surface: #121a2e;
   --card: #141d33;
   --card2: #0e1626;
-  --text: #E6ECF5;
+  --text: #EEF2F9;
   --text-strong: #FFFFFF;
-  --muted: #97A3BE;
-  --dim: #5B6884;
+  --muted: #A9B4CB;
+  --dim: #6B7899;
   --border: rgba(255,255,255,0.08);
   --border-strong: rgba(120,160,255,0.22);
   --hover: rgba(120,160,255,0.06);
@@ -47,6 +47,16 @@
   --neu: #FFA23A;
   --neg: #FF5C7A;
 
+  /* Donuts TP/SL (extremos del degradado del aro) y pares de la tabla de
+     rachas. Por tema: los pasteles del oscuro se lavan sobre tarjeta blanca. */
+  --donut-tp-1: #7DF3C4;
+  --donut-tp-2: #2FB889;
+  --donut-sl-1: #FF9DB4;
+  --donut-sl-2: #DE4A6E;
+  --pair-gbp: #C084FC;
+  --pair-eur: #60A5FA;
+  --pair-gold: #FBBF24;
+
   /* Glows / elevación */
   --glow-accent: 0 0 26px -6px rgba(34,211,238,0.5);
   --glow-soft: 0 12px 34px -16px rgba(0,0,0,0.7);
@@ -74,10 +84,10 @@
   --surface: #FFFFFF;
   --card: #FFFFFF;
   --card2: #F3F6FC;
-  --text: #182135;
+  --text: #0F1826;
   --text-strong: #060A14;
-  --muted: #586480;
-  --dim: #98A4BC;
+  --muted: #495570;
+  --dim: #8592AE;
   --border: rgba(15,23,42,0.09);
   --border-strong: rgba(40,90,200,0.22);
   --hover: rgba(40,90,200,0.05);
@@ -105,6 +115,14 @@
   --liquidez-bg: rgba(147,51,234,0.12);
   --nasdaq: #2563EB;
   --nasdaq-bg: rgba(37,99,235,0.12);
+
+  --donut-tp-1: #2FBE96;
+  --donut-tp-2: #067A57;
+  --donut-sl-1: #F2637F;
+  --donut-sl-2: #C01F3F;
+  --pair-gbp: #9333EA;
+  --pair-eur: #2563EB;
+  --pair-gold: #B45309;
 
   --glow-accent: 0 0 22px -8px rgba(37,99,235,0.35);
   --glow-soft: 0 12px 30px -18px rgba(30,50,90,0.25);

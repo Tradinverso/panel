@@ -82,13 +82,19 @@ body[data-auth="false"] #view {
 }
 .auth-form a:hover { text-decoration: underline; }
 
-/* ── Spinner pequeño dentro del botón ─────────────────────── */
-.btn .spinner-sm {
+/* ── Spinner pequeño (botones y estados de carga sueltos) ──── */
+.spinner-sm {
+  display: inline-block;
   width: 14px; height: 14px;
-  border: 2px solid rgba(10,15,30,0.2);
-  border-top-color: #080B12;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--cyan);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
+}
+/* Dentro de un botón primario (fondo claro) mantiene su contraste original */
+.btn .spinner-sm {
+  border-color: rgba(10,15,30,0.2);
+  border-top-color: #080B12;
 }
 
 /* ── Splash de boot (mientras Firebase autentica) ────────── */
@@ -161,47 +167,20 @@ body[data-auth="false"] #view {
 .conn-badge.online .conn-dot  { background: var(--green); box-shadow: 0 0 6px var(--green); }
 .conn-badge.offline .conn-dot { background: var(--orange); }
 
-/* ── Sidebar: bloque usuario inferior ────────────────────── */
-.user-block {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px;
-  border-top: 1px solid var(--border);
-  margin-top: 14px;
-}
-.user-avatar {
-  width: 32px; height: 32px; border-radius: 10px;
-  background: linear-gradient(135deg, var(--accent), var(--zonas));
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 700; color: #fff; font-size: 13px;
-  flex-shrink: 0;
-  text-transform: uppercase;
-}
-.user-info { flex: 1; min-width: 0; }
-.user-name { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.user-email { font-size: 10px; color: var(--muted); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* Zona horaria del usuario — chip bajo la marca, arriba del sidebar */
+/* ── Sidebar: pie — zona horaria + reloj + salir ─────────── */
+.sidebar-foot { display: flex; align-items: stretch; gap: 6px; margin: 6px 0 10px; }
+/* Zona horaria + fecha/hora actual — chip en el pie, justo bajo Ajustes */
 .user-tz {
-  display: flex; align-items: center; gap: 5px;
-  margin: -14px 8px 14px; padding: 6px 10px; border-radius: 8px;
-  font-size: 10px; font-family: var(--mono); color: var(--muted);
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 8px 11px; border-radius: 8px;
+  font-size: 12px; font-family: var(--mono); color: var(--muted);
   text-decoration: none; background: var(--glass-2); border: 1px solid var(--border);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   transition: color var(--dur), border-color var(--dur), background var(--dur);
 }
-.user-tz svg { width: 12px; height: 12px; flex: none; }
+.user-tz .tz-line { display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-tz svg { width: 14px; height: 14px; flex: none; }
 .user-tz span { overflow: hidden; text-overflow: ellipsis; }
 .user-tz:hover { color: var(--text); border-color: var(--glass-border); background: var(--cyan-bg); }
 .user-tz.warn { color: var(--orange); border-color: rgba(255,162,58,0.35); background: var(--orange-bg); }
 .user-tz.warn:hover { color: var(--orange); border-color: var(--orange); }
-.user-logout {
-  background: none; border: none; cursor: pointer;
-  color: var(--muted); padding: 6px; border-radius: 6px;
-  font-size: 14px; flex-shrink: 0;
-}
-.user-logout:hover { color: var(--red); background: var(--hover); }
-
-/* ── Sidebar colapsada (mobile/tablet) ───────────────────── */
-@media (max-width: 1100px) {
-  .user-info { display: none; }
-  .user-block { justify-content: center; padding: 12px 0; gap: 6px; }
-}

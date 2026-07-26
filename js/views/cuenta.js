@@ -8,12 +8,13 @@ import { openCuentaEditModal, confirmDeleteCuenta } from '../components/cuenta-e
 import { openWithdrawalModal } from '../components/withdrawal-modal.js';
 import { openModal } from '../components/modal.js';
 import {
-  accountStats, tradesForAccountPhase, totalWithdrawn, accountEquityCurve,
-  monthlyPnlUsd, fmtUsd, computeUsdPnl, advanceInfo,
+  accountStats, tradesForAccountPhase, accountEquityCurve,
+  monthlyPnlUsd, fmtUsd, advanceInfo,
 } from '../utils/account-stats.js';
 import { kpiCard } from '../components/kpi-card.js';
-import { sortChrono } from '../utils/calculations.js';
+import { openViewTradeModal } from '../components/trade-view-modal.js';
 import { formatDateShort, MONTHS_ES_SHORT } from '../utils/date-helpers.js';
+import { todayLocal } from '../utils/timezone.js';
 
 const FASE_LABEL = { challenge_1: 'Challenge 1ª', challenge_2: 'Challenge 2ª', fondeada: 'Fondeada' };
 const STATUS_LABEL = { activa: 'Activa', pausada: 'Pausada', pasada: 'Pasada', perdida: 'Perdida' };
@@ -84,6 +85,7 @@ function render(container, cuentaId) {
         <a class="btn" href="#/cuentas">← Cuentas</a>
         ${adv ? `<button class="btn" id="advanceFaseBtn">${adv.toFondeada ? '★' : '✓'} ${adv.label}</button>` : ''}
         ${(adv && !adv.toFondeada) ? `<button class="btn" id="fondeadaBtn" title="Pasar a Fondeada directamente (saltando la 2ª fase)">★ A Fondeada</button>` : ''}
+        ${cuenta.status !== 'perdida' ? `<button class="btn" id="ajusteEquityBtn" title="Corregir el equity actual (trade sin asignar, varianza de cuenta antigua…)">⚖ Ajustar equity</button>` : ''}
         ${cuenta.status !== 'perdida' ? `<button class="btn danger" id="quemadaBtn">✗ Quemada</button>` : ''}
         <button class="btn" id="editCuentaBtn">✏️ Editar</button>
         <button class="btn danger" id="deleteCuentaBtn">× Borrar</button>
@@ -129,6 +131,8 @@ function render(container, cuentaId) {
 
     ${isFondeada ? renderWithdrawalsSection(cuenta, s) : ''}
 
+    ${renderAjustesSection(cuenta)}
+
     <div class="section-title">Trades asignados (${items.length})</div>
     ${items.length === 0
       ? '<div class="card empty">Aún no hay trades asignados a esta cuenta. En Nuevo Trade, marca esta cuenta al guardar.</div>'
@@ -137,6 +141,14 @@ function render(container, cuentaId) {
   `;
 
   // Wire up
+  // Ver trade completo (mismo modal del ojo que en Calendario/Estrategias/Tabla)
+  container.querySelectorAll('.view-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      const it = items.find(x => x.trade.id === b.dataset.id);
+      if (it) openViewTradeModal(it.trade);
+    });
+  });
+
   container.querySelector('#editCuentaBtn').addEventListener('click', () => {
     openCuentaEditModal(cuenta, () => render(container, cuentaId));
   });
@@ -147,6 +159,22 @@ function render(container, cuentaId) {
   if (advBtn) advBtn.addEventListener('click', () => state.advanceFase(cuenta.id));
   const fondBtn = container.querySelector('#fondeadaBtn');
   if (fondBtn) fondBtn.addEventListener('click', () => state.markFondeada(cuenta.id));
+  const ajusteBtn = container.querySelector('#ajusteEquityBtn');
+  if (ajusteBtn) ajusteBtn.addEventListener('click', () => {
+    openAjusteModal(cuenta, s, () => render(container, cuentaId));
+  });
+  container.querySelectorAll('[data-del-a]').forEach(b => {
+    b.addEventListener('click', () => {
+      openModal({
+        title: 'Borrar ajuste',
+        body: '¿Borrar este ajuste de equity? El saldo volverá a calcularse sin él.',
+        actions: [
+          { label: 'Cancelar', onClick: c => c() },
+          { label: 'Borrar', variant: 'danger', onClick: c => { state.removeAjuste(cuentaId, b.dataset.delA); c(); } },
+        ],
+      });
+    });
+  });
   const quemadaBtn = container.querySelector('#quemadaBtn');
   if (quemadaBtn) quemadaBtn.addEventListener('click', () => {
     openModal({
@@ -235,6 +263,96 @@ function renderWithdrawalsSection(cuenta, stats) {
   `;
 }
 
+// ── Ajustes de equity: listado (solo si hay alguno) ─────────
+function renderAjustesSection(cuenta) {
+  // Solo los ajustes de la FASE actual: los de fases pasadas ya no afectan al
+  // equity (se reinicia al superar fase), así que listarlos con un botón que
+  // "no hace nada" confundiría. Es lo mismo que cuentan la curva y los stats.
+  const base = cuenta.equityBaseAt;
+  const ajustes = (cuenta.adjustments || []).filter(a => !base || (a.date || '') >= base);
+  if (!ajustes.length) return '';
+  const rows = [...ajustes].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(a => `
+    <tr>
+      <td>${formatDateShort(a.date)}</td>
+      <td style="color:${a.amount >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600;">${fmtUsd(a.amount, true)}</td>
+      <td style="color:var(--muted);">${esc(a.note || '–')}</td>
+      <td style="text-align:right;"><button class="btn ghost danger" data-del-a="${a.id}" title="Borrar ajuste">×</button></td>
+    </tr>`).join('');
+  return `
+    <div class="section-title">Ajustes de equity (${ajustes.length})</div>
+    <div class="card table-card" style="margin-bottom:24px;">
+      <div class="card-sub" style="margin-bottom:10px;">Correcciones manuales del saldo: trades sin asignar, varianza de cuentas antiguas, ajustes del broker.</div>
+      <table class="data-table"><thead><tr>
+        <th>Fecha</th><th>Importe</th><th>Nota</th><th></th>
+      </tr></thead><tbody>${rows}</tbody></table>
+    </div>`;
+}
+
+// Modal "Ajustar equity": el usuario escribe el equity REAL de la cuenta y se
+// guarda la DIFERENCIA como ajuste con fecha — el histórico no se toca.
+function openAjusteModal(cuenta, s, onDone) {
+  const today = todayLocal(auth.timezone());   // huso del perfil, no del navegador
+  const base = cuenta.equityBaseAt;            // inicio de la fase actual
+  openModal({
+    title: 'Ajustar equity',
+    body: `
+      <div class="form" style="max-width:none;gap:14px;">
+        <div style="font-size:12.5px;color:var(--muted);line-height:1.6;">
+          Equity según la app: <strong style="color:var(--text);">${fmtUsd(s.equityUsd)}</strong>.
+          Escribe el equity <strong>real</strong> de la cuenta y se guardará la diferencia
+          como un ajuste con fecha (el histórico no se modifica; puedes borrarlo después).
+        </div>
+        <div class="form-field">
+          <label class="form-label">Equity real actual ($) <span class="required">*</span></label>
+          <input class="form-input" type="number" step="0.01" id="ajEquity" value="${s.equityUsd.toFixed(2)}">
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label">Fecha del ajuste</label>
+            <input class="form-input" type="date" id="ajDate" value="${today}" ${base ? `min="${base}"` : ''} max="${today}">
+          </div>
+          <div class="form-field">
+            <label class="form-label">Nota (opcional)</label>
+            <input class="form-input" type="text" id="ajNote" placeholder="Ej: trade del 12/07 sin asignar">
+          </div>
+        </div>
+        <div id="ajErr" class="auth-error" style="display:none;"></div>
+      </div>`,
+    actions: [
+      { label: 'Cancelar', onClick: close => close() },
+      {
+        label: 'Guardar ajuste', variant: 'primary',
+        onClick: close => {
+          const root = document.getElementById('modal-root');
+          const real = parseFloat(root.querySelector('#ajEquity').value);
+          const err = root.querySelector('#ajErr');
+          err.style.display = 'none';
+          if (!isFinite(real)) {
+            err.textContent = '⚠ Escribe un equity válido.'; err.style.display = 'flex'; return;
+          }
+          const delta = +(real - s.equityUsd).toFixed(2);
+          if (Math.abs(delta) < 0.01) {
+            err.textContent = '⚠ El equity real coincide con el de la app — no hay nada que ajustar.'; err.style.display = 'flex'; return;
+          }
+          const fecha = root.querySelector('#ajDate').value || today;
+          // Un ajuste con fecha anterior al inicio de la fase no contaría (el
+          // equity se reinició ahí): avisar en vez de guardarlo en silencio.
+          if (base && fecha < base) {
+            err.textContent = `⚠ La fecha no puede ser anterior al inicio de la fase actual (${formatDateShort(base)}).`; err.style.display = 'flex'; return;
+          }
+          state.addAjuste(cuenta.id, {
+            date: fecha,
+            amount: delta,
+            note: root.querySelector('#ajNote').value,
+          });
+          close();
+          if (onDone) onDone();
+        },
+      },
+    ],
+  });
+}
+
 function renderAccountTradesTable(items, cuenta) {
   const sorted = [...items].sort((a, b) => {
     if (a.trade.date !== b.trade.date) return a.trade.date.localeCompare(b.trade.date);
@@ -253,6 +371,7 @@ function renderAccountTradesTable(items, cuenta) {
           <th>% sistema</th>
           <th>$ P&L</th>
           <th>Resultado</th>
+          <th></th>
         </tr></thead>
         <tbody>
           ${sorted.map(({ trade: t, usdPnl }) => {
@@ -262,12 +381,13 @@ function renderAccountTradesTable(items, cuenta) {
               <td>${formatDateShort(t.date)}</td>
               <td>${t.open_str || '–'}</td>
               <td><span class="strat-pill ${t.sheet === 'ZONAS' ? 'zonas' : t.sheet === 'LIQUIDEZ' ? 'liquidez' : 'nasdaq'}">${t.sheet.charAt(0) + t.sheet.slice(1).toLowerCase()}</span></td>
-              <td>${t.pair || '–'}</td>
-              <td>${t.setup || '–'}</td>
-              <td>${(Array.isArray(t.zone) ? t.zone.join(' · ') : t.zone) || '–'}</td>
+              <td>${esc(t.pair || '–')}</td>
+              <td>${esc(t.setup || '–')}</td>
+              <td>${esc((Array.isArray(t.zone) ? t.zone.join(' · ') : t.zone) || '–')}</td>
               <td style="color:${pctColor};">${t.pnl_pct >= 0 ? '+' : ''}${t.pnl_pct.toFixed(2)}%</td>
               <td style="color:${usdColor};font-weight:500;">${fmtUsd(usdPnl, true)}</td>
               <td><span class="res-pill res-${t.result.toLowerCase()}">${t.result}</span></td>
+              <td><button class="view-btn" data-id="${t.id}" title="Ver trade completo">👁️</button></td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -285,9 +405,9 @@ function paintEquityChart(container, curve) {
   Chart.defaults.borderColor = READ('--border');
   Chart.defaults.font.family = "'DM Mono', monospace";
 
-  // Marcar puntos de retiro con un color distinto
-  const pointBg = curve.map(p => p.type === 'withdrawal' ? READ('--zonas') : 'transparent');
-  const pointRadius = curve.map(p => p.type === 'withdrawal' ? 5 : 0);
+  // Marcar puntos de retiro (naranja) y ajustes manuales (cian)
+  const pointBg = curve.map(p => p.type === 'withdrawal' ? READ('--zonas') : p.type === 'adjustment' ? READ('--cyan') : 'transparent');
+  const pointRadius = curve.map(p => (p.type === 'withdrawal' || p.type === 'adjustment') ? 5 : 0);
 
   new Chart(canvas, {
     type: 'line',
@@ -357,11 +477,6 @@ function paintMonthlyChart(container, monthly) {
 function signedPct(v, digits = 2) {
   if (v == null || isNaN(v)) return '0%';
   return (v >= 0 ? '+' : '') + v.toFixed(digits) + '%';
-}
-
-function signedDelta(v) {
-  if (v == null || isNaN(v) || v === 0) return '$0';
-  return (v >= 0 ? '+$' : '-$') + Math.abs(v).toLocaleString('en-US');
 }
 
 function renderProgressBars(s) {

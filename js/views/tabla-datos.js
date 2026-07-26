@@ -124,16 +124,22 @@ function render(container) {
     filterResult = e.target.value;
     render(container);
   });
+  // Debounce: re-renderizar la tabla entera en cada tecla daba tirones con
+  // cientos de trades. Se espera a que el usuario pare de teclear (200 ms).
   const searchEl = container.querySelector('#td-search');
+  let searchTimer = null;
   searchEl.addEventListener('input', e => {
     searchQuery = e.target.value;
-    render(container);
-    const newEl = container.querySelector('#td-search');
-    if (newEl) {
-      newEl.focus();
-      const len = newEl.value.length;
-      newEl.setSelectionRange(len, len);
-    }
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      render(container);
+      const newEl = container.querySelector('#td-search');
+      if (newEl) {
+        newEl.focus();
+        const len = newEl.value.length;
+        newEl.setSelectionRange(len, len);
+      }
+    }, 200);
   });
   container.querySelector('#td-refresh').addEventListener('click', () => render(container));
 

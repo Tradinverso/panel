@@ -168,7 +168,7 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {},
 }
 
 function capShort(c) {
-  if (c >= 1000) return Math.round(c / 1000) + 'K';
+  if (c >= 1000) { const k = c / 1000; return (k % 1 === 0 ? k : +k.toFixed(1)) + 'K'; }
   return String(c);
 }
 

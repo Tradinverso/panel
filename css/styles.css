@@ -34,67 +34,61 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
 /* ── Botón hamburguesa + fondo (solo móvil) ─────────────── */
 .nav-toggle, .nav-scrim { display: none; }
 
-/* ── Menú plegable a rail de iconos ──────────────────────── */
-/* Flechita arriba a la derecha (estilo Notion). Va DENTRO del borde: el sidebar
-   tiene overflow-y:auto y si sobresaliera, lo recortaría. */
-.sidebar-collapse {
+/* ── Herramientas del sidebar (arriba-dcha): plegar + tema ─── */
+/* Dos iconitos apilados (estilo Notion). Van DENTRO del borde: el sidebar tiene
+   overflow-y:auto y si sobresalieran, los recortaría. */
+.sidebar-tools {
   position: absolute; top: 14px; right: 8px; z-index: 5;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.sidebar-tool {
   width: 28px; height: 28px; border-radius: 8px; padding: 0;
   display: flex; align-items: center; justify-content: center;
   background: var(--card2); border: 1px solid var(--border-strong);
   color: var(--cyan); cursor: pointer;
   transition: color .15s, background .15s, border-color .15s, box-shadow .15s, transform .18s var(--ease, ease);
 }
-.sidebar-collapse svg { width: 15px; height: 15px; stroke-width: 2.5; }
-.sidebar-collapse:hover {
-  background: var(--surface); border-color: var(--cyan);
-  box-shadow: var(--glow-accent);
-}
+.sidebar-tool svg { width: 15px; height: 15px; stroke-width: 2.5; }
+.sidebar-tool:hover { background: var(--surface); border-color: var(--cyan); box-shadow: var(--glow-accent); }
+
+/* Herramientas de admin: hairline que las separa del resto (sin cabecera) */
+.nav-item.nav-admin-first { margin-top: 10px; padding-top: 13px; border-top: 1px solid var(--border); }
 
 /* SOLO escritorio (≥901px): por debajo manda el sidebar off-canvas y, como
    `body.sidebar-collapsed` tiene más especificidad que el `body` de la media
    query móvil, sin acotarlo aquí le pisaría la rejilla al móvil. */
 @media (min-width: 901px) {
-  /* Plegado: la flecha baja al flujo, centrada bajo el globo, y gira */
-  body.sidebar-collapsed .sidebar-collapse {
-    position: static; margin: 0 auto 10px; transform: rotate(180deg);
-  }
-}
-
-@media (min-width: 901px) {
   body.sidebar-collapsed { grid-template-columns: 68px 1fr; }
   body.sidebar-collapsed #sidebar { padding: 24px 10px; }
+  /* Plegado: las herramientas bajan al flujo, centradas bajo el globo; la flecha gira */
+  body.sidebar-collapsed .sidebar-tools { position: static; align-items: center; margin: 0 auto 10px; }
+  body.sidebar-collapsed #sidebarCollapse { transform: rotate(180deg); }
   /* Se oculta todo lo que es texto; quedan solo los iconos */
   body.sidebar-collapsed .brand-text,
   body.sidebar-collapsed .nav-label,
   body.sidebar-collapsed .nav-meta,
   body.sidebar-collapsed .nav-section,
-  body.sidebar-collapsed .news-lbl,
   body.sidebar-collapsed .user-tz span,
+  body.sidebar-collapsed .user-tz .tz-clock,
   body.sidebar-collapsed .brand-context,
   body.sidebar-collapsed .fc-text,
-  body.sidebar-collapsed .fc-arrow,
-  body.sidebar-collapsed .news-link span,
-  body.sidebar-collapsed .theme-toggle span:not(.theme-toggle-icon),
-  body.sidebar-collapsed .user-info { display: none; }
+  body.sidebar-collapsed .fc-arrow { display: none; }
   /* Y lo que queda se centra */
   body.sidebar-collapsed .brand,
   body.sidebar-collapsed .nav-item,
-  body.sidebar-collapsed .theme-toggle,
-  body.sidebar-collapsed .user-block,
   body.sidebar-collapsed .formacion-cta,
-  body.sidebar-collapsed .news-link,
   body.sidebar-collapsed .user-tz { justify-content: center; padding-left: 0; padding-right: 0; }
+  /* Pie: el reloj queda como iconito centrado */
+  body.sidebar-collapsed .sidebar-foot { flex-direction: column; align-items: center; gap: 6px; }
   body.sidebar-collapsed .brand { padding: 4px 0 18px; }
   body.sidebar-collapsed .nav-item { padding: 9px 0; }
-  body.sidebar-collapsed .user-tz { margin: -10px 0 12px; gap: 0; }
-  body.sidebar-collapsed .news-links { flex-direction: column; }
-  body.sidebar-collapsed .news-link { flex: none; padding: 8px 0; }
+  body.sidebar-collapsed .nav-item.nav-admin-first { margin-top: 8px; padding-top: 11px; }
+  body.sidebar-collapsed .user-tz { gap: 0; align-items: center; flex: none; width: 32px; padding: 8px 0; }
   body.sidebar-collapsed .formacion-cta { padding: 9px 0; }
   body.sidebar-collapsed .nav-item.active::before { left: -10px; }
 }
 /* En móvil el menú es un cajón: plegar no aplica */
-@media (max-width: 900px) { .sidebar-collapse { display: none; } }
+@media (max-width: 900px) { .sidebar-tools { display: none; } }
 
 /* ── Responsive ──────────────────────────────────────────── */
 /* Rejillas multi-columna → 1 columna en pantallas estrechas */
@@ -175,13 +169,22 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
 .brand-ver { font-size: 9px; font-weight: 500; color: var(--dim); letter-spacing: .08em; font-family: var(--mono); }
 
 .nav { display: flex; flex-direction: column; gap: 3px; flex: 1; }
-.nav-section { font-family: var(--mono); font-size: 9px; color: var(--dim); text-transform: uppercase; letter-spacing: .14em; padding: 18px 12px 6px; font-weight: 600; }
+/* Separadores de grupo: etiqueta mínima + hairline, casi invisibles a propósito */
+.nav-section {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 8.5px; color: var(--dim); opacity: .7;
+  text-transform: uppercase; letter-spacing: .16em; font-weight: 600;
+  padding: 12px 12px 4px;
+}
+.nav-section::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+/* Dashboard: suelto arriba y con más presencia que el resto */
+.nav-item.nav-dashboard { color: var(--text); font-weight: 600; }
 
 .nav-item {
   display: flex; align-items: center; gap: 12px;
   padding: 11px 12px; border-radius: 10px;
   color: var(--muted); cursor: pointer; text-decoration: none;
-  font-size: 13.5px; font-weight: 500;
+  font-size: 14.5px; font-weight: 500;
   transition: background .12s, color .12s, transform .08s;
   position: relative;
 }
@@ -208,7 +211,7 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
   transition: background .12s, border-color .12s;
 }
 /* Iconos SVG: heredan el color del .nav-item (incl. el color por estrategia) */
-.nav-icon svg { width: 15px; height: 15px; display: block; }
+.nav-icon svg { width: 16px; height: 16px; display: block; }
 .nav-item:hover .nav-icon { border-color: var(--border-strong); }
 .nav-item.active .nav-icon { background: var(--surface); border-color: var(--border-strong); }
 .nav-item.zonas .nav-icon { color: var(--zonas); }
@@ -220,6 +223,21 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
 
 .nav-label { flex: 1; }
 .nav-meta { font-family: var(--mono); font-size: 10px; color: var(--dim); }
+/* Badge rojo: alertas críticas del diagnóstico */
+.nav-meta.danger {
+  color: var(--red); background: var(--red-bg);
+  border: 1px solid var(--red); border-radius: 20px;
+  padding: 1px 7px; font-weight: 700;
+}
+/* Versión clicable para la tabla de Mis Alumnos: lleva al diagnóstico del alumno */
+.alert-count-badge {
+  display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
+  color: var(--red); background: var(--red-bg);
+  border: 1px solid var(--red); border-radius: 20px;
+  padding: 3px 10px; font-family: var(--mono); font-size: 11px; font-weight: 700;
+  transition: box-shadow var(--dur), transform var(--dur) var(--ease);
+}
+.alert-count-badge:hover { transform: translateY(-1px); box-shadow: 0 4px 12px -6px var(--red); }
 
 /* Contexto bajo el brand: nombre del usuario o "viendo a alumno" */
 .brand-context {
@@ -228,16 +246,21 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
   border-bottom: 1px solid var(--border);
 }
 .bc-name-self {
-  font-size: 13px;
+  font-size: 14.5px;   /* a juego con los nombres de los módulos */
   font-weight: 600;
-  color: var(--text);
-  letter-spacing: -.2px;
-  display: flex; align-items: center; gap: 6px;
-}
-.bc-name-self::before {
-  content: '👤';
-  font-size: 11px;
-  opacity: .7;
+  color: var(--text-strong);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: .04em;   /* en mayúsculas respira mejor un poco abierto */
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  /* Placa con fondo: mismo acento cian/azul que la tarjeta de Formación, para
+     que el nombre destaque arriba igual que Formación destaca abajo. El 2º stop
+     va a --cyan-bg (no a un blanco translúcido) para que en tema claro la placa
+     no quede casi invisible. */
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: linear-gradient(150deg, var(--cyan-bg), transparent);
+  border: 1px solid var(--border-strong);
 }
 .brand-context.viewing-as {
   background: linear-gradient(180deg, rgba(255,165,2,0.12), rgba(255,165,2,0.04));
@@ -282,12 +305,13 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
 
 /* En sidebar colapsada: nombre se oculta, solo el icono visible */
 @media (max-width: 1100px) {
-  .brand-context { padding: 8px 0; text-align: center; }
+  /* Sin sitio para el nombre: se oculta la placa entera (antes dejaba una caja
+     vacía con su hairline bajo el logo). El bloque "Viendo a alumno" sí se ve. */
+  .brand-context:not(.viewing-as) { display: none; }
   .brand-context.viewing-as {
     margin: 0 4px 10px; padding: 6px;
   }
-  .bc-name-self { justify-content: center; font-size: 0; }
-  .bc-name-self::before { font-size: 16px; }
+  .bc-name-self { display: none; }
   .bc-label { font-size: 0; }
   .bc-label::before { content: '📍'; font-size: 16px; }
   .bc-name { font-size: 0; }
@@ -296,15 +320,6 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
   .bc-exit::before { content: '↩'; font-size: 14px; }
 }
 
-.theme-toggle {
-  margin-top: 14px; padding: 12px 14px; background: var(--card); border-radius: 10px;
-  display: flex; align-items: center; justify-content: space-between; cursor: pointer;
-  border: 1px solid var(--border); color: var(--muted); font-family: var(--mono); font-size: 12px;
-  gap: 10px;
-}
-.theme-toggle:hover { color: var(--text); border-color: var(--border-strong); background: var(--surface); }
-.theme-toggle-icon { font-size: 16px; display: flex; align-items: center; }
-.theme-toggle-icon svg { width: 15px; height: 15px; }
 .bc-exit svg { width: 12px; height: 12px; vertical-align: -2px; }
 
 /* ── Headings + section dividers ─────────────────────────── */
@@ -350,6 +365,9 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
 
 /* ── KPI grid ────────────────────────────────────────────── */
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 24px; }
+/* Escritorio ancho: 2 filas exactas de 5 — las 5 clave arriba, las 5 secundarias abajo.
+   Por debajo manda el auto-fit (y el 2-col de móvil), que reparte sin huecos raros. */
+@media (min-width: 1100px) { .kpi-grid { grid-template-columns: repeat(5, 1fr); } }
 .kpi-card { background: var(--glass); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; position: relative; overflow: hidden; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: border-color .2s, box-shadow .2s; }
 .kpi-card:hover { border-color: var(--glass-border); box-shadow: 0 4px 20px -8px rgba(59,130,246,0.35); }
 .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; }
@@ -357,7 +375,7 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
 .kpi-card.red::before { background: var(--red); }
 .kpi-card.orange::before { background: var(--orange); }
 .kpi-card.blue::before { background: var(--accent); }
-.kpi-card.purple::before { background: var(--zonas); }
+.kpi-card.purple::before { background: var(--liquidez); }
 .kpi-label { font-size: 10px; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
 .kpi-value { font-size: 24px; font-weight: 600; letter-spacing: -1px; line-height: 1; }
 .kpi-value.green { color: var(--green); }
@@ -391,6 +409,7 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
 
 /* ── Strategy pills ──────────────────────────────────────── */
 .strat-pill { font-family: var(--mono); font-size: 10px; padding: 3px 10px; border-radius: 20px; border: 1px solid; display: inline-block; }
+.strat-pill.global { color: var(--green); border-color: var(--green); background: var(--green-bg); }
 .strat-pill.zonas { color: var(--zonas); border-color: var(--zonas); background: var(--zonas-bg); }
 .strat-pill.liquidez { color: var(--liquidez); border-color: var(--liquidez); background: var(--liquidez-bg); }
 .strat-pill.nasdaq { color: var(--nasdaq); border-color: var(--nasdaq); background: var(--nasdaq-bg); }
@@ -412,6 +431,59 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
 .sens-pill[data-s="Sin registrar"]        { background: rgba(140,140,150,.10); color: var(--muted); font-style: italic; }
 
 /* ── Alerts (diagnostic) ─────────────────────────────────── */
+/* Semáforo del día (header del Dashboard): ¿puede operar hoy?
+   Es un enlace: pulsar lleva al Diagnóstico a ver el porqué. */
+.semaforo {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px; border-radius: 22px; border: 1px solid;
+  font-family: var(--mono); font-size: 13px; font-weight: 600;
+  white-space: nowrap; cursor: pointer; text-decoration: none;
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur);
+}
+.semaforo:hover { transform: translateY(-1px); box-shadow: 0 4px 14px -8px currentColor; }
+.semaforo.ok   { color: var(--green); border-color: var(--green); background: var(--green-bg); }
+.semaforo.warn { color: var(--orange); border-color: var(--orange); background: var(--orange-bg); }
+.semaforo.stop { color: var(--red); border-color: var(--red); background: var(--red-bg); }
+
+/* Chip del checklist (separado del semáforo): siempre visible y pulsable */
+.chk-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 16px; border-radius: 22px; border: 1px solid;
+  font-family: var(--mono); font-size: 13px; font-weight: 600; cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--dur), border-color var(--dur), box-shadow var(--dur);
+}
+/* Pendiente en naranja: es un ritual que hay que hacer, no algo opcional (gris) */
+.chk-chip.pending { color: var(--orange); border-color: var(--orange); background: var(--orange-bg); }
+.chk-chip.pending:hover { filter: brightness(1.08); box-shadow: 0 4px 14px -8px var(--orange); }
+.chk-chip.done { color: var(--green); border-color: var(--green); background: transparent; opacity: .85; }
+.chk-chip.done:hover { background: var(--green-bg); opacity: 1; }
+
+/* Selects del header del dashboard (año/mes): a juego con el semáforo.
+   Ojo con el padding derecho: reserva sitio para la flechita del desplegable. */
+.page-actions .select { font-size: 13.5px; padding: 9px 34px 9px 14px; background-position: right 12px center; }
+
+/* Checklist pre-sesión (modal desde el semáforo) */
+.checklist-items { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.chk-item {
+  display: inline-flex; align-items: center; gap: 10px; cursor: pointer;
+  font-size: 13.5px; color: var(--text); user-select: none;
+}
+.chk-item input { accent-color: var(--cyan); width: 16px; height: 16px; cursor: pointer; }
+.chk-item.checked span { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--dim); }
+
+/* Toast de guardado fallido (escritura rechazada por Firestore) */
+.save-error-toast {
+  position: fixed; bottom: 20px; right: 20px; z-index: 10000;
+  max-width: 340px; padding: 12px 16px 12px 14px;
+  /* Fondo OPACO (surface) con franja roja: el rojo translúcido sobre tablas o
+     gráficos se leía muy pálido en tema claro; esto es un aviso crítico. */
+  background: var(--surface); border: 1px solid var(--red); border-left: 4px solid var(--red);
+  border-radius: 12px;
+  color: var(--red); font-size: 12.5px; font-weight: 600; line-height: 1.5;
+  box-shadow: 0 8px 24px -10px rgba(0,0,0,.5);
+}
+
 .alert { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-radius: 10px; border: 1px solid; margin-bottom: 8px; }
 .alert.warning { background: var(--orange-bg); border-color: rgba(255,165,2,0.25); }
 .alert.danger { background: var(--red-bg); border-color: rgba(239,68,68,0.25); }
@@ -452,10 +524,14 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
 @media (min-width: 901px) and (max-width: 1100px) {
   body { grid-template-columns: 68px 1fr; }
   :root { --sidebar-w: 68px; }
-  .brand-text, .nav-label, .nav-meta, .nav-section, .theme-toggle span { display: none; }
+  .brand-text, .nav-label, .nav-meta, .nav-section, .user-tz span, .user-tz .tz-clock { display: none; }
+  .user-tz { align-items: center; flex: none; width: 32px; padding: 8px 0; }
+  .sidebar-foot { flex-direction: column; align-items: center; gap: 6px; }
   .nav-item { justify-content: center; padding: 11px 0; }
   .nav-item.active::before { left: -8px; }
-  .theme-toggle { justify-content: center; padding: 10px 0; }
+  .nav-item.nav-admin-first { margin-top: 8px; padding-top: 11px; }
+  .sidebar-tools { position: static; align-items: center; margin: 0 auto 10px; }
+  #sidebarCollapse { display: none; }
   .brand { justify-content: center; padding: 4px 0 24px; }
 }
 

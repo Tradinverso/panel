@@ -117,8 +117,8 @@ export function createDonut(canvas, tp, sl, be) {
   // arriba en la tarjeta, no hace falta repetirlos dentro del aro.
   // Aros anchos con degradado; se descartan segmentos a 0 (sin punto flotante).
   const defs = [
-    { v: tp, label: 'TP', color: grad2(canvas, '#7DF3C4', '#2FB889') },
-    { v: sl, label: 'SL', color: grad2(canvas, '#FF9DB4', '#DE4A6E') },
+    { v: tp, label: 'TP', color: grad2(canvas, READ('--donut-tp-1'), READ('--donut-tp-2')) },
+    { v: sl, label: 'SL', color: grad2(canvas, READ('--donut-sl-1'), READ('--donut-sl-2')) },
     { v: be, label: 'BE', color: rgba(DIM, 0.55) },
   ].filter(d => d.v > 0);
   return new Chart(canvas, {

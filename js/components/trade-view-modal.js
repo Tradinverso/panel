@@ -32,8 +32,8 @@ export function openViewTradeModal(trade) {
   // Links
   const linksHtml = (trade.url1 || trade.url2)
     ? [
-        trade.url1 ? `<a href="${escapeAttr(trade.url1)}" target="_blank" rel="noopener">${trade.sheet === 'ZONAS' ? 'TradingView' : 'HTF'}</a>` : '',
-        trade.url2 ? `<a href="${escapeAttr(trade.url2)}" target="_blank" rel="noopener">LTF</a>` : '',
+        trade.url1 ? `<a href="${escapeAttr(trade.url1)}" target="_blank" rel="noopener">${trade.sheet === 'ZONAS' ? 'M1' : 'HTF'}</a>` : '',
+        trade.url2 ? `<a href="${escapeAttr(trade.url2)}" target="_blank" rel="noopener">${trade.sheet === 'ZONAS' ? 'M15' : 'LTF'}</a>` : '',
       ].filter(Boolean).join(' · ')
     : '<span style="color:var(--muted);">—</span>';
 
@@ -90,6 +90,6 @@ function escapeAttr(s) {
   return String(s == null ? '' : s).replace(/"/g, '&quot;');
 }
 function capShort(c) {
-  if (c >= 1000) return Math.round(c / 1000) + 'K';
+  if (c >= 1000) { const k = c / 1000; return (k % 1 === 0 ? k : +k.toFixed(1)) + 'K'; }
   return String(c);
 }

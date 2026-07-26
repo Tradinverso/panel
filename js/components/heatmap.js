@@ -30,21 +30,30 @@ export function renderHeatmap(container, trades) {
   container.appendChild(div('hm-corner', ''));
   for (const d of DAYS_ES) container.appendChild(div('hm-day-label', d));
   // Body
+  // En claro los colores puros del degradado rojo→verde se lavan sobre tarjeta
+  // blanca: se oscurece el texto y se suaviza el tinte de fondo.
+  const light = document.documentElement.getAttribute('data-theme') === 'light';
   SLOTS.forEach((slot, hi) => {
     container.appendChild(div('hm-hour-label', slot.label + 'h'));
     matrix[hi].forEach(cell => {
       const c = div('hm-cell', '');
+      const decisive = cell.tp + cell.sl;
       if (cell.total === 0) {
         c.textContent = '–';
+      } else if (decisive === 0) {
+        // Solo BE: ni bueno ni malo. Antes wr=0 lo pintaba rojo (parecía mala
+        // franja); se deja neutro con su recuento en el tooltip.
+        c.textContent = 'BE';
+        c.title = `${cell.total} trades en BE`;
       } else {
-        const decisive = cell.tp + cell.sl;
-        const wr = decisive > 0 ? cell.tp / decisive : 0;
+        const wr = cell.tp / decisive;
         const r = Math.round(255 * (1 - wr));
         const g = Math.round(71 * (1 - wr) + 212 * wr);
         const b = Math.round(87 * (1 - wr) + 170 * wr);
-        c.style.background = `rgba(${r},${g},${b},0.25)`;
-        c.style.color = `rgb(${r},${g},${b})`;
-        c.textContent = decisive > 0 ? Math.round(wr * 100) + '%' : '–';
+        const k = light ? 0.66 : 1;
+        c.style.background = `rgba(${r},${g},${b},${light ? 0.16 : 0.25})`;
+        c.style.color = `rgb(${Math.round(r * k)},${Math.round(g * k)},${Math.round(b * k)})`;
+        c.textContent = Math.round(wr * 100) + '%';
         c.title = `${cell.tp}TP / ${cell.sl}SL · ${cell.total} trades`;
       }
       container.appendChild(c);

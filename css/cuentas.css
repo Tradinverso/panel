@@ -61,8 +61,8 @@
 .cuenta-equity { font-family: var(--font-display); font-size: 24px; font-weight: 600; letter-spacing: -.5px; line-height: 1; margin-bottom: 14px; }
 .cuenta-equity-pct { font-size: 12px; font-family: var(--mono); opacity: .8; font-weight: 400; }
 
-.cuenta-card-foot { display: flex; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
-.cuenta-card-foot .btn { flex: 1; padding: 6px 8px; font-size: 11px; justify-content: center; }
+.cuenta-card-foot { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.cuenta-card-foot .btn { flex: 1 1 auto; min-width: 72px; padding: 6px 8px; font-size: 11px; justify-content: center; white-space: nowrap; }
 
 .cuenta-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; }
 .cuenta-stat { display: flex; flex-direction: column; gap: 2px; }

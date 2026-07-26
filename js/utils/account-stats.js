@@ -86,6 +86,14 @@ export function totalWithdrawalCommissions(account) {
   return account.withdrawals.reduce((sum, w) => sum + (w.commission || 0), 0);
 }
 
+// Ajustes de equity de la FASE actual (desde equityBaseAt, como los trades).
+function totalAjustesPhase(account) {
+  const base = account && account.equityBaseAt;
+  return (account.adjustments || [])
+    .filter(a => !base || (a.date || '') >= base)
+    .reduce((s, a) => s + (a.amount || 0), 0);
+}
+
 // Estadísticas completas de la cuenta.
 export function accountStats(account, allTrades) {
   const emptyMaxDd = account?.maxDdUsd || 0;
@@ -130,10 +138,13 @@ export function accountStats(account, allTrades) {
   const withdrawn = totalWithdrawn(account);           // bruto
   const withdrawnNet = totalWithdrawnNet(account);     // neto al bolsillo
   const commissionsPaid = totalWithdrawalCommissions(account);
+  // Ajustes manuales de equity (± con signo), solo los de la FASE actual —
+  // igual que los trades: al superar fase el equity se reinicia.
+  const ajustes = totalAjustesPhase(account);
 
-  // Equity = saldo inicial + profit por trades − retiros BRUTOS
+  // Equity = saldo inicial + profit por trades + ajustes − retiros BRUTOS
   // (el bruto es lo que el broker descontó realmente del balance)
-  const equity = initial + profitFromTrades - withdrawn;
+  const equity = initial + profitFromTrades + ajustes - withdrawn;
 
   // Profit total = TODO lo ganado vs el capital nominal (incluye diff inicial,
   // trades, ajustes broker, etc). Es lo que el usuario quiere ver.
@@ -240,6 +251,17 @@ function buildEvents(account, items) {
       type: 'withdrawal',
       delta: -w.amount,
       note: w.note,
+    });
+  }
+  // Ajustes de equity (solo los de la fase actual, como los trades)
+  const base = account.equityBaseAt;
+  for (const a of (account.adjustments || [])) {
+    if (base && (a.date || '') < base) continue;
+    events.push({
+      date: a.date,
+      type: 'adjustment',
+      delta: a.amount,
+      note: a.note,
     });
   }
   events.sort((a, b) => a.date.localeCompare(b.date));
@@ -409,25 +431,39 @@ export function accountingEvents(cuentas) {
   return out.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 }
 
+// Conceptos de compra que cuentan como INTENTO DE FONDEO (evaluación).
+// Suscripción/activación/otro NO son intentos: inflarían el nº de evaluaciones
+// y hundirían el funding ratio.
+const EVAL_CONCEPTS = new Set(['challenge', 'reset', 'reintento']);
+
 // Agregados del negocio prop sobre TODAS las cuentas.
-// range opcional {from,to} (YYYY-MM-DD) filtra gastos/ganancias por fecha;
-// los contadores (live/pasadas/quemadas/funding) son SIEMPRE globales.
+// range opcional {from,to} (YYYY-MM-DD): filtra por fecha los importes (gastos/
+// ganancias) Y los contadores de flujo (evaluaciones compradas, fondeadas
+// conseguidas por fundedAt) → todo refleja el periodo elegido.
+// `live`/`capitalLive`/`pasadas`/`quemadas` son ESTADO ACTUAL, siempre globales.
 export function investmentStats(cuentas, range) {
   const f = range && range.from, t = range && range.to;
   const inR = d => (!f || d >= f) && (!t || d <= t);
-  let gastosTotales = 0, gananciasBrutas = 0, gananciasNetas = 0, comisiones = 0;
-  let evaluaciones = 0, live = 0, pasadas = 0, quemadas = 0, fondeadas = 0;
+  let gastosTotales = 0, gananciasBrutas = 0, gananciasNetas = 0, comisiones = 0, nRetiros = 0;
+  let evaluaciones = 0, fondeadas = 0;                      // flujo del periodo
+  let live = 0, pasadas = 0, quemadas = 0, capitalLive = 0; // estado actual (global)
   for (const c of cuentas) {
-    for (const p of purchasesOf(c)) if (inR(p.date || '')) gastosTotales += p.amount || 0;
+    for (const p of purchasesOf(c)) {
+      if (!inR(p.date || '')) continue;
+      gastosTotales += p.amount || 0;
+      if (EVAL_CONCEPTS.has(p.concept)) evaluaciones++;
+    }
     for (const w of (c.withdrawals || [])) {
       if (!inR(w.date || '')) continue;
       const amt = w.amount || 0, com = w.commission || 0;
       gananciasBrutas += amt; comisiones += com; gananciasNetas += Math.max(0, amt - com);
+      nRetiros++;
     }
-    // contadores globales
-    evaluaciones += (Array.isArray(c.purchases) && c.purchases.length) ? c.purchases.length : 1;
-    if (c.fase === 'fondeada') fondeadas++;
-    if (c.fase === 'fondeada' && c.status === 'activa') live++;
+    // Fondeadas conseguidas en el periodo (por fundedAt). Sin filtro, todas las
+    // fondeadas (inR('') es true cuando no hay rango).
+    if (c.fase === 'fondeada' && inR(c.fundedAt || '')) fondeadas++;
+    // Estado actual — no depende del periodo:
+    if (c.fase === 'fondeada' && c.status === 'activa') { live++; capitalLive += c.capital || 0; }
     if (c.status === 'pasada') pasadas++;
     if (c.status === 'perdida') quemadas++;
   }
@@ -435,9 +471,9 @@ export function investmentStats(cuentas, range) {
   const roi = gastosTotales > 0 ? (beneficioNeto / gastosTotales) * 100 : (beneficioNeto > 0 ? Infinity : 0);
   const fundingRatio = evaluaciones > 0 ? (fondeadas / evaluaciones) * 100 : 0;
   return {
-    gastosTotales, gananciasBrutas, gananciasNetas, comisiones,
+    gastosTotales, gananciasBrutas, gananciasNetas, comisiones, nRetiros,
     beneficioNeto, roi, fundingRatio,
-    evaluaciones, live, pasadas, quemadas, fondeadas,
+    evaluaciones, live, pasadas, quemadas, fondeadas, capitalLive,
     countTotal: cuentas.length,
   };
 }

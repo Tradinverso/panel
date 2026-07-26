@@ -188,6 +188,10 @@ function render(container) {
   container.querySelectorAll('[data-advance]').forEach(b => {
     b.addEventListener('click', () => state.advanceFase(b.dataset.advance));
   });
+  // Salto directo a Fondeada (paridad con el detalle de cuenta y Contabilidad)
+  container.querySelectorAll('[data-fondeada]').forEach(b => {
+    b.addEventListener('click', () => state.markFondeada(b.dataset.fondeada));
+  });
   container.querySelectorAll('[data-quemada]').forEach(b => {
     b.addEventListener('click', () => {
       const c = state.cuentas.find(x => x.id === b.dataset.quemada);
@@ -312,7 +316,8 @@ function card(c) {
 
       ${(c.fase !== 'fondeada' || c.status !== 'perdida') ? `
       <div class="cuenta-card-foot" data-stop>
-        ${adv ? `<button class="btn ghost" data-advance="${c.id}" data-stop>${adv.toFondeada ? '★' : '✓'} ${adv.label}</button>` : ''}
+        ${adv ? `<button class="btn ghost" data-advance="${c.id}" data-stop>${adv.toFondeada ? '★ Fondear' : '✓ Superar'}</button>` : ''}
+        ${(adv && !adv.toFondeada) ? `<button class="btn ghost" data-fondeada="${c.id}" title="Pasar a Fondeada directamente (saltando la 2ª fase)" data-stop>★ Fondear</button>` : ''}
         ${c.status !== 'perdida' ? `<button class="btn ghost danger" data-quemada="${c.id}" data-stop>✗ Quemada</button>` : ''}
       </div>` : ''}
     </div>
@@ -320,7 +325,10 @@ function card(c) {
 }
 
 function fmtCapitalShort(c) {
-  if (c >= 1000) return Math.round(c / 1000) + 'K';
+  if (c >= 1000) {
+    const k = c / 1000;
+    return (k % 1 === 0 ? k : +k.toFixed(1)) + 'K';   // $2500 → "2.5K", no "3K"
+  }
   return String(c);
 }
 

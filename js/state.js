@@ -182,6 +182,19 @@ function sanitizeCuenta(c) {
             note: String(w.note || '').trim(),
           }))
       : [],
+    // ── Ajustes de equity: correcciones manuales del saldo actual ──
+    // (trade sin asignar, varianza de cuenta vieja, ajuste del broker…).
+    // amount con signo (±); la fecha determina en qué fase cuenta.
+    adjustments: Array.isArray(c.adjustments)
+      ? c.adjustments
+          .filter(a => a && parseFloat(a.amount))
+          .map(a => ({
+            id: a.id || uuid(),
+            date: a.date || new Date().toISOString().substring(0, 10),
+            amount: typeof a.amount === 'number' ? a.amount : (parseFloat(a.amount) || 0),
+            note: String(a.note || '').trim(),
+          }))
+      : [],
     notes: String(c.notes || '').trim(),
     // ── Inversión: historial de compras/reintentos de la cuenta ──
     purchases: Array.isArray(c.purchases)
@@ -236,7 +249,8 @@ function sanitizePerfil(p) {
   };
 }
 
-function sanitizeTradingPlan(p) {
+// Doc con texto + enlace opcional (Plan de trading y Protocolos comparten forma).
+function sanitizeDocText(p) {
   p = p || {};
   const docUrl = String(p.docUrl || '').trim();
   return {
@@ -244,6 +258,37 @@ function sanitizeTradingPlan(p) {
     docUrl: /^https?:\/\//i.test(docUrl) ? docUrl : '',
     updatedAt: typeof p.updatedAt === 'number' ? p.updatedAt : 0,
   };
+}
+
+// Un protocolo del alumno: título + texto Markdown + enlace opcional.
+function sanitizeProtocolo(p) {
+  p = p || {};
+  const docUrl = String(p.docUrl || '').trim();
+  return {
+    id: p.id || uuid(),
+    titulo: String(p.titulo || '').trim(),
+    content: String(p.content || ''),
+    docUrl: /^https?:\/\//i.test(docUrl) ? docUrl : '',
+    updatedAt: typeof p.updatedAt === 'number' ? p.updatedAt : 0,
+  };
+}
+
+// Lista de protocolos propios del alumno. Migra el formato antiguo (un único
+// objeto {content,docUrl}) a un array de un elemento para no perder nada.
+function sanitizeProtocolosList(v) {
+  if (Array.isArray(v)) return v.map(sanitizeProtocolo);
+  if (v && (v.content || v.docUrl)) {
+    return [sanitizeProtocolo({ titulo: 'Mi protocolo', content: v.content, docUrl: v.docUrl, updatedAt: v.updatedAt })];
+  }
+  return [];
+}
+
+// El Plan de trading incluye, en el mismo doc, los Protocolos PROPIOS del alumno
+// (array `protocolos`). Así reutilizamos users/{uid}/tradingPlan/data (ya
+// permitido y ya cubierto por los backups) sin crear un doc nuevo.
+function sanitizeTradingPlan(p) {
+  p = p || {};
+  return { ...sanitizeDocText(p), protocolos: sanitizeProtocolosList(p.protocolos) };
 }
 
 function sanitizeReflection(r) {
@@ -275,7 +320,27 @@ function ignoreIfReadOnly(_action) {
 
 function fireAndForget(p, label) {
   if (!p || typeof p.then !== 'function') return;
-  p.catch(err => console.error(`[sync] ${label} falló:`, err));
+  p.catch(err => {
+    console.error(`[sync] ${label} falló:`, err);
+    notifySaveError();
+  });
+}
+
+// Aviso visible cuando una escritura a Firestore es RECHAZADA (reglas, cuota,
+// datos inválidos). Antes solo iba a la consola: la UI optimista hacía creer
+// que se guardó. Nota: sin conexión NO salta — Firestore encola y sincroniza
+// al volver la red; esto es solo para rechazos duros.
+let saveErrorVisible = false;
+function notifySaveError() {
+  if (saveErrorVisible) return;   // no apilar toasts si fallan varias seguidas
+  try {
+    saveErrorVisible = true;
+    const el = document.createElement('div');
+    el.className = 'save-error-toast';
+    el.textContent = '⚠ No se pudo guardar en la nube. El cambio podría perderse al recargar — revisa tu sesión o inténtalo de nuevo.';
+    document.body.appendChild(el);
+    setTimeout(() => { el.remove(); saveErrorVisible = false; }, 7000);
+  } catch (e) { saveErrorVisible = false; }
 }
 
 export const state = {
@@ -621,6 +686,30 @@ export const state = {
     });
   },
 
+  // ── Ajustes de equity (corrección manual del saldo actual) ──
+  addAjuste(cuentaId, ajuste) {
+    const cuenta = this.cuentas.find(c => c.id === cuentaId);
+    if (!cuenta) return null;
+    const a = {
+      id: ajuste.id || uuid(),
+      date: ajuste.date || new Date().toISOString().substring(0, 10),
+      amount: typeof ajuste.amount === 'number' ? ajuste.amount : (parseFloat(ajuste.amount) || 0),
+      note: String(ajuste.note || '').trim(),
+    };
+    if (!a.amount) return null;   // un ajuste de 0 no ajusta nada
+    return this.updateCuenta(cuentaId, {
+      adjustments: [...(cuenta.adjustments || []), a],
+    });
+  },
+
+  removeAjuste(cuentaId, ajusteId) {
+    const cuenta = this.cuentas.find(c => c.id === cuentaId);
+    if (!cuenta) return null;
+    return this.updateCuenta(cuentaId, {
+      adjustments: (cuenta.adjustments || []).filter(a => a.id !== ajusteId),
+    });
+  },
+
   // ── Compras / reintentos (historial de inversión de la cuenta) ──
   addPurchase(cuentaId, purchase) {
     const cuenta = this.cuentas.find(c => c.id === cuentaId);
@@ -759,6 +848,21 @@ export const state = {
     this.emit();
     fireAndForget(sync.saveTradingPlan(targetUid(), next), 'saveTradingPlan');
     return next;
+  },
+
+  // Protocolos propios del alumno (lista dentro del doc del Plan).
+  _protocolos() { return (this.tradingPlan && Array.isArray(this.tradingPlan.protocolos)) ? this.tradingPlan.protocolos : []; },
+  addProtocolo(data) {
+    const p = sanitizeProtocolo({ ...data, updatedAt: Date.now() });
+    return this.saveTradingPlan({ protocolos: [...this._protocolos(), p] });
+  },
+  updateProtocolo(id, patch) {
+    const list = this._protocolos().map(p =>
+      p.id === id ? sanitizeProtocolo({ ...p, ...patch, id, updatedAt: Date.now() }) : p);
+    return this.saveTradingPlan({ protocolos: list });
+  },
+  removeProtocolo(id) {
+    return this.saveTradingPlan({ protocolos: this._protocolos().filter(p => p.id !== id) });
   },
 
   // ── Bus de eventos ───────────────────────────────────────

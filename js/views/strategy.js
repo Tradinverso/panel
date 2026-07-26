@@ -188,13 +188,17 @@ function render(container, sheet) {
   requestAnimationFrame(() => {
     if (!container.querySelector('#equityChart')) return;
     createEquity(container.querySelector('#equityChart'),
-      [{ key: sheet, label: meta.label, data: eqCurve(all) },
-       { key: 'ALL', label: 'Global', data: eqCurve(all) }].slice(0, 1));
+      [{ key: sheet, label: meta.label, data: eqCurve(all) }]);
     createDonut(container.querySelector('#donut'), c.tp, c.sl, c.be);
     const m = monthlyPnl(all);
     createBar(container.querySelector('#monthlyChart'),
       m.map(d => MONTHS_ES_SHORT[+d.month.split('-')[1] - 1] + ' ' + d.month.substring(2, 4)),
       m.map(d => +(perfMode === 'real' ? d.pnlReal : d.pnl).toFixed(2)));
+    // Timing — mismo frame: estos tres se creaban en síncrono y a veces
+    // salían en blanco en el primer pintado (el bug que este rAF evita).
+    createHourBar(container.querySelector('#hourChart'), wrByHour(all));
+    createDayBar(container.querySelector('#dayChart'), wrByDay(all));
+    renderHeatmap(container.querySelector('#heatmap'), all);
   });
 
   // Pairs (only ZONAS)
@@ -242,11 +246,6 @@ function render(container, sheet) {
     const x = ls[d];
     return tableRow([d.toUpperCase(), x.n, coloredPct(x.wr, 50), coloredSignedPct(x.pnl), coloredSignedPct(lsReal[d])]);
   }).join('');
-
-  // Timing
-  createHourBar(container.querySelector('#hourChart'), wrByHour(all));
-  createDayBar(container.querySelector('#dayChart'), wrByDay(all));
-  renderHeatmap(container.querySelector('#heatmap'), all);
 
   // Duration
   const d = durationStats(all);

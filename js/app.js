@@ -24,6 +24,8 @@ import { cuentasListView } from './views/cuentas.js';
 import { cuentaDetailView } from './views/cuenta.js';
 import { riesgoView } from './views/riesgo.js';
 import { tradingPlanView } from './views/plan.js';
+import { protocolosView } from './views/protocolos.js';
+import { meditacionesView } from './views/meditaciones.js';
 import { contabilidadView } from './views/contabilidad.js';
 
 theme.init();
@@ -52,6 +54,8 @@ router
   .add('#/calendario',  (_, c) => calendarView(c))
   .add('#/diagnostico', (_, c) => diagnosticView(c))
   .add('#/psicologia',  (_, c) => psicologiaView(c))
+  .add('#/meditaciones', (_, c) => meditacionesView(c))
+  .add('#/protocolos',  (_, c) => protocolosView(c))
   .add('#/importar',    (_, c) => importView(c))
   .add('#/tabla',       (_, c) => tablaDatosView(c))
   .add('#/ajustes',     (_, c) => settingsView(c))

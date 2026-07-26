@@ -150,7 +150,7 @@ export function renderTradeTable(container, trades, opts = {}) {
   function renderTable(filtered) {
     // Más reciente arriba: ordenamos cronológicamente y luego invertimos.
     const sorted = sortChrono(filtered).reverse();
-    const colspan = canDelete ? 17 : 16;
+    const colspan = canDelete ? 16 : 15;
     const bodyContent = sorted.length
       ? sorted.map(t => row(t, canDelete)).join('')
       : `<tr><td colspan="${colspan}" class="empty" style="padding:30px;">Ningún trade coincide con los filtros</td></tr>`;
@@ -174,7 +174,6 @@ export function renderTradeTable(container, trades, opts = {}) {
               <th>Dur.</th>
               <th>% P&L sistema</th>
               <th>% P&L real</th>
-              <th>Links</th>
               ${canDelete ? '<th></th>' : ''}
             </tr>
           </thead>
@@ -260,12 +259,6 @@ function row(t, canDelete) {
   } else {
     cuentas = '<span style="color:var(--dim)">–</span>';
   }
-  const links = (t.url1 || t.url2)
-    ? [
-        t.url1 ? `<a class="url-icon" href="${escAttr(t.url1)}" target="_blank" rel="noopener" title="${t.sheet === 'ZONAS' ? 'TradingView' : 'HTF'}">${t.sheet === 'ZONAS' ? 'L' : 'H'}</a>` : '',
-        t.url2 ? `<a class="url-icon" href="${escAttr(t.url2)}" target="_blank" rel="noopener" title="LTF">L</a>` : '',
-      ].join('')
-    : '<span style="color:var(--dim)">–</span>';
   const dur = t.dur != null ? t.dur + 'm' : '–';
   const pct = t.result === 'BE' ? '<span style="color:var(--orange)">0.00%</span>' : `<span style="color:${t.pnl_pct >= 0 ? 'var(--green)' : 'var(--red)'}">${fmtPct(t.pnl_pct)}</span>`;
   const realPnl = tradeRealPnl(t);
@@ -293,14 +286,13 @@ function row(t, canDelete) {
       <td>${dur}</td>
       <td>${pct}</td>
       <td>${pctReal}</td>
-      <td>${links}</td>
       ${delTd}
     </tr>
   `;
 }
 
 function capShort(c) {
-  if (c >= 1000) return Math.round(c / 1000) + 'K';
+  if (c >= 1000) { const k = c / 1000; return (k % 1 === 0 ? k : +k.toFixed(1)) + 'K'; }
   return String(c);
 }
 

@@ -138,7 +138,11 @@ function renderResumen() {
       ${kpiCard({ label: 'Beneficio neto', value: fmtUsd(s.beneficioNeto, true), sub: 'payouts netos − gastos', tone: s.beneficioNeto >= 0 ? 'green' : 'red', icon: '📈' })}
       ${kpiCard({ label: 'ROI', value: fmtRoi(s.roi), sub: 'beneficio ÷ gastos', tone: s.roi >= 0 ? 'green' : 'red', icon: '🎯' })}
       ${kpiCard({ label: 'Funding ratio', value: s.fundingRatio.toFixed(1) + '%', sub: `${s.fondeadas} fondeada${s.fondeadas !== 1 ? 's' : ''} de ${s.evaluaciones}`, tone: 'blue', icon: '⚡' })}
-      ${kpiCard({ label: 'Cuentas live', value: `${s.live}`, sub: 'fondeadas activas', tone: 'purple', icon: '🟢' })}
+      ${kpiCard({ label: 'Coste medio / cuenta', value: s.evaluaciones > 0 ? fmtUsd(s.gastosTotales / s.evaluaciones) : '–', sub: `gastos ÷ ${s.evaluaciones} evaluacion${s.evaluaciones !== 1 ? 'es' : ''}`, tone: 'orange', icon: '🧾' })}
+      ${kpiCard({ label: 'Payout medio / cuenta', value: s.evaluaciones > 0 ? fmtUsd(s.gananciasNetas / s.evaluaciones) : '–', sub: `payouts netos ÷ ${s.evaluaciones} evaluacion${s.evaluaciones !== 1 ? 'es' : ''}`, tone: 'green', icon: '💸' })}
+      ${kpiCard({ label: 'Payout medio / fondeada', value: s.fondeadas > 0 ? fmtUsd(s.gananciasNetas / s.fondeadas) : '–', sub: s.nRetiros > 0 ? `${s.nRetiros} retiro${s.nRetiros !== 1 ? 's' : ''} · media ${fmtUsd(s.gananciasBrutas / s.nRetiros)}/retiro` : 'sin retiros aún', tone: 'green', icon: '💰' })}
+      ${kpiCard({ label: 'Coste por fondeada', value: s.fondeadas > 0 ? fmtUsd(s.gastosTotales / s.fondeadas) : '–', sub: 'conseguir 1 fondeada (incluye las falladas)', tone: 'blue', icon: '⭐' })}
+      ${kpiCard({ label: 'Capital gestionado', value: s.live > 0 ? fmtUsd(s.capitalLive) : '–', sub: `${s.live} fondeada${s.live !== 1 ? 's' : ''} activa${s.live !== 1 ? 's' : ''} · capital nominal`, tone: 'purple', icon: '🏛️' })}
     </div>
 
     <div class="bento">

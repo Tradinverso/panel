@@ -6,6 +6,7 @@ import { sync } from '../sync.js';
 import { state } from '../state.js';
 import { router } from '../router.js';
 import { winrate, pnlPct, pnlPctReal, currentSlStreak, tradeCounts } from '../utils/calculations.js';
+import { countDangerAlerts } from '../utils/diagnostics.js';
 import { fmtPct, fmtPctNoSign } from '../utils/number-format-es.js';
 import { openModal, closeModal } from '../components/modal.js';
 import {
@@ -195,6 +196,7 @@ function paintStudents(container, students) {
             <th>P&L acum. <span style="color:var(--muted);font-weight:400;">(sist · real)</span></th>
             <th>P&L mes</th>
             <th>SL</th>
+            <th>Alertas</th>
             <th></th>
           </tr></thead>
           <tbody>
@@ -235,6 +237,21 @@ function paintStudents(container, students) {
       try {
         await state.viewAs(uid, stu.profile);
         router.go('#/dashboard');
+      } catch (e) {
+        alert('Error: ' + (e.message || e));
+      }
+    });
+  });
+
+  // Badge de alertas críticas → directo al Diagnóstico de ese alumno.
+  content.querySelectorAll('[data-diag-uid]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const uid = btn.dataset.diagUid;
+      const stu = students.find(s => s.uid === uid);
+      if (!stu) return;
+      try {
+        await state.viewAs(uid, stu.profile);
+        router.go('#/diagnostico');
       } catch (e) {
         alert('Error: ' + (e.message || e));
       }
@@ -282,6 +299,9 @@ function row(s) {
   const pnl = pnlPct(s.trades);
   const pnlReal = pnlPctReal(s.trades);
   const streak = currentSlStreak(s.trades);
+  // Alertas críticas del diagnóstico — s.trades ya está en memoria (listStudents),
+  // así que esto no añade ninguna lectura de Firestore.
+  const nAlerts = countDangerAlerts(s.trades);
 
   // WR por estrategia (solo las que tienen trades)
   const stratBreakdown = ['ZONAS', 'LIQUIDEZ', 'NASDAQ']
@@ -343,6 +363,11 @@ function row(s) {
       </td>
       <td style="color:${pnlMonthColor};font-weight:500;">${monthTrades.length ? fmtPct(pnlMonth, 1) : '–'}</td>
       <td style="color:${slColor};font-family:var(--mono);font-weight:500;">${streak > 0 ? streak + ' SL' : '–'}</td>
+      <td>
+        ${nAlerts > 0
+          ? `<button class="alert-count-badge" data-diag-uid="${s.uid}" title="${nAlerts} alerta${nAlerts > 1 ? 's' : ''} crítica${nAlerts > 1 ? 's' : ''} — ver diagnóstico de ${escAttr(s.profile.nombre || s.profile.email)}">🛑 ${nAlerts}</button>`
+          : `<span style="color:var(--dim);">–</span>`}
+      </td>
       <td style="text-align:right;white-space:nowrap;">
         ${isViewing
           ? '<span class="badge st-activa">👁 viendo ahora</span>'

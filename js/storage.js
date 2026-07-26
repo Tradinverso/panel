@@ -4,6 +4,8 @@ const KEYS = {
   url: 'tradinverso_apps_script_url',
   version: 'tradinverso_schema_version',
   sidebar: 'tradinverso_sidebar_collapsed',
+  news: 'tradinverso_news_source',
+  checklist: 'tradinverso_checklist',
 };
 
 const SCHEMA_VERSION = 1;
@@ -34,6 +36,35 @@ export const storage = {
   },
   setSidebarCollapsed(v) {
     localStorage.setItem(KEYS.sidebar, v ? '1' : '0');
+  },
+  // Checklist pre-sesión: mapa {entries: {clave: [bool,...]}} donde conviven la
+  // clave DIARIA ('YYYY-MM-DD|daily', ej. "he dormido bien") y la del TRAMO
+  // ('YYYY-MM-DD|pN', que re-arma en las aperturas de Londres/NY). Al guardar
+  // se podan las claves de otros días (auto-limpieza).
+  getChecklist(key) {
+    try {
+      const raw = JSON.parse(localStorage.getItem(KEYS.checklist));
+      if (raw && raw.entries && Array.isArray(raw.entries[key])) return raw.entries[key];
+    } catch (e) { /* corrupto o formato viejo → vacío */ }
+    return [];
+  },
+  setChecklist(key, done) {
+    let entries = {};
+    try {
+      const raw = JSON.parse(localStorage.getItem(KEYS.checklist));
+      if (raw && raw.entries) entries = raw.entries;
+    } catch (e) { /* empezar de cero */ }
+    const day = key.split('|')[0];
+    for (const k of Object.keys(entries)) if (!k.startsWith(day)) delete entries[k];
+    entries[key] = done;
+    localStorage.setItem(KEYS.checklist, JSON.stringify({ entries }));
+  },
+  // Fuente del calendario económico del botón "Noticias": 'investing' | 'forexfactory'.
+  getNewsSource() {
+    return localStorage.getItem(KEYS.news) === 'forexfactory' ? 'forexfactory' : 'investing';
+  },
+  setNewsSource(v) {
+    localStorage.setItem(KEYS.news, v === 'forexfactory' ? 'forexfactory' : 'investing');
   },
   getAppsScriptUrl() {
     return localStorage.getItem(KEYS.url) || '';

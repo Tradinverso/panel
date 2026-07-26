@@ -12,6 +12,8 @@ import {
 } from '../utils/period-stats.js';
 import { MONTHS_ES, MONTHS_ES_SHORT } from '../utils/date-helpers.js';
 import { fmtPct } from '../utils/number-format-es.js';
+import { psicotradingTabs } from '../components/psicotrading-tabs.js';
+import { attachDictation } from '../utils/dictation.js';
 
 let tab = 'daily'; // 'daily' | 'weekly' | 'monthly'
 let calYear = null;
@@ -42,9 +44,10 @@ export function psicologiaView(container) {
 
 function render(container) {
   container.innerHTML = `
+    ${psicotradingTabs('reflexiones')}
     <div class="page-header">
       <div>
-        <h1>Psicología</h1>
+        <h1>Reflexiones</h1>
         <div class="sub">Reflexiones diaria · semanal · mensual con stats del período</div>
       </div>
       <div class="page-actions">
@@ -296,13 +299,14 @@ function renderReflectionModal(type, period, content, mode) {
 
   openModal({ title: meta.title, meta: meta.label, size: 'lg', body, actions });
 
-  // Si entramos en edit, montamos el autoresize y damos foco al textarea
+  // Si entramos en edit, montamos el autoresize, el dictado por voz y el foco
   if (mode === 'edit') {
     setTimeout(() => {
       const ta = document.getElementById('psicoReflexionText');
       if (!ta) return;
       autoResizeTextarea(ta);
       ta.addEventListener('input', () => autoResizeTextarea(ta));
+      attachDictation(ta);
       ta.focus();
       // Cursor al final
       const len = ta.value.length;

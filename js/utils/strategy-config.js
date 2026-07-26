@@ -28,7 +28,10 @@ export const STRATEGIES = {
     showRR: false,
     showPip: false,
     showEntry: true,
-    links: [{ key: 'url1', label: 'Link TradingView' }],
+    links: [
+      { key: 'url1', label: 'Link M1' },
+      { key: 'url2', label: 'Link M15' },
+    ],
   },
   LIQUIDEZ: {
     label: 'Liquidez',

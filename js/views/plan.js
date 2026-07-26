@@ -5,6 +5,7 @@
 
 import { state } from '../state.js';
 import { renderMarkdown } from '../utils/markdown.js';
+import { attachDictation } from '../utils/dictation.js';
 
 let editing = false;
 
@@ -54,6 +55,7 @@ function render(container) {
       </div>
     `;
     const ta = container.querySelector('#planText');
+    attachDictation(ta);
     container.querySelector('#planCancel').addEventListener('click', () => { editing = false; render(container); });
     container.querySelector('#planSave').addEventListener('click', () => {
       const content = ta.value;
@@ -91,7 +93,7 @@ function render(container) {
 
 // Convierte un enlace de Google Drive/Docs en su URL embebible (/preview).
 // Devuelve null si no se puede embeber (otro dominio, carpeta, etc.).
-function embedUrl(url) {
+export function embedUrl(url) {
   let u;
   try { u = new URL(url); } catch (_) { return null; }
   if (u.hostname === 'docs.google.com') {
@@ -108,14 +110,15 @@ function embedUrl(url) {
 }
 
 // Bloque grande del documento: vista previa embebida si es Drive/Docs,
-// o un botón grande para abrirlo en pestaña nueva.
-function docBlock(url) {
+// o un botón grande para abrirlo en pestaña nueva. `noun` personaliza el texto
+// (lo reutiliza Protocolos).
+export function docBlock(url, noun = 'plan') {
   const embed = embedUrl(url);
   if (embed) {
     return `
       <div class="card" style="padding:0;overflow:hidden;">
         <div class="card-head" style="padding:14px 16px;">
-          <div class="card-title">📄 Documento del plan</div>
+          <div class="card-title">📄 Documento (${noun})</div>
           <a class="btn" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Abrir en Drive ↗</a>
         </div>
         <iframe class="plan-embed" src="${esc(embed)}" loading="lazy" allowfullscreen></iframe>
@@ -125,7 +128,7 @@ function docBlock(url) {
   return `
     <a class="card plan-doc-cta" href="${esc(url)}" target="_blank" rel="noopener noreferrer">
       <span class="pd-icon">📄</span>
-      <span class="pd-text"><strong>Abrir documento</strong><small>Tu plan está en un enlace externo · se abre en una pestaña nueva</small></span>
+      <span class="pd-text"><strong>Abrir documento</strong><small>Está en un enlace externo · se abre en una pestaña nueva</small></span>
       <span class="pd-arrow">↗</span>
     </a>`;
 }

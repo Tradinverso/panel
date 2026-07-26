@@ -80,7 +80,7 @@
 .kpi-icon.red    { background: var(--red-bg); }
 .kpi-icon.orange { background: var(--orange-bg); }
 .kpi-icon.blue   { background: var(--cyan-bg); }
-.kpi-icon.purple { background: var(--zonas-bg); }
+.kpi-icon.purple { background: var(--liquidez-bg); }
 /* Deja sitio al icono para que no pise el valor */
 .kpi-card .kpi-label { padding-right: 42px; }
 .kpi-card::before { height: 3px; opacity: .9; }
@@ -88,8 +88,9 @@
 .kpi-card.red::before    { background: linear-gradient(90deg, var(--red), transparent); }
 .kpi-card.orange::before { background: linear-gradient(90deg, var(--orange), transparent); }
 .kpi-card.blue::before   { background: linear-gradient(90deg, var(--accent), var(--cyan)); }
-.kpi-card.purple::before { background: linear-gradient(90deg, var(--zonas), transparent); }
+.kpi-card.purple::before { background: linear-gradient(90deg, var(--liquidez), transparent); }
 .kpi-value.blue { color: var(--cyan); }
+.kpi-value.purple { color: var(--liquidez); }
 
 /* ── Botones ── */
 .btn { border-radius: var(--radius-sm); transition: transform var(--dur) var(--ease), background var(--dur), border-color var(--dur), box-shadow var(--dur), filter var(--dur); }
@@ -104,22 +105,36 @@
 /* ── Selects / inputs: foco con acento ── */
 .select:focus, .form-input:focus, .form-textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-bg); }
 
-/* ── Pills de tema sidebar (theme-toggle) ── */
-.theme-toggle { border-radius: var(--radius-sm); }
-
-/* ── Noticias: dos accesos compactos al calendario económico ── */
-.news-lbl { font-family: var(--mono); font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); padding: 2px 10px 6px; }
-.news-links { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-.news-link {
-  flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 8px 6px; border-radius: var(--radius-sm); text-decoration: none;
-  font-size: 11.5px; font-weight: 500; color: var(--muted); white-space: nowrap;
-  background: var(--glass-2); border: 1px solid var(--border);
-  transition: color var(--dur), border-color var(--dur), background var(--dur), transform var(--dur) var(--ease);
+/* ── Dictado por voz (botón 🎤 flotante en textareas) ── */
+/* Arriba-derecha: abajo pisaría el grip de resize y la cola del texto largo. */
+.dictate-host { position: relative; }
+.dictate-btn {
+  position: absolute; right: 10px; top: 10px; z-index: 2;
+  width: 34px; height: 34px; border-radius: 50%; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card2); border: 1px solid var(--border-strong);
+  cursor: pointer; font-size: 15px; line-height: 1;
+  transition: border-color var(--dur), box-shadow var(--dur), background var(--dur);
 }
-.news-link svg { width: 13px; height: 13px; flex: none; }
-.news-link span { overflow: hidden; text-overflow: ellipsis; }
-.news-link:hover { color: var(--text); border-color: var(--glass-border); background: var(--cyan-bg); transform: translateY(-1px); }
+.dictate-btn:hover { border-color: var(--cyan); box-shadow: var(--glow-accent); }
+.dictate-btn.rec { background: var(--red-bg); border-color: var(--red); animation: dict-pulse 1.2s ease-in-out infinite; }
+@keyframes dict-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 92, 122, 0.35); }
+  50%      { box-shadow: 0 0 0 8px rgba(255, 92, 122, 0); }
+}
+
+/* ── Control segmentado (☾ Oscuro / ☀ Claro) ── */
+.segmented { display: inline-flex; gap: 4px; padding: 4px; border-radius: var(--radius-sm); background: var(--glass-2); border: 1px solid var(--border); }
+.seg-btn {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  padding: 7px 14px; border-radius: calc(var(--radius-sm) - 3px); border: 1px solid transparent;
+  font-size: 12.5px; font-weight: 600; color: var(--muted); background: transparent;
+  transition: color var(--dur), background var(--dur), border-color var(--dur);
+}
+.seg-btn:hover { color: var(--text); }
+.seg-btn.active { color: var(--text-strong); background: var(--cyan-bg); border-color: var(--cyan); }
+.seg-ic { display: inline-flex; }
+.seg-ic svg { width: 15px; height: 15px; }
 
 /* ── CTA "Formación": tarjeta con acento cian/azul de marca ── */
 .formacion-cta {
@@ -190,6 +205,27 @@
 .card:has(.chart-wrap), .tile:has(.chart-wrap), .kpi-card:has(.chart-wrap) {
   backdrop-filter: none; -webkit-backdrop-filter: none;
 }
+
+/* ── Meditaciones: tarjetas de audio ── */
+.medita-list { display: flex; flex-direction: column; gap: 14px; }
+.medita-card {
+  background: var(--glass); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--glow-card); padding: 18px 20px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.medita-head { display: flex; align-items: flex-start; gap: 14px; }
+.medita-icon {
+  width: 46px; height: 46px; flex: none; border-radius: 13px;
+  display: flex; align-items: center; justify-content: center; font-size: 22px;
+  background: var(--cyan-bg); border: 1px solid var(--glass-border);
+}
+.medita-meta { flex: 1; min-width: 0; }
+.medita-title { font-family: var(--font-display); font-size: 16px; font-weight: 600; letter-spacing: -.2px; color: var(--text-strong); }
+.medita-author { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--cyan); margin-top: 3px; }
+.medita-desc { font-size: 12.5px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+.medita-audio { width: 100%; height: 40px; }
+/* En navegadores WebKit el reproductor nativo trae fondo claro: lo suavizamos */
+.medita-audio::-webkit-media-controls-panel { background: var(--card2); }
 
 /* ── Markdown renderizado (Plan de trading) ── */
 /* ── Plan de trading: vista previa embebida + CTA de documento ── */
