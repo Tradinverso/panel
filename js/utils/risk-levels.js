@@ -3,16 +3,16 @@
 // adaptada a la app: el "balance" NO se introduce a mano — se deriva del equity
 // de la cuenta (initialBalance + trades − retiros) vía accountStats().
 //
-// Modelo:
+// Modelo (operativa de la academia — por RACHA de resultados, no por drawdown):
 //   - Cada cuenta tiene un riesgo_base (ej. 0.005 = 0,5%) y un multiplicador
 //     (ej. 1.3). Con eso se generan 7 niveles de riesgo escalado:
 //       pct(i) = riesgo_base × multiplicador^(i-1)
-//   - El NIVEL ACTIVO se calcula desde el drawdown de la cuenta:
-//       · cuenta en positivo  → Nivel 1 siempre
-//       · cuenta en negativo  → sube de nivel cuando la pérdida acumulada
-//         supera los umbrales acumulados (suma de los pct de niveles previos).
-//   - Es una gestión de recuperación: cuanto más abajo, más riesgo para
-//     recuperar antes.
+//   - El NIVEL ACTIVO sube con la racha de SL consecutivos:
+//       · se empieza en Nivel 1
+//       · cada SL sube un nivel (más riesgo para recuperar antes)
+//       · un TP resetea a Nivel 1
+//       · un BE es neutro (mantiene el nivel)
+//     Tope en el último nivel (N7).
 
 export const NUM_NIVELES = 7;
 
@@ -44,23 +44,14 @@ export function calcNiveles(riesgoBase, multiplicador, capital) {
   return niveles;
 }
 
-// Nivel activo a partir del equity actual y el capital nominal.
-//   - equity ≥ capital  → Nivel 1 (la cuenta está en positivo).
-//   - equity < capital  → sube de nivel a medida que la pérdida acumulada
-//     (en % del capital) supera la suma acumulada de los pct de los niveles.
-// `niveles` es la salida de calcNiveles().
-export function calcNivelActivo(equityUsd, capital, niveles) {
-  const cap = Number(capital) || 0;
-  if (cap <= 0 || !Array.isArray(niveles) || !niveles.length) return 1;
-  const pctPerdida = (Number(equityUsd) - cap) / cap;
-  if (pctPerdida >= 0) return 1;
-
-  let acumulado = 0;
-  for (let i = 0; i < niveles.length; i++) {
-    acumulado += niveles[i].pct;
-    if (Math.abs(pctPerdida) <= acumulado) return i + 1;
-  }
-  return niveles.length; // pérdida superior a todos los umbrales → nivel máximo
+// Nivel activo a partir de la RACHA de SL consecutivos de la cuenta.
+//   nivel = racha + 1  (0 SL → N1 · 1 SL → N2 · … · tope en numNiveles).
+// La racha se obtiene con currentSlStreak() sobre los trades de la fase actual
+// de la cuenta (SL suma, TP corta, BE se salta). Un TP → racha 0 → N1.
+export function calcNivelActivo(slStreak, numNiveles = NUM_NIVELES) {
+  const s = Math.max(0, Math.floor(Number(slStreak) || 0));
+  const max = Number(numNiveles) || NUM_NIVELES;
+  return Math.min(s + 1, max);
 }
 
 // Resuelve la configuración de riesgo efectiva de una cuenta.

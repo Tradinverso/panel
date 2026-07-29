@@ -4,7 +4,8 @@
 // Los trades se siguen registrando en "Nuevo trade".
 //
 // Aporta sobre la vista "Cuentas":
-//   · Nivel de riesgo activo de cada cuenta según su drawdown.
+//   · Nivel de riesgo activo de cada cuenta según su racha de SL (SL sube,
+//     TP resetea a N1). El drawdown se muestra aparte, para las alertas.
 //   · Riesgo % e importe sugerido para el PRÓXIMO trade.
 //   · Secuencia de rotación (SL → siguiente cuenta, TP → se queda).
 //   · Perfiles de riesgo reutilizables.
@@ -13,7 +14,8 @@ import { state } from '../state.js';
 import { openModal } from '../components/modal.js';
 import { renderPills } from '../components/pills.js';
 import { gestionTabs } from '../components/gestion-tabs.js';
-import { accountStats, fmtUsd } from '../utils/account-stats.js';
+import { accountStats, tradesForAccountPhase, fmtUsd } from '../utils/account-stats.js';
+import { currentSlStreak } from '../utils/calculations.js';
 import {
   calcNiveles, calcNivelActivo, resolveRiesgoConfig,
   PERFILES_BUILTIN,
@@ -76,14 +78,17 @@ function activaId() {
 }
 
 // Calcula todo lo derivado de una cuenta (equity, nivel, próximo riesgo).
+// El NIVEL va por la racha de SL consecutivos de la fase actual (SL sube,
+// TP resetea a N1); el equity/DD se sigue mostrando aparte (para las alertas).
 function riskOf(cuenta) {
   const stats = accountStats(cuenta, state.trades);
   const { riesgoBase, multiplicador, perfil } = resolveRiesgoConfig(cuenta, allPerfiles());
   const niveles = calcNiveles(riesgoBase, multiplicador, cuenta.capital);
-  const nivelActual = calcNivelActivo(stats.equityUsd, cuenta.capital, niveles);
+  const slStreak = currentSlStreak(tradesForAccountPhase(cuenta, state.trades).map(x => x.trade));
+  const nivelActual = calcNivelActivo(slStreak, niveles.length);
   const proxNivel = niveles[nivelActual - 1] || niveles[0];
   const pctCuenta = cuenta.capital > 0 ? (stats.equityUsd - cuenta.capital) / cuenta.capital : 0;
-  return { stats, equity: stats.equityUsd, riesgoBase, multiplicador, perfil, niveles, nivelActual, proxNivel, pctCuenta };
+  return { stats, equity: stats.equityUsd, riesgoBase, multiplicador, perfil, niveles, nivelActual, slStreak, proxNivel, pctCuenta };
 }
 
 function statusOf(pct) {
