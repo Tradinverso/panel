@@ -4,8 +4,7 @@
 // Los trades se siguen registrando en "Nuevo trade".
 //
 // Aporta sobre la vista "Cuentas":
-//   · Nivel de riesgo activo de cada cuenta según su racha de SL (SL sube,
-//     TP resetea a N1). El drawdown se muestra aparte, para las alertas.
+//   · Nivel de riesgo activo de cada cuenta según su drawdown (replica el Excel).
 //   · Riesgo % e importe sugerido para el PRÓXIMO trade.
 //   · Secuencia de rotación (SL → siguiente cuenta, TP → se queda).
 //   · Perfiles de riesgo reutilizables.
@@ -14,8 +13,7 @@ import { state } from '../state.js';
 import { openModal } from '../components/modal.js';
 import { renderPills } from '../components/pills.js';
 import { gestionTabs } from '../components/gestion-tabs.js';
-import { accountStats, tradesForAccountPhase, fmtUsd } from '../utils/account-stats.js';
-import { currentSlStreak } from '../utils/calculations.js';
+import { accountStats, fmtUsd } from '../utils/account-stats.js';
 import {
   calcNiveles, calcNivelActivo, resolveRiesgoConfig,
   PERFILES_BUILTIN,
@@ -78,17 +76,15 @@ function activaId() {
 }
 
 // Calcula todo lo derivado de una cuenta (equity, nivel, próximo riesgo).
-// El NIVEL va por la racha de SL consecutivos de la fase actual (SL sube,
-// TP resetea a N1); el equity/DD se sigue mostrando aparte (para las alertas).
+// El NIVEL va por el drawdown de la cuenta (equity vs capital), como el Excel.
 function riskOf(cuenta) {
   const stats = accountStats(cuenta, state.trades);
   const { riesgoBase, multiplicador, perfil } = resolveRiesgoConfig(cuenta, allPerfiles());
   const niveles = calcNiveles(riesgoBase, multiplicador, cuenta.capital);
-  const slStreak = currentSlStreak(tradesForAccountPhase(cuenta, state.trades).map(x => x.trade));
-  const nivelActual = calcNivelActivo(slStreak, niveles.length);
+  const nivelActual = calcNivelActivo(stats.equityUsd, cuenta.capital, niveles);
   const proxNivel = niveles[nivelActual - 1] || niveles[0];
   const pctCuenta = cuenta.capital > 0 ? (stats.equityUsd - cuenta.capital) / cuenta.capital : 0;
-  return { stats, equity: stats.equityUsd, riesgoBase, multiplicador, perfil, niveles, nivelActual, slStreak, proxNivel, pctCuenta };
+  return { stats, equity: stats.equityUsd, riesgoBase, multiplicador, perfil, niveles, nivelActual, proxNivel, pctCuenta };
 }
 
 function statusOf(pct) {
@@ -394,16 +390,25 @@ function renderGestionarTab() {
           </div>
 
           <div class="rg-flabel" style="margin-top:14px;">Tabla de niveles</div>
+          <div class="card-sub" style="margin:2px 0 8px;">El nivel activo lo marca el <b>drawdown actual</b> de la cuenta. Recuperar hacia positivo baja de nivel; en positivo, N1.</div>
           <table class="data-table rg-niv-table">
-            <thead><tr><th>Nivel</th><th>% Riesgo</th><th>Importe</th><th>Si SL</th><th>Si TP</th></tr></thead>
-            <tbody>${r.niveles.map(n => `
+            <thead><tr><th>Nivel</th><th>% Riesgo</th><th>Importe</th><th>Drawdown de la cuenta</th></tr></thead>
+            <tbody>${r.niveles.map((n, i) => {
+              const desde = r.niveles.slice(0, i).reduce((s, x) => s + x.pct, 0);
+              const hasta = desde + n.pct;
+              const rango = i === 0
+                ? `0% → −${(hasta * 100).toFixed(2)}%`
+                : i === r.niveles.length - 1
+                  ? `−${(desde * 100).toFixed(2)}% o peor`
+                  : `−${(desde * 100).toFixed(2)}% → −${(hasta * 100).toFixed(2)}%`;
+              return `
               <tr class="${r.nivelActual === n.nivel ? 'arow' : ''}">
                 <td><span class="nlvl n${n.nivel}">N${n.nivel}</span></td>
                 <td class="mono" style="color:var(--accent);font-weight:700;">${(n.pct * 100).toFixed(3)}%</td>
                 <td class="mono">${fmtUsd(n.importe)}</td>
-                <td style="color:var(--red);">↑ N${Math.min(n.nivel + 1, 7)}</td>
-                <td style="color:var(--green);">↓ N1</td>
-              </tr>`).join('')}
+                <td class="mono" style="color:var(--muted);">${rango}</td>
+              </tr>`;
+            }).join('')}
             </tbody>
           </table>
         </div>
