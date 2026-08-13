@@ -9,9 +9,11 @@ import { icon } from './icons.js';
 import { closeModal } from './modal.js';
 import { STRATEGY_ROUTES } from './strategy-tabs.js';
 import { PSICO_ROUTES } from './psicotrading-tabs.js';
+import { BACKTEST_ROUTES } from './backtest-tabs.js';
 
 const STRATEGY_ROUTES_LIST = Object.values(STRATEGY_ROUTES);
 const PSICO_ROUTES_LIST = Object.values(PSICO_ROUTES);
+const BACKTEST_ROUTES_LIST = Object.values(BACKTEST_ROUTES);
 
 // hideInViewAs: oculto cuando admin está viendo/editando a un alumno
 // (Ajustes muestra info personal del admin, así que no tiene sentido).
@@ -30,6 +32,8 @@ const NAV_BASE = [
   { section: 'Análisis' },
   // dangerAlerts: badge rojo con el nº de alertas críticas del diagnóstico.
   { path: '#/diagnostico', label: 'Diagnóstico', icon: 'diagnostico', class: '', dangerAlerts: true },
+  // Backtesting agrupa las 3 estrategias como pestañas (histórico separado del journal).
+  { path: '#/bt-zonas', label: 'Backtesting', icon: 'backtest', class: '', match: BACKTEST_ROUTES_LIST },
   // Psicotrading agrupa Reflexiones + Meditaciones + Protocolos (pestañas dentro).
   { path: '#/psicologia', label: 'Psicotrading', icon: 'reflexiones', class: '', match: PSICO_ROUTES_LIST },
   { path: '#/plan',        label: 'Plan de trading', icon: 'plan', class: '' },

@@ -10,7 +10,18 @@ const STRAT_LABEL = { ZONAS: 'Zonas', LIQUIDEZ: 'Liquidez', NASDAQ: 'Nasdaq' };
 const STRAT_CLS = { ZONAS: 'zonas', LIQUIDEZ: 'liquidez', NASDAQ: 'nasdaq' };
 
 export function renderTradeTable(container, trades, opts = {}) {
-  const { canDelete = false, emptyMsg = 'No hay trades.', showFilters = true } = opts;
+  // variant 'backtest': oculta columnas de Sens./Plan/Cuentas/% real y el filtro
+  // de Plan (que no se auto-oculta). onView/onDelete permiten redirigir las
+  // acciones a otro almacén — imprescindible para backtests: el flujo por
+  // defecto (ver→editar→state.update) escribiría en el journal REAL.
+  const {
+    canDelete = false, emptyMsg = 'No hay trades.', showFilters = true,
+    variant = 'journal',
+    showPlanFilter = variant !== 'backtest',
+    onView = openViewTradeModal,
+    onDelete = id => state.remove(id),
+  } = opts;
+  const isBacktest = variant === 'backtest';
 
   if (!trades.length) {
     container.innerHTML = `<div class="empty"><div>${emptyMsg}</div></div>`;
@@ -129,12 +140,12 @@ export function renderTradeTable(container, trades, opts = {}) {
           }),
           { v: '_none', l: '— Sin asignar —' },
         ]) : ''}
-        ${sel('plan', filters.plan, [
+        ${showPlanFilter ? sel('plan', filters.plan, [
           { v: 'all', l: 'Plan: todos' },
           { v: 'yes', l: '✓ Dentro del plan' },
           { v: 'no',  l: '✗ Fuera del plan' },
           { v: '_none', l: '— Sin marcar —' },
-        ])}
+        ]) : ''}
         ${hasActiveFilters ? '<button class="btn ghost" data-clear-filters>× Limpiar filtros</button>' : ''}
         <span class="filter-count">${filteredCount} de ${trades.length} trades</span>
       </div>
@@ -150,9 +161,9 @@ export function renderTradeTable(container, trades, opts = {}) {
   function renderTable(filtered) {
     // Más reciente arriba: ordenamos cronológicamente y luego invertimos.
     const sorted = sortChrono(filtered).reverse();
-    const colspan = canDelete ? 16 : 15;
+    const colspan = (isBacktest ? 11 : 15) + (canDelete ? 1 : 0);
     const bodyContent = sorted.length
-      ? sorted.map(t => row(t, canDelete)).join('')
+      ? sorted.map(t => row(t, canDelete, isBacktest)).join('')
       : `<tr><td colspan="${colspan}" class="empty" style="padding:30px;">Ningún trade coincide con los filtros</td></tr>`;
     return `
       <div class="trade-table-wrap">
@@ -167,13 +178,14 @@ export function renderTradeTable(container, trades, opts = {}) {
               <th>Setup</th>
               <th>Zona</th>
               <th>Entrada</th>
+              ${isBacktest ? '' : `
               <th>Sens. al ejecutar</th>
               <th>Plan</th>
-              <th>Cuentas</th>
+              <th>Cuentas</th>`}
               <th>Resultado</th>
               <th>Dur.</th>
-              <th>% P&L sistema</th>
-              <th>% P&L real</th>
+              <th>% P&L${isBacktest ? '' : ' sistema'}</th>
+              ${isBacktest ? '' : '<th>% P&L real</th>'}
               ${canDelete ? '<th></th>' : ''}
             </tr>
           </thead>
@@ -207,7 +219,7 @@ export function renderTradeTable(container, trades, opts = {}) {
         const id = b.dataset.id;
         const t = filtered.find(x => x.id === id);
         if (!t) return;
-        openViewTradeModal(t);
+        onView(t);
       });
     });
 
@@ -220,7 +232,7 @@ export function renderTradeTable(container, trades, opts = {}) {
             body: '¿Seguro que quieres eliminar este trade? Esta acción no se puede deshacer.',
             actions: [
               { label: 'Cancelar', onClick: close => close() },
-              { label: 'Eliminar', variant: 'danger', onClick: close => { state.remove(id); close(); } },
+              { label: 'Eliminar', variant: 'danger', onClick: close => { onDelete(id); close(); } },
             ],
           });
         });
@@ -231,7 +243,7 @@ export function renderTradeTable(container, trades, opts = {}) {
   paint();
 }
 
-function row(t, canDelete) {
+function row(t, canDelete, isBacktest = false) {
   const sens = t.sensacion ? `<span class="sens-pill" data-s="${t.sensacion}">${t.sensacion}</span>` : '<span style="color:var(--dim)">–</span>';
 
   // Cuentas: solo la primera + "+N" si hay más. El detalle completo se ve en el modal del ojo.
@@ -272,20 +284,21 @@ function row(t, canDelete) {
   return `
     <tr>
       <td>${viewBtn}</td>
-      <td>${formatDateShort(t.date)}</td>
+      <td>${isBacktest ? formatDateShort(t.date) + '/' + String(t.date || '').substring(2, 4) : formatDateShort(t.date)}</td>
       <td>${t.open_str || '–'}</td>
       <td><span class="strat-pill ${STRAT_CLS[t.sheet]}">${STRAT_LABEL[t.sheet] || t.sheet}</span></td>
       <td>${t.pair || '–'}</td>
       <td>${t.setup || '–'}</td>
       <td>${(Array.isArray(t.zone) ? t.zone.join(' · ') : t.zone) || '–'}</td>
       <td>${(Array.isArray(t.entry) ? t.entry.join(' · ') : t.entry) || '–'}</td>
+      ${isBacktest ? '' : `
       <td>${sens}</td>
       <td class="td-plan">${t.plan_followed === true ? '<span class="plan-icon-yes" title="Dentro del plan">✓</span>' : t.plan_followed === false ? '<span class="plan-icon-no" title="Fuera del plan">✗</span>' : '<span class="plan-icon-na" title="No registrado">–</span>'}</td>
-      <td>${cuentas}</td>
+      <td>${cuentas}</td>`}
       <td><span class="res-pill res-${t.result.toLowerCase()}">${t.result}</span></td>
       <td>${dur}</td>
       <td>${pct}</td>
-      <td>${pctReal}</td>
+      ${isBacktest ? '' : `<td>${pctReal}</td>`}
       ${delTd}
     </tr>
   `;

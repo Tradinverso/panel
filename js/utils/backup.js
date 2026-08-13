@@ -24,13 +24,14 @@ export async function generateBackup(onProgress = () => {}) {
   if (includeAdmin) {
     i++;
     onProgress(i, total);
-    const [trades, cuentas, reflections, perfiles, config, tradingPlan] = await Promise.all([
+    const [trades, cuentas, reflections, perfiles, config, tradingPlan, backtests] = await Promise.all([
       sync.loadTrades(adminUid).catch(() => []),
       sync.loadCuentas(adminUid).catch(() => []),
       sync.loadReflections(adminUid).catch(() => []),
       sync.loadPerfiles(adminUid).catch(() => []),
       sync.loadConfig(adminUid).catch(() => ({})),
       sync.loadTradingPlan(adminUid).catch(() => ({})),
+      sync.loadBacktests(adminUid).catch(() => []),
     ]);
     result.push({
       uid: adminUid,
@@ -41,18 +42,20 @@ export async function generateBackup(onProgress = () => {}) {
       perfiles,
       config,
       tradingPlan,
+      backtests,
     });
   }
 
   for (const s of students) {
     i++;
     onProgress(i, total);
-    const [cuentas, reflections, perfiles, config, tradingPlan] = await Promise.all([
+    const [cuentas, reflections, perfiles, config, tradingPlan, backtests] = await Promise.all([
       sync.loadCuentas(s.uid).catch(() => []),
       sync.loadReflections(s.uid).catch(() => []),
       sync.loadPerfiles(s.uid).catch(() => []),
       sync.loadConfig(s.uid).catch(() => ({})),
       sync.loadTradingPlan(s.uid).catch(() => ({})),
+      sync.loadBacktests(s.uid).catch(() => []),
     ]);
     result.push({
       uid: s.uid,
@@ -63,6 +66,7 @@ export async function generateBackup(onProgress = () => {}) {
       perfiles,
       config,
       tradingPlan,
+      backtests,
     });
   }
   return {
@@ -136,16 +140,17 @@ export function parseBackupFile(file) {
 
 // Devuelve un resumen agregado del backup (sin tocar Firestore).
 export function summarizeBackup(data) {
-  let trades = 0, cuentas = 0, reflections = 0, perfiles = 0;
+  let trades = 0, cuentas = 0, reflections = 0, perfiles = 0, backtests = 0;
   for (const s of (data.students || [])) {
     trades += (s.trades?.length || 0);
     cuentas += (s.cuentas?.length || 0);
     reflections += (s.reflections?.length || 0);
     perfiles += (s.perfiles?.length || 0);
+    backtests += (s.backtests?.length || 0);
   }
   return {
     students: data.students?.length || 0,
-    trades, cuentas, reflections, perfiles,
+    trades, cuentas, reflections, perfiles, backtests,
     exported_at: data.exported_at,
     exported_by: data.exported_by,
   };
@@ -175,6 +180,7 @@ export async function restoreBackup(data, mode = 'merge', onProgress = () => {})
         sync.wipeAllCuentas(s.uid),
         sync.wipeAllReflections(s.uid),
         sync.wipeAllPerfiles(s.uid),
+        sync.wipeAllBacktests(s.uid).catch(() => 0),
       ]);
     }
 
@@ -189,6 +195,15 @@ export async function restoreBackup(data, mode = 'merge', onProgress = () => {})
       if (valid.length) {
         await sync.saveTradesBatch(s.uid, valid);
         stats.trades += valid.length;
+      }
+    }
+
+    // Backtests en batch (colección aparte — nunca se mezclan con trades)
+    if (Array.isArray(s.backtests) && s.backtests.length) {
+      const valid = s.backtests.filter(t => t && t.id);
+      if (valid.length) {
+        try { await sync.saveBacktestsBatch(s.uid, valid); stats.backtests = (stats.backtests || 0) + valid.length; }
+        catch (e) { console.warn('backtests fallo', s.uid, e.message); }
       }
     }
 

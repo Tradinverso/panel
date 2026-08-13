@@ -310,6 +310,7 @@ export function settingsView(container) {
       exportedAt: new Date().toISOString(),
       exportedBy: profile?.email || auth.currentUser?.email || 'unknown',
       trades: state.trades,
+      backtests: state.backtests,
       cuentas: state.cuentas,
       reflections: state.reflections,
       perfiles: state.perfiles,

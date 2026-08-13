@@ -120,6 +120,52 @@ export const sync = {
     return ids.length;
   },
 
+  // ── Backtests ──────────────────────────────────────────────
+  // Colección SEPARADA de `trades` a propósito: los backtests no deben
+  // contaminar dashboard, diagnóstico, calendario, rotación ni stats grupales
+  // (listStudents solo lee `trades`, así que la separación es a prueba de balas).
+  async loadBacktests(uid) {
+    const snap = await getDocs(collection(db, 'users', uid, 'backtests'));
+    return snap.docs.map(d => d.data());
+  },
+
+  async saveBacktest(uid, bt) {
+    if (!bt.id) throw new Error('Backtest necesita id');
+    await setDoc(doc(db, 'users', uid, 'backtests', bt.id), bt);
+  },
+
+  async deleteBacktest(uid, btId) {
+    await deleteDoc(doc(db, 'users', uid, 'backtests', btId));
+  },
+
+  async saveBacktestsBatch(uid, items) {
+    for (let i = 0; i < items.length; i += FIRESTORE_BATCH_LIMIT) {
+      const batch = writeBatch(db);
+      for (const b of items.slice(i, i + FIRESTORE_BATCH_LIMIT)) {
+        if (!b.id) continue;
+        batch.set(doc(db, 'users', uid, 'backtests', b.id), b);
+      }
+      await batch.commit();
+    }
+  },
+
+  async deleteBacktestsBatch(uid, ids) {
+    for (let i = 0; i < ids.length; i += FIRESTORE_BATCH_LIMIT) {
+      const batch = writeBatch(db);
+      for (const id of ids.slice(i, i + FIRESTORE_BATCH_LIMIT)) {
+        batch.delete(doc(db, 'users', uid, 'backtests', id));
+      }
+      await batch.commit();
+    }
+  },
+
+  async wipeAllBacktests(uid) {
+    const all = await this.loadBacktests(uid);
+    const ids = all.map(b => b.id);
+    if (ids.length) await this.deleteBacktestsBatch(uid, ids);
+    return ids.length;
+  },
+
   // ── Cuentas (scaffold para gestión de cuentas futura) ─────
   async loadCuentas(uid) {
     const snap = await getDocs(collection(db, 'users', uid, 'cuentas'));

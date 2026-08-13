@@ -133,6 +133,41 @@ function sanitizeTrade(t) {
   };
 }
 
+// Sanitizado de BACKTESTS — deliberadamente separado de sanitizeTrade:
+// un backtest NO tiene sensación, plan, riesgo real ni cuentas, y reutilizar
+// sanitizeTrade los reinyectaría con defaults (risk_real_pct:1…) que algún
+// código futuro leería como si significaran algo. kind:'backtest' = tripwire.
+function sanitizeBacktest(t) {
+  if (!t) return null;
+  const pnl_pct = typeof t.pnl_pct === 'number' ? t.pnl_pct : (parseFloat(t.pnl_pct) || 0);
+  const open_str = t.open_str || '';
+  const close_str = t.close_str || '';
+  return {
+    id: t.id || uuid(),
+    kind: 'backtest',
+    sheet: t.sheet,
+    date: t.date,
+    result: t.result || deriveResult(pnl_pct),
+    pnl_pct,
+    open_hour: t.open_hour != null ? t.open_hour : parseTime(open_str),
+    open_str,
+    close_str,
+    dur: t.dur != null ? t.dur : durationMinutes(open_str, close_str),
+    setup: t.setup || '',
+    pair: t.pair || '',
+    zone: toStrArr(t.zone).map(canonicalZone),
+    entry: toStrArr(t.entry).map(canonicalEntry),
+    rr: t.rr != null ? t.rr : null,
+    url1: t.url1 || '',
+    url2: t.url2 || '',
+    // Notas técnicas del backtest (no es la "reflexión" psicológica del journal,
+    // pero se guarda en el mismo campo para reutilizar tabla/modales).
+    reflexion: t.reflexion || t.notas || '',
+    entry_tz: t.entry_tz || null,
+    createdAt: t.createdAt || Date.now(),
+  };
+}
+
 const VALID_FASE = new Set(['challenge_1', 'challenge_2', 'fondeada']);
 const VALID_STATUS = new Set(['activa', 'pausada', 'pasada', 'perdida']);
 const VALID_REFL_TYPE = new Set(['daily', 'weekly', 'monthly']);
@@ -345,6 +380,7 @@ function notifySaveError() {
 
 export const state = {
   trades: [],
+  backtests: [],      // trades de BACKTESTING (users/{uid}/backtests) — NUNCA se mezclan con trades
   cuentas: [],
   reflections: [],
   perfiles: [],       // perfiles de riesgo CUSTOM del usuario (los built-in van en código)
@@ -360,6 +396,7 @@ export const state = {
     const uid = auth.uid();
     if (!uid) {
       this.trades = [];
+      this.backtests = [];
       this.cuentas = [];
       this.reflections = [];
       this.perfiles = [];
@@ -371,7 +408,7 @@ export const state = {
     this.loading = true;
     this.emit();
     try {
-      const [trades, cuentas, reflections, perfiles, config, tradingPlan] = await Promise.all([
+      const [trades, cuentas, reflections, perfiles, config, tradingPlan, backtests] = await Promise.all([
         sync.loadTrades(uid),
         sync.loadCuentas(uid),
         sync.loadReflections(uid),
@@ -380,11 +417,17 @@ export const state = {
         sync.loadPerfiles(uid).catch(() => []),
         sync.loadConfig(uid).catch(() => ({})),
         sync.loadTradingPlan(uid).catch(() => ({})),
+        sync.loadBacktests(uid).catch(() => []),
       ]);
       // Datos propios: normalmente no-op (los escribiste en tu mismo huso). Solo
       // convierte si algún trade se metió desde otro país (entry_tz distinto).
       this.trades = convertTradesTz(
         trades.map(sanitizeTrade).filter(Boolean),
+        auth.timezone(),
+        auth.timezone(),
+      );
+      this.backtests = convertTradesTz(
+        backtests.map(sanitizeBacktest).filter(Boolean),
         auth.timezone(),
         auth.timezone(),
       );
@@ -415,18 +458,24 @@ export const state = {
     this.loading = true;
     this.emit();
     try {
-      const [trades, cuentas, reflections, perfiles, config, tradingPlan] = await Promise.all([
+      const [trades, cuentas, reflections, perfiles, config, tradingPlan, backtests] = await Promise.all([
         sync.loadStudentTrades(studentUid),
         sync.loadCuentas(studentUid),
         sync.loadReflections(studentUid),
         sync.loadPerfiles(studentUid).catch(() => []),
         sync.loadConfig(studentUid).catch(() => ({})),
         sync.loadTradingPlan(studentUid).catch(() => ({})),
+        sync.loadBacktests(studentUid).catch(() => []),
       ]);
       // Las horas del alumno se convierten a la hora del ADMIN (auth.timezone()
       // sobrevive a viewAs). Solo para mostrar: lo guardado no se toca.
       this.trades = convertTradesTz(
         trades.map(sanitizeTrade).filter(Boolean),
+        (profile && profile.timezone) || DEFAULT_TZ,
+        auth.timezone(),
+      );
+      this.backtests = convertTradesTz(
+        backtests.map(sanitizeBacktest).filter(Boolean),
         (profile && profile.timezone) || DEFAULT_TZ,
         auth.timezone(),
       );
@@ -464,6 +513,58 @@ export const state = {
     this.emit();
     fireAndForget(sync.saveTrade(targetUid(), t), 'saveTrade');
     return t;
+  },
+
+  // ── Backtests (colección separada — jamás tocan this.trades) ──
+  addBacktest(bt) {
+    const b = sanitizeBacktest(bt);
+    if (!b) return null;
+    this.backtests.push(b);
+    this.emit();
+    fireAndForget(sync.saveBacktest(targetUid(), b), 'saveBacktest');
+    return b;
+  },
+
+  updateBacktest(id, patch) {
+    const i = this.backtests.findIndex(b => b.id === id);
+    if (i < 0) return null;
+    const b = sanitizeBacktest({ ...this.backtests[i], ...patch, id });
+    this.backtests[i] = b;
+    this.emit();
+    fireAndForget(sync.saveBacktest(targetUid(), b), 'saveBacktest');
+    return b;
+  },
+
+  removeBacktest(id) {
+    const i = this.backtests.findIndex(b => b.id === id);
+    if (i < 0) return false;
+    this.backtests.splice(i, 1);
+    this.emit();
+    fireAndForget(sync.deleteBacktest(targetUid(), id), 'deleteBacktest');
+    return true;
+  },
+
+  // Importación masiva de backtests (Sheet/CSV/rejilla) con dedupe: reimportar
+  // el mismo Sheet no duplica. Misma clave que el journal (sheet|date|open|par|setup).
+  addBacktestsMany(list) {
+    const key = b => `${b.sheet}|${b.date}|${b.open_str}|${b.pair}|${b.setup}`;
+    const existing = new Set(this.backtests.map(key));
+    const added = [];
+    let dup = 0;
+    for (const raw of (list || [])) {
+      const b = sanitizeBacktest(raw);
+      if (!b || !b.sheet || !b.date) continue;
+      const k = key(b);
+      if (existing.has(k)) { dup++; continue; }
+      existing.add(k);
+      this.backtests.push(b);
+      added.push(b);
+    }
+    if (added.length) {
+      this.emit();
+      fireAndForget(sync.saveBacktestsBatch(targetUid(), added), 'saveBacktestsBatch');
+    }
+    return { added: added.length, dup };
   },
 
   addMany(trades) {

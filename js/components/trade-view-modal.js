@@ -12,7 +12,12 @@ import { accountUsd, fmtUsd } from '../utils/account-stats.js';
 
 const STRAT_LABEL = { ZONAS: 'Zonas', LIQUIDEZ: 'Liquidez', NASDAQ: 'Nasdaq' };
 
-export function openViewTradeModal(trade) {
+// opts.variant 'backtest': oculta las filas del journal (riesgo real, % real,
+// sensación, plan, cuentas) y el botón Editar delega en opts.onEdit — NUNCA en
+// el editor del journal, que guardaría el backtest como trade real.
+export function openViewTradeModal(trade, opts = {}) {
+  const { variant = 'journal', onEdit = null } = opts;
+  const isBacktest = variant === 'backtest';
   const meta = STRATEGIES[trade.sheet] || {};
   const realPnl = tradeRealPnl(trade);
   const resColor = trade.result === 'TP' ? 'var(--green)' : trade.result === 'SL' ? 'var(--red)' : 'var(--orange)';
@@ -48,7 +53,7 @@ export function openViewTradeModal(trade) {
   const risk = typeof trade.risk_real_pct === 'number' && isFinite(trade.risk_real_pct) ? trade.risk_real_pct : 1;
 
   openModal({
-    title: 'Trade · ' + (STRAT_LABEL[trade.sheet] || trade.sheet),
+    title: (isBacktest ? 'Backtest · ' : 'Trade · ') + (STRAT_LABEL[trade.sheet] || trade.sheet),
     meta: `${formatDateEs(trade.date)} · ${trade.pair || ''} · ${trade.setup || ''} · ${trade.result}`,
     body: `
       <dl class="trade-view-grid">
@@ -62,14 +67,15 @@ export function openViewTradeModal(trade) {
         ${trade.rr != null ? `<dt>RR</dt><dd>${trade.rr}</dd>` : ''}
         ${trade.pips != null ? `<dt>Pips SL</dt><dd>${trade.pips}</dd>` : ''}
         <dt>Resultado</dt><dd><span class="res-pill res-${(trade.result || '').toLowerCase()}">${trade.result || '–'}</span></dd>
-        <dt>% P&L sistema</dt><dd><strong style="color:${resColor};">${fmtPct(trade.pnl_pct)}</strong></dd>
+        <dt>% P&L${isBacktest ? '' : ' sistema'}</dt><dd><strong style="color:${resColor};">${fmtPct(trade.pnl_pct)}</strong></dd>
+        ${isBacktest ? '' : `
         <dt>Riesgo real</dt><dd>${fmtPct(risk)}</dd>
         <dt>% P&L real</dt><dd><strong style="color:${resColor};">${fmtPct(realPnl)}</strong></dd>
         <dt>Sensación al ejecutar</dt><dd>${sensHtml}</dd>
         <dt>Plan seguido</dt><dd>${trade.plan_followed === true ? '<span style="color:var(--green);font-weight:600;">✓ Sí</span>' : trade.plan_followed === false ? '<span style="color:var(--red);font-weight:600;">✗ No</span>' : '<span style="color:var(--muted);">— no registrado</span>'}</dd>
-        <dt>Cuentas</dt><dd>${cuentasHtml}</dd>
+        <dt>Cuentas</dt><dd>${cuentasHtml}</dd>`}
         <dt>Links</dt><dd>${linksHtml}</dd>
-        <dt>Reflexión</dt><dd>${reflexionHtml}</dd>
+        <dt>${isBacktest ? 'Notas' : 'Reflexión'}</dt><dd>${reflexionHtml}</dd>
       </dl>
     `,
     actions: [
@@ -77,7 +83,11 @@ export function openViewTradeModal(trade) {
       {
         label: 'Editar',
         variant: 'primary',
-        onClick: close => { close(); openEditTradeModal(trade); },
+        onClick: close => {
+          close();
+          if (isBacktest) { if (onEdit) onEdit(trade); }
+          else openEditTradeModal(trade);
+        },
       },
     ],
   });

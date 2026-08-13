@@ -27,6 +27,8 @@ import { tradingPlanView } from './views/plan.js';
 import { protocolosView } from './views/protocolos.js';
 import { meditacionesView } from './views/meditaciones.js';
 import { contabilidadView } from './views/contabilidad.js';
+import { backtestView } from './views/backtest.js';
+import { backtestImportView } from './views/backtest-import.js';
 
 theme.init();
 
@@ -65,7 +67,11 @@ router
   .add('#/cuenta',      (params, c) => cuentaDetailView(c, params.id))
   .add('#/riesgo',      (_, c) => riesgoView(c))
   .add('#/plan',        (_, c) => tradingPlanView(c))
-  .add('#/contabilidad', (_, c) => contabilidadView(c));
+  .add('#/contabilidad', (_, c) => contabilidadView(c))
+  .add('#/bt-zonas',    (_, c) => backtestView(c, 'ZONAS'))
+  .add('#/bt-liquidez', (_, c) => backtestView(c, 'LIQUIDEZ'))
+  .add('#/bt-nasdaq',   (_, c) => backtestView(c, 'NASDAQ'))
+  .add('#/bt-importar', (_, c) => backtestImportView(c));
 
 router.onChange(() => { renderSidebar(sidebar); closeNav(); });
 

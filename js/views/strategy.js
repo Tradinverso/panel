@@ -17,11 +17,89 @@ import { STRATEGIES as STRAT_META } from '../utils/strategy-config.js';
 
 let perfMode = 'sistema'; // 'sistema' | 'real'
 
+// Filtros de análisis — TODOS arriba y filtrando TODO (KPIs, gráficas y tabla),
+// mismo patrón que Backtesting. Compartidos entre las 3 estrategias; se
+// auto-resetean si el valor no existe en la activa.
+let fYear = 'all', fMonth = 'all', fPair = 'all', fSetup = 'all', fZone = 'all', fEntry = 'all', fRes = 'all';
+
+function hasIn(v, x) {
+  return Array.isArray(v) ? v.includes(x) : v === x;
+}
+
+function filtro(trades) {
+  return trades.filter(t => {
+    if (fYear !== 'all' && !(t.date || '').startsWith(fYear)) return false;
+    if (fMonth !== 'all' && !(t.date || '').startsWith(fMonth)) return false;
+    if (fPair !== 'all' && t.pair !== fPair) return false;
+    if (fSetup !== 'all' && t.setup !== fSetup) return false;
+    if (fZone !== 'all' && !hasIn(t.zone, fZone)) return false;
+    if (fEntry !== 'all' && !hasIn(t.entry, fEntry)) return false;
+    if (fRes !== 'all' && t.result !== fRes) return false;
+    return true;
+  });
+}
+
+function hayFiltros() {
+  return fYear !== 'all' || fMonth !== 'all' || fPair !== 'all'
+    || fSetup !== 'all' || fZone !== 'all' || fEntry !== 'all' || fRes !== 'all';
+}
+
+function filtrosHtml(allSheet) {
+  const years = [...new Set(allSheet.map(t => (t.date || '').substring(0, 4)))].filter(Boolean).sort();
+  if (fYear !== 'all' && !years.includes(fYear)) { fYear = 'all'; fMonth = 'all'; }
+  const months = [...new Set(allSheet.map(t => (t.date || '').substring(0, 7)))].filter(Boolean).sort()
+    .filter(m => fYear === 'all' || m.startsWith(fYear));
+  if (fMonth !== 'all' && !months.includes(fMonth)) fMonth = 'all';
+  const pairs = [...new Set(allSheet.map(t => t.pair).filter(Boolean))].sort();
+  if (fPair !== 'all' && !pairs.includes(fPair)) fPair = 'all';
+  const zones = [...new Set(allSheet.flatMap(t => Array.isArray(t.zone) ? t.zone : [t.zone]).filter(Boolean))].sort();
+  if (fZone !== 'all' && !zones.includes(fZone)) fZone = 'all';
+  const entries = [...new Set(allSheet.flatMap(t => Array.isArray(t.entry) ? t.entry : [t.entry]).filter(Boolean))].sort();
+  if (fEntry !== 'all' && !entries.includes(fEntry)) fEntry = 'all';
+
+  const sel = (id, value, options) => `
+    <select id="${id}" class="select">
+      ${options.map(o => `<option value="${o.v}" ${o.v === value ? 'selected' : ''}>${o.l}</option>`).join('')}
+    </select>`;
+
+  return `
+    <div class="td-filters">
+      ${sel('stYearF', fYear, [{ v: 'all', l: 'Todos los años' }, ...years.map(y => ({ v: y, l: y }))])}
+      ${sel('stMonthF', fMonth, [{ v: 'all', l: 'Todos los meses' }, ...months.map(m => ({ v: m, l: `${MONTHS_ES_SHORT[+m.split('-')[1] - 1]} ${m.substring(0, 4)}` }))])}
+      ${pairs.length > 1 ? sel('stPairF', fPair, [{ v: 'all', l: 'Todos los pares' }, ...pairs.map(p => ({ v: p, l: p }))]) : ''}
+      ${sel('stSetupF', fSetup, [{ v: 'all', l: 'Todas las direcciones' }, { v: 'LONG', l: 'LONG' }, { v: 'SHORT', l: 'SHORT' }])}
+      ${zones.length > 1 ? sel('stZoneF', fZone, [{ v: 'all', l: 'Todas las zonas' }, ...zones.map(z => ({ v: z, l: z }))]) : ''}
+      ${entries.length > 1 ? sel('stEntryF', fEntry, [{ v: 'all', l: 'Todas las entradas' }, ...entries.map(e => ({ v: e, l: e }))]) : ''}
+      ${sel('stResF', fRes, [{ v: 'all', l: 'Todos los resultados' }, { v: 'TP', l: 'Solo TP' }, { v: 'SL', l: 'Solo SL' }, { v: 'BE', l: 'Solo BE' }])}
+      ${hayFiltros() ? '<button class="btn ghost" id="stClearF">× Limpiar filtros</button>' : ''}
+    </div>`;
+}
+
+function wireFiltros(container, sheet) {
+  const on = (id, fn) => {
+    const el = container.querySelector(id);
+    if (el) el.addEventListener('change', () => { fn(el.value); render(container, sheet); });
+  };
+  on('#stYearF', v => { fYear = v; fMonth = 'all'; });
+  on('#stMonthF', v => { fMonth = v; });
+  on('#stPairF', v => { fPair = v; });
+  on('#stSetupF', v => { fSetup = v; });
+  on('#stZoneF', v => { fZone = v; });
+  on('#stEntryF', v => { fEntry = v; });
+  on('#stResF', v => { fRes = v; });
+  const clear = container.querySelector('#stClearF');
+  if (clear) clear.addEventListener('click', () => {
+    fYear = fMonth = fPair = fSetup = fZone = fEntry = fRes = 'all';
+    render(container, sheet);
+  });
+}
+
 function render(container, sheet) {
   const meta = STRAT_META[sheet];
-  const all = state.trades.filter(t => t.sheet === sheet);
+  const allSheet = state.trades.filter(t => t.sheet === sheet);
+  const all = filtro(allSheet);
 
-  if (!all.length) {
+  if (!allSheet.length) {
     container.innerHTML = `
       ${strategyTabs(sheet)}
       <div class="page-header">
@@ -39,6 +117,28 @@ function render(container, sheet) {
     return;
   }
 
+  // Con trades en la estrategia pero ninguno que pase los filtros
+  if (!all.length) {
+    container.innerHTML = `
+      ${strategyTabs(sheet)}
+      <div class="page-header">
+        <div>
+          <h1>${meta.label} <span style="color:${meta.color}">·</span> Análisis</h1>
+          <div class="sub">0 de ${allSheet.length} trades con esos filtros</div>
+        </div>
+        <div class="page-actions">
+          <a class="btn primary" href="#/nuevo">+ Nuevo trade</a>
+        </div>
+        ${filtrosHtml(allSheet)}
+      </div>
+      <div class="empty">
+        <div class="big">🔍</div>
+        <div>Ningún trade de ${meta.label} pasa esos filtros. Ajústalos arriba o límpialos.</div>
+      </div>`;
+    wireFiltros(container, sheet);
+    return;
+  }
+
   const c = tradeCounts(all);
   const wr = winrate(all);
   const pnl = pnlPct(all);
@@ -53,11 +153,12 @@ function render(container, sheet) {
     <div class="page-header">
       <div>
         <h1>${meta.label} <span style="color:${meta.color}">·</span> Análisis</h1>
-        <div class="sub">${meta.desc} · ${all.length} trades</div>
+        <div class="sub">${meta.desc} · ${all.length}${all.length !== allSheet.length ? ` de ${allSheet.length}` : ''} trades</div>
       </div>
       <div class="page-actions">
         <a class="btn primary" href="#/nuevo">+ Nuevo trade</a>
       </div>
+      ${filtrosHtml(allSheet)}
     </div>
 
     <div class="kpi-grid">
@@ -171,6 +272,8 @@ function render(container, sheet) {
     <div class="section-title">Trades</div>
     <div id="tradeTable"></div>
   `;
+
+  wireFiltros(container, sheet);
 
   // Toggle Sistema/Real
   const perfToggleEl = container.querySelector('#perfToggle');
