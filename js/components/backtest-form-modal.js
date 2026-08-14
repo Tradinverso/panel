@@ -10,11 +10,17 @@ import { openModal } from './modal.js';
 import { renderPills } from './pills.js';
 import { STRATEGIES } from '../utils/strategy-config.js';
 import { todayLocal } from '../utils/timezone.js';
+import { formatDateEs, durationMinutes } from '../utils/date-helpers.js';
+import { fmtPct } from '../utils/number-format-es.js';
 
 // `existing` = backtest a editar (null → nuevo). `onSaved` se llama tras guardar.
-export function openBacktestFormModal(sheet, existing, onSaved) {
+// `draft` = estado del formulario a restaurar. Lo usa el paso de confirmación:
+// como openModal() no apila (cierra el modal anterior), volver desde la
+// confirmación implica reabrir este formulario, y sin el draft se perdería todo
+// lo escrito.
+export function openBacktestFormModal(sheet, existing, onSaved, draft = null) {
   const meta = STRATEGIES[sheet];
-  const data = existing ? {
+  const data = draft ? cloneData(draft) : existing ? {
     pair: existing.pair || '',
     setup: existing.setup || '',
     zone: Array.isArray(existing.zone) ? [...existing.zone] : [],
@@ -137,26 +143,16 @@ export function openBacktestFormModal(sheet, existing, onSaved) {
             errEl.style.display = 'flex';
             return;
           }
-          const payload = {
-            sheet,
-            pair: meta.pairFixed ? meta.pairs[0] : data.pair,
-            setup: data.setup,
-            zone: data.zone,
-            entry: data.entry,
-            date: data.date,
-            open_str: data.open_str,
-            close_str: data.close_str,
-            pnl_pct: parseFloat(data.pnl_pct),
-            rr: data.rr !== '' && isFinite(parseFloat(data.rr)) ? parseFloat(data.rr) : null,
-            url1: data.url1.trim(),
-            url2: (data.url2 || '').trim(),
-            reflexion: data.reflexion,
-            entry_tz: auth.hasTimezone() ? auth.timezone() : null,
-          };
-          if (existing) state.updateBacktest(existing.id, payload);
-          else state.addBacktest(payload);
-          close();
-          if (onSaved) onSaved();
+          const payload = buildPayload(sheet, meta, data);
+          // Editar guarda directo (igual que el modal de edición del journal).
+          // Al crear pasamos por la confirmación, como en Nuevo trade.
+          if (existing) {
+            state.updateBacktest(existing.id, payload);
+            close();
+            if (onSaved) onSaved();
+            return;
+          }
+          openConfirm(sheet, meta, payload, data, onSaved);
         },
       },
     ],
@@ -190,6 +186,71 @@ export function openBacktestFormModal(sheet, existing, onSaved) {
   root.querySelectorAll('[data-input]').forEach(el => {
     el.addEventListener('input', () => { data[el.dataset.input] = el.value; });
   });
+}
+
+function buildPayload(sheet, meta, data) {
+  return {
+    sheet,
+    pair: meta.pairFixed ? meta.pairs[0] : data.pair,
+    setup: data.setup,
+    zone: data.zone,
+    entry: data.entry,
+    date: data.date,
+    open_str: data.open_str,
+    close_str: data.close_str,
+    pnl_pct: parseFloat(data.pnl_pct),
+    rr: data.rr !== '' && isFinite(parseFloat(data.rr)) ? parseFloat(data.rr) : null,
+    url1: data.url1.trim(),
+    url2: (data.url2 || '').trim(),
+    reflexion: data.reflexion,
+    entry_tz: auth.hasTimezone() ? auth.timezone() : null,
+  };
+}
+
+// Paso de confirmación antes de crear el backtest. "Volver" reabre el
+// formulario con lo escrito intacto (ver nota del `draft` arriba).
+function openConfirm(sheet, meta, payload, data, onSaved) {
+  openModal({
+    title: 'Confirmar nuevo backtest',
+    meta: `${meta.label} · ${payload.pair} · ${payload.setup} · no entra en el journal real`,
+    body: confirmBody(payload),
+    actions: [
+      { label: 'Volver', onClick: () => openBacktestFormModal(sheet, null, onSaved, data) },
+      {
+        label: 'Confirmar y guardar', variant: 'primary',
+        onClick: close => {
+          state.addBacktest(payload);
+          close();
+          if (onSaved) onSaved();
+        },
+      },
+    ],
+  });
+}
+
+function confirmBody(b) {
+  const result = b.pnl_pct > 0.2 ? 'TP' : b.pnl_pct < -0.2 ? 'SL' : 'BE';
+  const color = result === 'TP' ? 'var(--green)' : result === 'SL' ? 'var(--red)' : 'var(--orange)';
+  const dur = durationMinutes(b.open_str, b.close_str);
+  return `
+    <dl class="confirm-grid">
+      <dt>Fecha</dt><dd>${formatDateEs(b.date)}</dd>
+      <dt>Hora</dt><dd>${esc(b.open_str)}${b.close_str ? ' → ' + esc(b.close_str) : ''}${dur != null ? ` (${dur} min)` : ''}</dd>
+      <dt>Par</dt><dd>${esc(b.pair)}</dd>
+      <dt>Setup</dt><dd>${esc(b.setup)}</dd>
+      <dt>Zona</dt><dd>${esc((b.zone || []).join(' · '))}</dd>
+      ${b.entry && b.entry.length ? `<dt>Entrada</dt><dd>${esc(b.entry.join(' · '))}</dd>` : ''}
+      ${b.rr != null ? `<dt>RR</dt><dd>${b.rr}</dd>` : ''}
+      <dt>% P&L</dt><dd><strong style="color:${color};">${fmtPct(b.pnl_pct)}</strong> · <span class="res-pill res-${result.toLowerCase()}">${result}</span></dd>
+      ${b.reflexion ? `<dt>Notas</dt><dd style="white-space:pre-wrap;">${esc(b.reflexion)}</dd>` : ''}
+    </dl>
+  `;
+}
+
+// zone/entry son arrays y el formulario los muta por referencia: copiarlos para
+// que el draft no quede acoplado al modal que lo generó.
+function cloneData(d) {
+  return { ...d, zone: [...(d.zone || [])], entry: [...(d.entry || [])] };
 }
 
 function validate(meta, data) {
