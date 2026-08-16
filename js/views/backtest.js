@@ -9,12 +9,12 @@ import { state } from '../state.js';
 import {
   tradeCounts, winrate, pnlPct, profitFactor, maxDrawdown, maxStreak,
   equityCurve, monthlyPnl, wrByHour, wrByDay, longVsShort, statsByGroup,
-  durationStats, avgRR, expectancy, currentSlStreak,
+  durationStats, avgRR, expectancy,
 } from '../utils/calculations.js';
 import { fmtPct, fmtPctNoSign, fmtNum } from '../utils/number-format-es.js';
 import { MONTHS_ES_SHORT } from '../utils/date-helpers.js';
 import { STRATEGIES } from '../utils/strategy-config.js';
-import { kpiCard } from '../components/kpi-card.js';
+import { kpiCard, kpiCardComposite } from '../components/kpi-card.js';
 import { createEquity, createDonut, createBar, createHourBar, createDayBar, createLongShort } from '../components/charts.js';
 import { renderHeatmap } from '../components/heatmap.js';
 import { renderTradeTable } from '../components/trade-table.js';
@@ -172,7 +172,7 @@ function render(container, sheet) {
       ${kpiCard({ label: 'Esperanza / trade', value: decisive ? fmtPct(exp.value, 2) : '–', sub: decisive ? `media TP ${fmtPct(exp.avgWin, 1)} · media SL −${fmtPctNoSign(exp.avgLoss)}` : 'sin trades decisivos', tone: exp.value >= 0 ? 'green' : 'red' })}
       ${kpiCard({ label: 'RR medio', value: rr > 0 ? fmtNum(rr) : '–', sub: rr > 0 ? 'riesgo : beneficio medio' : 'sin RR registrado', tone: 'blue' })}
       ${kpiCard({ label: 'DD máximo', value: (dd > 0 ? '−' : '') + dd.toFixed(1) + '%', sub: 'sobre la curva acumulada', tone: 'red' })}
-      ${kpiCard({ label: 'Rachas máx', value: `${tpStreak} TP`, sub: `${slStreakMax} SL seguidos · racha actual ${currentSlStreak(all)} SL`, tone: 'purple' })}
+      ${kpiCardComposite({ label: 'Rachas máx', primary: `${tpStreak} TP`, secondary: `· ${slStreakMax} SL`, sub: 'máximos seguidos en todo el histórico', tone: 'purple' })}
     </div>
 
     <div class="section-title">Rendimiento</div>

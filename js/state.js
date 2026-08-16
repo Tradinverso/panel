@@ -544,6 +544,29 @@ export const state = {
     return true;
   },
 
+  // Borrado masivo de backtests. Espejo de removeBySheet/replaceAll del journal,
+  // pero SOLO sobre la colección backtests: no puede tocar this.trades.
+  removeBacktestsBySheet(sheet) {
+    if (ignoreIfReadOnly('removeBacktestsBySheet')) return 0;
+    const ids = this.backtests.filter(b => b.sheet === sheet).map(b => b.id);
+    if (!ids.length) return 0;
+    this.backtests = this.backtests.filter(b => b.sheet !== sheet);
+    this.emit();
+    fireAndForget(sync.deleteBacktestsBatch(targetUid(), ids), 'deleteBacktestsBatch');
+    return ids.length;
+  },
+
+  // Borra la colección entera en la nube (no solo los que tengamos en memoria:
+  // sync.wipeAllBacktests relee Firestore antes de borrar).
+  wipeAllBacktests() {
+    if (ignoreIfReadOnly('wipeAllBacktests')) return 0;
+    const n = this.backtests.length;
+    this.backtests = [];
+    this.emit();
+    fireAndForget(sync.wipeAllBacktests(targetUid()), 'wipeAllBacktests');
+    return n;
+  },
+
   // Importación masiva de backtests (Sheet/CSV/rejilla) con dedupe: reimportar
   // el mismo Sheet no duplica. Misma clave que el journal (sheet|date|open|par|setup).
   addBacktestsMany(list) {

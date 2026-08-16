@@ -127,7 +127,7 @@ export function renderSidebar(container) {
       <div class="brand-text">
         <span class="brand-line2">TRADINVERSO</span>
         <span class="brand-line1">Trading Journal</span>
-        <span class="brand-ver">v.2.2</span>
+        <span class="brand-ver">v.2.3</span>
       </div>
     </a>
     <div class="sidebar-tools">

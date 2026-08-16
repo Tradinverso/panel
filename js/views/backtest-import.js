@@ -14,6 +14,8 @@
 import { state } from '../state.js';
 import { STRATEGIES } from '../utils/strategy-config.js';
 import { backtestTabs, BACKTEST_ROUTES } from '../components/backtest-tabs.js';
+import { openModal } from '../components/modal.js';
+import { exportXlsx, stampNow, slug } from '../utils/sheet-export.js';
 import {
   fetchSheetBacktests, parseCsvFile, draftToBacktest, normalizeDate, parseNumComa,
 } from '../utils/backtest-import.js';
@@ -102,6 +104,7 @@ function paint(container) {
   const totalValid = SHEETS.reduce((s, k) => s + validCount(k), 0);
   const cols = COLS[activeSheet];
   const rows = buckets[activeSheet];
+  const stored = countStored();
 
   container.innerHTML = `
     ${backtestTabs('IMPORTAR')}
@@ -175,6 +178,46 @@ function paint(container) {
       <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap;">
         <button class="btn primary" id="btiImport" ${totalValid ? '' : 'disabled'}>⬆ Importar ${totalValid} backtest${totalValid !== 1 ? 's' : ''}</button>
         <span class="filter-count">${SHEETS.map(k => `${STRATEGIES[k].label}: ${validCount(k)}`).join(' · ')}</span>
+      </div>
+    </div>
+
+    <div class="section-title">Tu histórico de backtesting</div>
+    <div class="card" style="margin-bottom:16px;">
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Exportar a Excel (.xlsx)</div>
+          <div class="setting-desc">
+            Archivo con <strong>3 pestañas</strong> (Zonas · Liquidez · Nasdaq) y el mismo orden de columnas
+            que la plantilla de la academia, así que se puede volver a importar tal cual.
+            Solo backtests — tu journal real se exporta desde <strong>Ajustes</strong>.
+          </div>
+        </div>
+        <div class="setting-control" style="display:flex;justify-content:flex-end;">
+          <button class="btn primary" id="btiExport" ${stored.total ? '' : 'disabled'}>📊 Descargar Excel (${stored.total})</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Mantenimiento</div>
+    <div class="card" style="margin-bottom:24px;">
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Borrar backtests por estrategia</div>
+          <div class="setting-desc">Elimina el histórico de una sola estrategia. Útil para reimportar desde cero. No toca tu journal real.</div>
+        </div>
+        <div class="setting-control" style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+          ${SHEETS.map(k => `<button class="btn danger" data-bti-wipe="${k}" ${stored[k] ? '' : 'disabled'}>${STRATEGIES[k].label} (${stored[k]})</button>`).join('')}
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Borrar todo el backtesting</div>
+          <div class="setting-desc">Elimina los backtests de las tres estrategias. Tus trades reales no se tocan. No se puede deshacer.</div>
+        </div>
+        <div class="setting-control" style="display:flex;justify-content:flex-end;">
+          <button class="btn danger" id="btiWipeAll" ${stored.total ? '' : 'disabled'}>Borrar todo (${stored.total})</button>
+        </div>
       </div>
     </div>
   `;
@@ -324,6 +367,83 @@ function wire(container) {
     };
     paint(container);
   });
+
+  // ── Exportar el histórico ya guardado ──
+  const expBtn = container.querySelector('#btiExport');
+  if (expBtn) expBtn.addEventListener('click', async () => {
+    if (!state.backtests.length) return;
+    const original = expBtn.textContent;
+    expBtn.disabled = true;
+    expBtn.innerHTML = '<span class="spinner-sm"></span> Generando…';
+    try {
+      const who = state.viewAsProfile
+        ? '-' + slug(state.viewAsProfile.nombre || state.viewAsProfile.email)
+        : '';
+      await exportXlsx(state.backtests, `tradinverso-backtesting${who}-${stampNow()}.xlsx`);
+    } catch (e) {
+      console.error('Export backtests XLSX falló:', e);
+      lastMsg = { type: 'err', text: 'Error generando el Excel: ' + (e.message || e) };
+      paint(container);
+      return;
+    } finally {
+      expBtn.disabled = false;
+      expBtn.textContent = original;
+    }
+  });
+
+  // ── Borrar por estrategia ──
+  container.querySelectorAll('[data-bti-wipe]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sheet = btn.dataset.btiWipe;
+      const n = state.backtests.filter(b => b.sheet === sheet).length;
+      if (!n) return;
+      openModal({
+        title: `Borrar backtests de ${STRATEGIES[sheet].label}`,
+        body: `Vas a eliminar <strong>${n} backtest${n !== 1 ? 's' : ''}</strong> de ${STRATEGIES[sheet].label}.
+               Las demás estrategias y <strong>tu journal real</strong> no se tocan.
+               Esta acción <strong>no se puede deshacer</strong>. ¿Continuar?`,
+        actions: [
+          { label: 'Cancelar', onClick: close => close() },
+          { label: `Sí, borrar ${n}`, variant: 'danger', onClick: close => {
+            const removed = state.removeBacktestsBySheet(sheet);
+            close();
+            lastMsg = { type: 'ok', text: `✓ ${removed} backtest${removed !== 1 ? 's' : ''} de ${STRATEGIES[sheet].label} eliminados.` };
+            paint(container);
+          } },
+        ],
+      });
+    });
+  });
+
+  // ── Borrar todo el backtesting ──
+  const wipeAllBtn = container.querySelector('#btiWipeAll');
+  if (wipeAllBtn) wipeAllBtn.addEventListener('click', () => {
+    const n = state.backtests.length;
+    if (!n) return;
+    openModal({
+      title: 'Borrar todo el backtesting',
+      body: `Vas a eliminar <strong>los ${n} backtest${n !== 1 ? 's' : ''}</strong> de las tres estrategias.
+             <strong>Tus trades reales del journal no se tocan.</strong>
+             Esta acción <strong>no se puede deshacer</strong>. ¿Continuar?`,
+      actions: [
+        { label: 'Cancelar', onClick: close => close() },
+        { label: `Sí, borrar los ${n}`, variant: 'danger', onClick: close => {
+          const removed = state.wipeAllBacktests();
+          close();
+          lastMsg = { type: 'ok', text: `✓ ${removed} backtest${removed !== 1 ? 's' : ''} eliminados. El histórico de backtesting está vacío.` };
+          paint(container);
+        } },
+      ],
+    });
+  });
+}
+
+// Backtests YA guardados (no las filas de la rejilla de arriba): es lo que
+// alimenta los contadores de exportar y borrar.
+function countStored() {
+  const out = { total: state.backtests.length };
+  for (const k of SHEETS) out[k] = state.backtests.filter(b => b.sheet === k).length;
+  return out;
 }
 
 function esc(s) {
