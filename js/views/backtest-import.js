@@ -17,7 +17,7 @@ import { backtestTabs, BACKTEST_ROUTES } from '../components/backtest-tabs.js';
 import { openModal } from '../components/modal.js';
 import { exportXlsx, stampNow, slug } from '../utils/sheet-export.js';
 import {
-  fetchSheetBacktests, parseCsvFile, draftToBacktest, normalizeDate, parseNumComa,
+  fetchSheetBacktests, parseCsvFile, draftToBacktest, normalizeDate, parseNumComa, normRes,
 } from '../utils/backtest-import.js';
 
 // ── Columnas de la rejilla por estrategia ──
@@ -87,7 +87,8 @@ function rowStatus(r) {
   if (rowIsEmpty(r)) return { icon: '', title: '' };
   const missing = [];
   if (!normalizeDate(r.date)) missing.push('fecha');
-  if (parseNumComa(r.pnl) == null) missing.push('% P&L');
+  // Un BE puede llevar la celda de % vacía: se importa como 0.
+  if (parseNumComa(r.pnl) == null && normRes(r.res) !== 'BE') missing.push('% P&L');
   return missing.length
     ? { icon: '⚠', title: 'Falta o no se entiende: ' + missing.join(' y ') }
     : { icon: '✓', title: 'Lista para importar' };

@@ -100,7 +100,8 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null) {
         <div class="form-row">
           <div class="form-field">
             <label class="form-label">% P&L <span class="required">*</span></label>
-            <input class="form-input" type="number" step="0.01" data-input="pnl_pct" value="${data.pnl_pct}" placeholder="2.00 = TP / -1.00 = SL">
+            <input class="form-input" type="number" step="0.01" data-input="pnl_pct" value="${data.pnl_pct}" placeholder="2.00 = TP · -1.00 = SL · 0 = BE">
+            <div class="bti-hint">El resultado sale del %: más de +0,20% es TP, menos de -0,20% es SL, y entre medias (0 incluido) es <b>BE</b>.</div>
           </div>
           <div class="form-field">
             <label class="form-label">RR</label>
@@ -261,7 +262,7 @@ function validate(meta, data) {
   if (!data.date) return 'Pon la fecha.';
   if (!data.open_str) return 'Pon la hora de apertura.';
   const pnl = parseFloat(data.pnl_pct);
-  if (!isFinite(pnl)) return 'Pon el % de P&L (positivo = TP, negativo = SL).';
+  if (!isFinite(pnl)) return 'Pon el % de P&L: positivo = TP, negativo = SL, 0 = BE.';
   return null;
 }
 

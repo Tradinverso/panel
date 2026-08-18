@@ -107,6 +107,13 @@ export function parseNumComa(s) {
   return isFinite(n) ? n : null;
 }
 
+// 'be' / ' BE ' / 'Tp' → forma canónica. Fuera de TP/SL/BE devuelve '' para que
+// el resultado se derive del %.
+export function normRes(s) {
+  const v = String(s == null ? '' : s).trim().toUpperCase();
+  return ['TP', 'SL', 'BE'].includes(v) ? v : '';
+}
+
 export function normTime(s) {
   const v = String(s || '').trim();
   const m = v.match(/^(\d{1,2}):(\d{2})/);
@@ -200,8 +207,13 @@ export function parseCsvFile(text) {
 export function draftToBacktest(draft, sheet) {
   const date = normalizeDate(draft.date);
   const pnl = parseNumComa(draft.pnl);
-  if (!date || pnl == null) return null;
-  const res = ['TP', 'SL', 'BE'].includes(draft.res) ? draft.res : '';
+  // RES normalizado: en la plantilla se escribe a mano y llega como "be", " BE "…
+  const res = normRes(draft.res);
+  if (!date) return null;
+  // Un BE suele traer la celda de % vacía (no se gana ni se pierde nada): cuenta
+  // como 0, igual que hace parseSheetRow con el journal. Sin % y sin RES=BE, la
+  // fila está incompleta y no se importa.
+  if (pnl == null && res !== 'BE') return null;
   const setup = draft.setup === 'SHORT' ? 'SHORT' : (draft.setup ? 'LONG' : '');
   return {
     sheet,
@@ -213,7 +225,7 @@ export function draftToBacktest(draft, sheet) {
     zone: draft.zone || '',
     entry: draft.entry || '',
     rr: parseNumComa(draft.rr),
-    pnl_pct: pnl,
+    pnl_pct: pnl != null ? pnl : 0,
     result: res || undefined,   // sin res → sanitize lo deriva del %
     url1: draft.url1 || '',
     url2: draft.url2 || '',
