@@ -8,7 +8,7 @@ import {
 } from '../utils/calculations.js';
 import { fmtPct, fmtPctNoSign, fmtNum } from '../utils/number-format-es.js';
 import {
-  formatDateShort, MONTHS_ES, MONTHS_ES_SHORT, yearMonth,
+  formatDateShort, MONTHS_ES_SHORT,
 } from '../utils/date-helpers.js';
 import { kpiCard, kpiCardComposite } from '../components/kpi-card.js';
 import { createEquity, createDonut, createBar, createHourBar, createDayBar, createLongShort } from '../components/charts.js';
@@ -18,11 +18,13 @@ import { openModal, closeModal } from '../components/modal.js';
 import { todayStatus } from '../utils/diagnostics.js';
 import { storage } from '../storage.js';
 import { CHECKLIST_ITEMS, currentChecklistKey, dailyChecklistKey, checklistCompleto } from '../utils/checklist-items.js';
+import {
+  newPeriod, monthsOf, inPeriod, clampPeriod, periodHtml, wirePeriod, prevPeriod,
+} from '../components/period-filter.js';
 
 const STRAT_LABELS = { ZONAS: 'Forex + Oro', LIQUIDEZ: 'EUR/USD', NASDAQ: 'NQ Futuros' };
 
-let monthFilter = 'all';
-let yearFilter = 'all';
+let dashPeriod = newPeriod();   // rango de meses { from, to }
 let perfMode = 'sistema'; // 'sistema' | 'real'
 let lastUserKey = null;   // detecta cambio de usuario (viewAs) para resetear filtros
 
@@ -34,11 +36,10 @@ function render(container) {
   // Si no, filtrarían en silencio con el select mostrando "Todos".
   const userKey = state.viewAsUid || 'self';
   if (userKey !== lastUserKey) {
-    if (lastUserKey !== null) { yearFilter = 'all'; monthFilter = 'all'; }
+    if (lastUserKey !== null) dashPeriod = newPeriod();
     lastUserKey = userKey;
   }
-  if (yearFilter !== 'all' && !allTrades.some(t => t.date.startsWith(yearFilter))) yearFilter = 'all';
-  if (monthFilter !== 'all' && !allTrades.some(t => t.date.startsWith(monthFilter))) monthFilter = 'all';
+  clampPeriod(dashPeriod, monthsOf(allTrades));
 
   if (!allTrades.length) {
     container.innerHTML = impersonationBanner() + (state.loading ? loadingState() : emptyState());
@@ -46,7 +47,7 @@ function render(container) {
     return;
   }
 
-  const filtered = filterTrades(allTrades, yearFilter, monthFilter);
+  const filtered = filterTrades(allTrades, dashPeriod);
   container.innerHTML = impersonationBanner() + renderShell(allTrades, filtered);
   wireImpersonation(container);
 
@@ -54,10 +55,7 @@ function render(container) {
   const chkBtn = container.querySelector('#semaforoChk');
   if (chkBtn) chkBtn.addEventListener('click', () => openChecklistModal(container));
 
-  const yf = container.querySelector('#yearFilter');
-  const mf = container.querySelector('#monthFilter');
-  yf.addEventListener('change', () => { yearFilter = yf.value; monthFilter = 'all'; render(container); });
-  mf.addEventListener('change', () => { monthFilter = mf.value; render(container); });
+  wirePeriod(container, dashPeriod, () => render(container), { idFrom: 'dashFrom', idTo: 'dashTo' });
 
   // Toggle Sistema/Real
   const perfToggleEl = container.querySelector('#perfToggle');
@@ -168,29 +166,17 @@ function emptyState() {
 }
 
 // ── Filter helpers ───────────────────────────────────────────
-function filterTrades(trades, year, month) {
-  return trades.filter(t => {
-    if (year !== 'all' && !t.date.startsWith(year)) return false;
-    if (month !== 'all' && !t.date.startsWith(month)) return false;
-    return true;
-  });
+function filterTrades(trades, sel) {
+  return trades.filter(t => inPeriod(t.date, sel));
 }
 
 // Trades del periodo ANTERIOR equivalente al filtro actual, para comparar.
-// Mes seleccionado → mes anterior · Año → año anterior · "Todos" → null (sin
-// comparación posible: no hay un "antes" con el que medir).
-function prevPeriodTrades(allTrades, year, month) {
-  if (month !== 'all') {
-    const [y, m] = month.split('-').map(Number);
-    const d = new Date(y, m - 2, 1);            // mes anterior (m-1 es el actual)
-    const prev = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    return { trades: allTrades.filter(t => t.date.startsWith(prev)), ref: 'vs mes anterior' };
-  }
-  if (year !== 'all') {
-    const prev = String(Number(year) - 1);
-    return { trades: allTrades.filter(t => t.date.startsWith(prev)), ref: 'vs ' + prev };
-  }
-  return null;
+// Con un rango de N meses, el "antes" son los N meses justo anteriores. Sin
+// periodo acotado no hay comparación posible (no hay un antes con el que medir).
+function prevPeriodTrades(allTrades, sel) {
+  const prev = prevPeriod(sel, monthsOf(allTrades));
+  if (!prev) return null;
+  return { trades: allTrades.filter(t => inPeriod(t.date, prev.range)), ref: prev.ref };
 }
 
 // Construye la píldora de tendencia. `better` decide el color: en el DD, menos es mejor.
@@ -203,9 +189,7 @@ function trend(curr, prev, ref, { unit = 'pp', lowerIsBetter = false } = {}) {
 
 // ── Shell HTML ───────────────────────────────────────────────
 function renderShell(allTrades, filtered) {
-  const years = [...new Set(allTrades.map(t => t.date.substring(0, 4)))].sort();
-  const months = [...new Set(allTrades.map(t => yearMonth(t.date)))].sort()
-    .filter(m => yearFilter === 'all' || m.startsWith(yearFilter));
+  const months = monthsOf(allTrades);
   const dates = filtered.map(t => t.date).sort();
   const first = dates.length ? formatDateShort(dates[0]) : '';
   const last = dates.length ? formatDateShort(dates[dates.length - 1]) : '';
@@ -219,17 +203,7 @@ function renderShell(allTrades, filtered) {
         <div class="sub">${filtered.length} trades · ${first} → ${last}</div>
       </div>
       <div class="page-actions">
-        <select id="yearFilter" class="select">
-          <option value="all" ${yearFilter === 'all' ? 'selected' : ''}>Todos los años</option>
-          ${years.map(y => `<option value="${y}" ${yearFilter === y ? 'selected' : ''}>${y}</option>`).join('')}
-        </select>
-        <select id="monthFilter" class="select">
-          <option value="all" ${monthFilter === 'all' ? 'selected' : ''}>Todos los meses</option>
-          ${months.map(m => {
-            const [y, mo] = m.split('-');
-            return `<option value="${m}" ${monthFilter === m ? 'selected' : ''}>${MONTHS_ES[+mo - 1]} ${y}</option>`;
-          }).join('')}
-        </select>
+        ${periodHtml(months, dashPeriod, { idFrom: 'dashFrom', idTo: 'dashTo' })}
         ${checklistChip()}
         ${semaforoPill(allTrades)}
       </div>
@@ -366,7 +340,7 @@ function paintKpis(container, trades, allTrades) {
 
   // Comparación con el periodo anterior (solo si hay un mes/año seleccionado y
   // ese periodo anterior tiene trades: comparar contra cero no dice nada).
-  const prev = allTrades ? prevPeriodTrades(allTrades, yearFilter, monthFilter) : null;
+  const prev = allTrades ? prevPeriodTrades(allTrades, dashPeriod) : null;
   const p = prev && prev.trades.length ? prev : null;
   const tWr   = p ? trend(wr, winrate(p.trades), p.ref) : null;
   const tPnl  = p ? trend(pnl, pnlPct(p.trades), p.ref) : null;
@@ -485,9 +459,12 @@ function openChecklistModal(container) {
 // Este gráfico NUNCA se estrecha a un mes: con un mes elegido enseña el año
 // entero de ese mes — una sola barra no cuenta nada.
 function monthlyChartYear() {
-  if (monthFilter !== 'all') return monthFilter.split('-')[0];
-  if (yearFilter !== 'all') return yearFilter;
-  return null;
+  const { from, to } = dashPeriod;
+  if (from === 'all' && to === 'all') return null;
+  const yFrom = from !== 'all' ? from.substring(0, 4) : null;
+  const yTo = to !== 'all' ? to.substring(0, 4) : null;
+  if (yFrom && yTo) return yFrom === yTo ? yFrom : null;   // rango que cruza años → todo
+  return yFrom || yTo;
 }
 
 function paintMonthly(container, allTrades) {

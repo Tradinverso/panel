@@ -14,7 +14,10 @@ import {
 } from '../utils/calculations.js';
 import { sensacionStats, withSensacion, TODAS as SENS_TODAS, POSITIVAS, NEGATIVAS } from '../utils/sensaciones.js';
 import { fmtPct, fmtPctNoSign, fmtNum } from '../utils/number-format-es.js';
-import { MONTHS_ES, MONTHS_ES_SHORT, formatDateShort, yearMonth } from '../utils/date-helpers.js';
+import { MONTHS_ES_SHORT, formatDateShort } from '../utils/date-helpers.js';
+import {
+  newPeriod, monthsOf, inPeriod, clampPeriod, periodHtml, wirePeriod,
+} from '../components/period-filter.js';
 import { convertTradesTz, DEFAULT_TZ } from '../utils/timezone.js';
 import { kpiCard } from '../components/kpi-card.js';
 import { createEquity, createDonut, createBar, createHourBar, createDayBar, createLongShort } from '../components/charts.js';
@@ -24,8 +27,7 @@ import { renderPills } from '../components/pills.js';
 const STORAGE_KEY = 'tradinverso_grupo_filter';
 
 let cache = null;          // [{uid, profile, trades}, ...] de sync.listStudents()
-let yearFilter = 'all';
-let monthFilter = 'all';
+let grPeriod = newPeriod();   // rango de meses { from, to }
 let perfMode = 'sistema';  // toggle Sistema/Real en gráficos de rendimiento
 let sortKey = 'pnlSistema';
 let sortDir = 'desc';      // 'asc' | 'desc'
@@ -90,42 +92,23 @@ function paint(container) {
   const allTrades = studentsSel.flatMap(s =>
     convertTradesTz(s.trades || [], (s.profile && s.profile.timezone) || DEFAULT_TZ, adminTz)
       .map(t => ({ ...t, _ownerUid: s.uid })));
-  const filtered = filterByPeriod(allTrades, yearFilter, monthFilter);
+  const filtered = filterByPeriod(allTrades, grPeriod);
 
   // ── Sub header + filtros temporales ───────────────────────
-  const years = [...new Set(students.flatMap(s => (s.trades || []).map(t => (t.date || '').substring(0, 4))).filter(Boolean))].sort();
-  const months = [...new Set(students.flatMap(s => (s.trades || []).map(t => yearMonth(t.date))).filter(Boolean))].sort()
-    .filter(m => yearFilter === 'all' || m.startsWith(yearFilter));
+  const months = monthsOf(students.flatMap(s => s.trades || []));
+  clampPeriod(grPeriod, months);
 
   container.querySelector('#grupoSub').textContent = `${studentsSel.length} de ${students.length} alumnos · ${filtered.length} trades`;
   container.querySelector('#grupoActions').innerHTML = `
     <button class="btn" id="grupoRefresh">↻ Refrescar</button>
-    <select id="yearFilter" class="select">
-      <option value="all" ${yearFilter === 'all' ? 'selected' : ''}>Todos los años</option>
-      ${years.map(y => `<option value="${y}" ${yearFilter === y ? 'selected' : ''}>${y}</option>`).join('')}
-    </select>
-    <select id="monthFilter" class="select">
-      <option value="all" ${monthFilter === 'all' ? 'selected' : ''}>Todos los meses</option>
-      ${months.map(m => {
-        const [y, mo] = m.split('-');
-        return `<option value="${m}" ${monthFilter === m ? 'selected' : ''}>${MONTHS_ES[+mo - 1]} ${y}</option>`;
-      }).join('')}
-    </select>
+    ${periodHtml(months, grPeriod, { idFrom: 'grFrom', idTo: 'grTo' })}
   `;
 
   container.querySelector('#grupoRefresh').addEventListener('click', async () => {
     cache = null;
     render(container);
   });
-  container.querySelector('#yearFilter').addEventListener('change', e => {
-    yearFilter = e.target.value;
-    monthFilter = 'all';
-    paint(container);
-  });
-  container.querySelector('#monthFilter').addEventListener('change', e => {
-    monthFilter = e.target.value;
-    paint(container);
-  });
+  wirePeriod(container, grPeriod, () => paint(container), { idFrom: 'grFrom', idTo: 'grTo' });
 
   // ── Body ──────────────────────────────────────────────────
   const body = container.querySelector('#grupoBody');
@@ -344,13 +327,8 @@ function filterStudentsByGroups(students, groups) {
   });
 }
 
-function filterByPeriod(trades, year, month) {
-  return trades.filter(t => {
-    if (!t.date) return false;
-    if (year !== 'all' && !t.date.startsWith(year)) return false;
-    if (month !== 'all' && !t.date.startsWith(month)) return false;
-    return true;
-  });
+function filterByPeriod(trades, sel) {
+  return trades.filter(t => t.date && inPeriod(t.date, sel));
 }
 
 function setMultiSelectActive(container, values) {
@@ -468,7 +446,7 @@ const LEVEL_ORDER = { avanzado: 0, intermedio: 1, principiante: 2, '': 3 };
 function paintRanking(body, students) {
   // Construir filas con stats individuales del alumno (en el período filtrado).
   const rows = students.map(s => {
-    const trs = filterByPeriod(s.trades || [], yearFilter, monthFilter);
+    const trs = filterByPeriod(s.trades || [], grPeriod);
     const now = new Date();
     const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const monthTrades = (s.trades || []).filter(t => (t.date || '').startsWith(ym));

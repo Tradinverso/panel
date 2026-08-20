@@ -21,11 +21,14 @@ import { renderTradeTable } from '../components/trade-table.js';
 import { backtestTabs } from '../components/backtest-tabs.js';
 import { openBacktestFormModal } from '../components/backtest-form-modal.js';
 import { openViewTradeModal } from '../components/trade-view-modal.js';
+import {
+  newPeriod, monthsOf, inPeriod, periodActive, clampPeriod, periodHtml, wirePeriod,
+} from '../components/period-filter.js';
 
 // Filtros — TODOS arriba y filtrando TODO (KPIs, gráficas y tablas), no solo
 // el listado. Compartidos entre las 3 pestañas; se auto-resetean si el valor
 // no existe en la estrategia activa.
-let btYear = 'all', btMonth = 'all';
+let btPeriod = newPeriod();   // rango de meses { from, to }
 let btPair = 'all', btSetup = 'all', btZone = 'all', btEntry = 'all', btRes = 'all';
 
 export function backtestView(container, sheet) {
@@ -43,8 +46,7 @@ function hasEntry(t, e) {
 
 function filtro(trades) {
   return trades.filter(t => {
-    if (btYear !== 'all' && !(t.date || '').startsWith(btYear)) return false;
-    if (btMonth !== 'all' && !(t.date || '').startsWith(btMonth)) return false;
+    if (!inPeriod(t.date, btPeriod)) return false;
     if (btPair !== 'all' && t.pair !== btPair) return false;
     if (btSetup !== 'all' && t.setup !== btSetup) return false;
     if (btZone !== 'all' && !hasZone(t, btZone)) return false;
@@ -55,18 +57,15 @@ function filtro(trades) {
 }
 
 function hayFiltros() {
-  return btYear !== 'all' || btMonth !== 'all' || btPair !== 'all'
+  return periodActive(btPeriod) || btPair !== 'all'
     || btSetup !== 'all' || btZone !== 'all' || btEntry !== 'all' || btRes !== 'all';
 }
 
 // Barra única de filtros bajo el encabezado. Opciones derivadas de los DATOS
 // de la estrategia (no solo de la config: los imports pueden traer variantes).
 function filtrosHtml(allSheet, meta) {
-  const years = [...new Set(allSheet.map(t => (t.date || '').substring(0, 4)))].filter(Boolean).sort();
-  if (btYear !== 'all' && !years.includes(btYear)) { btYear = 'all'; btMonth = 'all'; }
-  const months = [...new Set(allSheet.map(t => (t.date || '').substring(0, 7)))].filter(Boolean).sort()
-    .filter(m => btYear === 'all' || m.startsWith(btYear));
-  if (btMonth !== 'all' && !months.includes(btMonth)) btMonth = 'all';
+  const months = monthsOf(allSheet);
+  clampPeriod(btPeriod, months);
 
   const pairs = [...new Set(allSheet.map(t => t.pair).filter(Boolean))].sort();
   if (btPair !== 'all' && !pairs.includes(btPair)) btPair = 'all';
@@ -82,8 +81,7 @@ function filtrosHtml(allSheet, meta) {
 
   return `
     <div class="td-filters">
-      ${sel('btYearF', btYear, [{ v: 'all', l: 'Todos los años' }, ...years.map(y => ({ v: y, l: y }))])}
-      ${sel('btMonthF', btMonth, [{ v: 'all', l: 'Todos los meses' }, ...months.map(m => ({ v: m, l: `${MONTHS_ES_SHORT[+m.split('-')[1] - 1]} ${m.substring(0, 4)}` }))])}
+      ${periodHtml(months, btPeriod, { idFrom: 'btFromF', idTo: 'btToF' })}
       ${pairs.length > 1 ? sel('btPairF', btPair, [{ v: 'all', l: 'Todos los pares' }, ...pairs.map(p => ({ v: p, l: p }))]) : ''}
       ${sel('btSetupF', btSetup, [{ v: 'all', l: 'Todas las direcciones' }, { v: 'LONG', l: 'LONG' }, { v: 'SHORT', l: 'SHORT' }])}
       ${zones.length > 1 ? sel('btZoneF', btZone, [{ v: 'all', l: 'Todas las zonas' }, ...zones.map(z => ({ v: z, l: z }))]) : ''}
@@ -310,8 +308,7 @@ function wire(container, sheet) {
     const el = container.querySelector(id);
     if (el) el.addEventListener('change', () => { fn(el.value); render(container, sheet); });
   };
-  on('#btYearF', v => { btYear = v; btMonth = 'all'; });   // año resetea mes
-  on('#btMonthF', v => { btMonth = v; });
+  wirePeriod(container, btPeriod, () => render(container, sheet), { idFrom: 'btFromF', idTo: 'btToF' });
   on('#btPairF', v => { btPair = v; });
   on('#btSetupF', v => { btSetup = v; });
   on('#btZoneF', v => { btZone = v; });
@@ -319,7 +316,8 @@ function wire(container, sheet) {
   on('#btResF', v => { btRes = v; });
   const clear = container.querySelector('#btClearF');
   if (clear) clear.addEventListener('click', () => {
-    btYear = btMonth = btPair = btSetup = btZone = btEntry = btRes = 'all';
+    btPeriod = newPeriod();
+    btPair = btSetup = btZone = btEntry = btRes = 'all';
     render(container, sheet);
   });
 }

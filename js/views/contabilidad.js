@@ -14,11 +14,13 @@ import {
   totalWithdrawn, totalWithdrawnNet, portfolioMonthlyWithdrawals,
   allWithdrawals, allPurchases, accountingEvents, advanceInfo,
 } from '../utils/account-stats.js';
-import { MONTHS_ES_SHORT, MONTHS_ES, formatDateShort } from '../utils/date-helpers.js';
+import { MONTHS_ES_SHORT, formatDateShort } from '../utils/date-helpers.js';
+import {
+  newPeriod, monthsOf, clampPeriod, periodHtml, wirePeriod,
+} from '../components/period-filter.js';
 
 let activeTab = 'resumen';   // resumen | empresas | calendario | retiros | compras
-let yearFilter = 'all';
-let monthFilter = 'all';
+let cbPeriod = newPeriod();   // rango de meses { from, to }
 let filterCuenta = 'all';
 let empresaSel = '';         // pestaña Empresas: prop seleccionada ('' = ninguna)
 let sortBy = 'beneficio';    // beneficio | estado | invertido | roi
@@ -30,9 +32,13 @@ const CONCEPT_LABEL = { challenge: 'Challenge', reset: 'Reset', reintento: 'Rein
 const fmtRoi = v => !isFinite(v) ? '∞' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
 
 function currentRange() {
-  if (monthFilter !== 'all') return { from: monthFilter + '-01', to: monthFilter + '-31' };
-  if (yearFilter !== 'all') return { from: yearFilter + '-01-01', to: yearFilter + '-12-31' };
-  return null;
+  const { from, to } = cbPeriod;
+  if (from === 'all' && to === 'all') return null;
+  // Extremo abierto → tope que nunca recorta (las fechas son 'YYYY-MM-DD').
+  return {
+    from: from !== 'all' ? from + '-01' : '0000-01-01',
+    to: to !== 'all' ? to + '-31' : '9999-12-31',
+  };
 }
 function inRange(date) {
   const r = currentRange();
@@ -43,9 +49,8 @@ function inRange(date) {
 function render(container) {
   const cuentas = state.cuentas;
   const dates = [...allPurchases(cuentas), ...allWithdrawals(cuentas)].map(x => x.date || '').filter(Boolean);
-  const years = [...new Set(dates.map(d => d.substring(0, 4)))].sort();
-  const months = [...new Set(dates.map(d => d.substring(0, 7)))].sort()
-    .filter(m => yearFilter === 'all' || m.startsWith(yearFilter));
+  const months = monthsOf(dates.map(d => ({ date: d })));
+  clampPeriod(cbPeriod, months);
 
   const showPeriod = activeTab !== 'calendario';
   container.innerHTML = `
@@ -56,14 +61,7 @@ function render(container) {
       </div>
       <div class="page-actions">
         ${showPeriod ? `
-        <select id="invYear" class="select">
-          <option value="all" ${yearFilter === 'all' ? 'selected' : ''}>Todos los años</option>
-          ${years.map(y => `<option value="${y}" ${yearFilter === y ? 'selected' : ''}>${y}</option>`).join('')}
-        </select>
-        <select id="invMonth" class="select">
-          <option value="all" ${monthFilter === 'all' ? 'selected' : ''}>Todos los meses</option>
-          ${months.map(m => { const [y, mo] = m.split('-'); return `<option value="${m}" ${monthFilter === m ? 'selected' : ''}>${MONTHS_ES[+mo - 1]} ${y}</option>`; }).join('')}
-        </select>` : ''}
+        ${periodHtml(months, cbPeriod, { idFrom: 'invFrom', idTo: 'invTo' })}` : ''}
         <button class="btn" id="invNueva">+ Nueva cuenta</button>
         <button class="btn" id="invRetiro">+ Retiro</button>
         <button class="btn primary" id="invCompra">+ Compra</button>
@@ -83,10 +81,7 @@ function render(container) {
   `;
 
   // Wire header
-  const yearSel = container.querySelector('#invYear');
-  if (yearSel) yearSel.addEventListener('change', e => { yearFilter = e.target.value; monthFilter = 'all'; render(container); });
-  const monthSel = container.querySelector('#invMonth');
-  if (monthSel) monthSel.addEventListener('change', e => { monthFilter = e.target.value; render(container); });
+  wirePeriod(container, cbPeriod, () => render(container), { idFrom: 'invFrom', idTo: 'invTo' });
   container.querySelector('#invNueva').addEventListener('click', () => openCuentaEditModal(null));
   container.querySelector('#invCompra').addEventListener('click', () => openPurchaseModal(null));
   container.querySelector('#invRetiro').addEventListener('click', () => openRetiroChooser());

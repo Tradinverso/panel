@@ -12,6 +12,9 @@ import { renderHeatmap } from '../components/heatmap.js';
 import { renderTradeTable } from '../components/trade-table.js';
 import { renderPills } from '../components/pills.js';
 import { strategyTabs } from '../components/strategy-tabs.js';
+import {
+  newPeriod, monthsOf, inPeriod, periodActive, clampPeriod, periodHtml, wirePeriod,
+} from '../components/period-filter.js';
 
 import { STRATEGIES as STRAT_META } from '../utils/strategy-config.js';
 
@@ -20,7 +23,8 @@ let perfMode = 'sistema'; // 'sistema' | 'real'
 // Filtros de análisis — TODOS arriba y filtrando TODO (KPIs, gráficas y tabla),
 // mismo patrón que Backtesting. Compartidos entre las 3 estrategias; se
 // auto-resetean si el valor no existe en la activa.
-let fYear = 'all', fMonth = 'all', fPair = 'all', fSetup = 'all', fZone = 'all', fEntry = 'all', fRes = 'all';
+let fPeriod = newPeriod();   // rango de meses { from, to }
+let fPair = 'all', fSetup = 'all', fZone = 'all', fEntry = 'all', fRes = 'all';
 
 function hasIn(v, x) {
   return Array.isArray(v) ? v.includes(x) : v === x;
@@ -28,8 +32,7 @@ function hasIn(v, x) {
 
 function filtro(trades) {
   return trades.filter(t => {
-    if (fYear !== 'all' && !(t.date || '').startsWith(fYear)) return false;
-    if (fMonth !== 'all' && !(t.date || '').startsWith(fMonth)) return false;
+    if (!inPeriod(t.date, fPeriod)) return false;
     if (fPair !== 'all' && t.pair !== fPair) return false;
     if (fSetup !== 'all' && t.setup !== fSetup) return false;
     if (fZone !== 'all' && !hasIn(t.zone, fZone)) return false;
@@ -40,16 +43,13 @@ function filtro(trades) {
 }
 
 function hayFiltros() {
-  return fYear !== 'all' || fMonth !== 'all' || fPair !== 'all'
+  return periodActive(fPeriod) || fPair !== 'all'
     || fSetup !== 'all' || fZone !== 'all' || fEntry !== 'all' || fRes !== 'all';
 }
 
 function filtrosHtml(allSheet) {
-  const years = [...new Set(allSheet.map(t => (t.date || '').substring(0, 4)))].filter(Boolean).sort();
-  if (fYear !== 'all' && !years.includes(fYear)) { fYear = 'all'; fMonth = 'all'; }
-  const months = [...new Set(allSheet.map(t => (t.date || '').substring(0, 7)))].filter(Boolean).sort()
-    .filter(m => fYear === 'all' || m.startsWith(fYear));
-  if (fMonth !== 'all' && !months.includes(fMonth)) fMonth = 'all';
+  const months = monthsOf(allSheet);
+  clampPeriod(fPeriod, months);
   const pairs = [...new Set(allSheet.map(t => t.pair).filter(Boolean))].sort();
   if (fPair !== 'all' && !pairs.includes(fPair)) fPair = 'all';
   const zones = [...new Set(allSheet.flatMap(t => Array.isArray(t.zone) ? t.zone : [t.zone]).filter(Boolean))].sort();
@@ -64,8 +64,7 @@ function filtrosHtml(allSheet) {
 
   return `
     <div class="td-filters">
-      ${sel('stYearF', fYear, [{ v: 'all', l: 'Todos los años' }, ...years.map(y => ({ v: y, l: y }))])}
-      ${sel('stMonthF', fMonth, [{ v: 'all', l: 'Todos los meses' }, ...months.map(m => ({ v: m, l: `${MONTHS_ES_SHORT[+m.split('-')[1] - 1]} ${m.substring(0, 4)}` }))])}
+      ${periodHtml(months, fPeriod, { idFrom: 'stFromF', idTo: 'stToF' })}
       ${pairs.length > 1 ? sel('stPairF', fPair, [{ v: 'all', l: 'Todos los pares' }, ...pairs.map(p => ({ v: p, l: p }))]) : ''}
       ${sel('stSetupF', fSetup, [{ v: 'all', l: 'Todas las direcciones' }, { v: 'LONG', l: 'LONG' }, { v: 'SHORT', l: 'SHORT' }])}
       ${zones.length > 1 ? sel('stZoneF', fZone, [{ v: 'all', l: 'Todas las zonas' }, ...zones.map(z => ({ v: z, l: z }))]) : ''}
@@ -80,8 +79,7 @@ function wireFiltros(container, sheet) {
     const el = container.querySelector(id);
     if (el) el.addEventListener('change', () => { fn(el.value); render(container, sheet); });
   };
-  on('#stYearF', v => { fYear = v; fMonth = 'all'; });
-  on('#stMonthF', v => { fMonth = v; });
+  wirePeriod(container, fPeriod, () => render(container, sheet), { idFrom: 'stFromF', idTo: 'stToF' });
   on('#stPairF', v => { fPair = v; });
   on('#stSetupF', v => { fSetup = v; });
   on('#stZoneF', v => { fZone = v; });
@@ -89,7 +87,8 @@ function wireFiltros(container, sheet) {
   on('#stResF', v => { fRes = v; });
   const clear = container.querySelector('#stClearF');
   if (clear) clear.addEventListener('click', () => {
-    fYear = fMonth = fPair = fSetup = fZone = fEntry = fRes = 'all';
+    fPeriod = newPeriod();
+    fPair = fSetup = fZone = fEntry = fRes = 'all';
     render(container, sheet);
   });
 }
