@@ -158,6 +158,11 @@ function sanitizeBacktest(t) {
     zone: toStrArr(t.zone).map(canonicalZone),
     entry: toStrArr(t.entry).map(canonicalEntry),
     rr: t.rr != null ? t.rr : null,
+    // Trade NO TOMADO: la señal apareció pero no se entró (se escapó, dudaste,
+    // no estabas delante...). Es un backtest a todos los efectos — cuenta en las
+    // estadísticas igual que los demás, porque el sistema habría dado lo que dio
+    // — pero se marca y se puede aislar con el filtro para repasar lo que se fue.
+    not_taken: t.not_taken === true,
     url1: t.url1 || '',
     url2: t.url2 || '',
     // Notas técnicas del backtest (no es la "reflexión" psicológica del journal,
@@ -195,6 +200,10 @@ function sanitizeCuenta(c) {
     status: VALID_STATUS.has(c.status) ? c.status : 'activa',
     fase: VALID_FASE.has(c.fase) ? c.fase : 'challenge_1',
     numFases: c.numFases === 1 ? 1 : 2,   // nº de fases del challenge (1 ó 2)
+    // Última actividad puesta A MANO ('YYYY-MM-DD'). Manda sobre la fecha del
+    // último trade asignado: sirve para cuentas donde operas sin registrar cada
+    // trade aquí, o para corregir el contador tras un parón justificado.
+    lastActivityOverride: c.lastActivityOverride || null,
     fundedAt: c.fundedAt || null,         // fecha en que pasó a fondeada (calendario)
     burnedAt: c.burnedAt || null,         // fecha en que se quemó (calendario)
     // Fecha de inicio de la FASE actual: el equity/stats solo cuentan los trades
@@ -546,11 +555,26 @@ export const state = {
 
   // Borrado masivo de backtests. Espejo de removeBySheet/replaceAll del journal,
   // pero SOLO sobre la colección backtests: no puede tocar this.trades.
+  //
+  // Por estrategia se borran los TOMADOS: los no tomados viven en su propia
+  // pestaña y tienen su propio borrado, para que cada botón elimine exactamente
+  // lo que se ve en la sección que representa.
   removeBacktestsBySheet(sheet) {
     if (ignoreIfReadOnly('removeBacktestsBySheet')) return 0;
-    const ids = this.backtests.filter(b => b.sheet === sheet).map(b => b.id);
+    const afecta = b => b.sheet === sheet && b.not_taken !== true;
+    const ids = this.backtests.filter(afecta).map(b => b.id);
     if (!ids.length) return 0;
-    this.backtests = this.backtests.filter(b => b.sheet !== sheet);
+    this.backtests = this.backtests.filter(b => !afecta(b));
+    this.emit();
+    fireAndForget(sync.deleteBacktestsBatch(targetUid(), ids), 'deleteBacktestsBatch');
+    return ids.length;
+  },
+
+  removeNotTakenBacktests() {
+    if (ignoreIfReadOnly('removeNotTakenBacktests')) return 0;
+    const ids = this.backtests.filter(b => b.not_taken === true).map(b => b.id);
+    if (!ids.length) return 0;
+    this.backtests = this.backtests.filter(b => b.not_taken !== true);
     this.emit();
     fireAndForget(sync.deleteBacktestsBatch(targetUid(), ids), 'deleteBacktestsBatch');
     return ids.length;

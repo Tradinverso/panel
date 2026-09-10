@@ -71,6 +71,7 @@ router
   .add('#/bt-zonas',    (_, c) => backtestView(c, 'ZONAS'))
   .add('#/bt-liquidez', (_, c) => backtestView(c, 'LIQUIDEZ'))
   .add('#/bt-nasdaq',   (_, c) => backtestView(c, 'NASDAQ'))
+  .add('#/bt-no-tomados', (_, c) => backtestView(c, 'NO_TOMADOS'))
   .add('#/bt-importar', (_, c) => backtestImportView(c));
 
 router.onChange(() => { renderSidebar(sidebar); closeNav(); });

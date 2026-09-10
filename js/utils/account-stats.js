@@ -396,6 +396,33 @@ function purchasesOf(c) {
 }
 
 // Lista plana de TODOS los retiros con referencia a su cuenta (orden fecha desc).
+// ── Inactividad de una cuenta ────────────────────────────────
+// Días desde su última actividad. La actividad es la fecha del trade más
+// reciente asignado a la cuenta; si hay `lastActivityOverride` puesto a mano,
+// ese manda. Sin trades y sin override, se cuenta desde que se creó la cuenta.
+export function lastActivity(cuenta, trades) {
+  if (cuenta.lastActivityOverride) {
+    return { date: cuenta.lastActivityOverride, source: 'manual' };
+  }
+  let maxDate = '';
+  for (const t of (trades || [])) {
+    if (!t.date || !Array.isArray(t.accounts)) continue;
+    if (t.accounts.some(a => a.accountId === cuenta.id) && t.date > maxDate) maxDate = t.date;
+  }
+  if (maxDate) return { date: maxDate, source: 'trade' };
+  const created = cuenta.createdAt ? new Date(cuenta.createdAt).toISOString().substring(0, 10) : '';
+  return { date: created, source: created ? 'alta' : 'none' };
+}
+
+// Días completos entre una fecha 'YYYY-MM-DD' y hoy. Negativo (fecha futura) → 0.
+export function daysSince(dateStr, today = new Date()) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d.getTime())) return null;
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  return Math.max(0, Math.round((t0 - d) / 86400000));
+}
+
 export function allWithdrawals(cuentas) {
   const out = [];
   for (const c of cuentas) {

@@ -57,6 +57,7 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
     status: cuenta?.status || 'activa',
     numFases: cuenta?.numFases === 1 ? 1 : 2,
     notes: cuenta?.notes || '',
+    lastActivityOverride: cuenta?.lastActivityOverride || '',
   };
   const originalCapital = cuenta?.capital;
   // Saldo inicial fue editado manualmente? (true si edición existente o null/!= capital)
@@ -115,6 +116,13 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
 
         <details class="ce-advanced">
           <summary>Opciones avanzadas</summary>
+          <div class="form-field" style="margin-top:12px;">
+            <label class="form-label">Última actividad (a mano)</label>
+            <input class="form-input" type="date" id="ce-lastact" value="${esc(data.lastActivityOverride)}">
+            <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:4px;">
+              Manda sobre la fecha del último trade asignado para el contador "Sin operar". Déjalo vacío para que se calcule solo.
+            </div>
+          </div>
           <div class="form-field" style="margin-top:12px;">
             <label class="form-label">Saldo actual ($)</label>
             <input class="form-input" type="number" step="0.01" id="ce-initbal" value="${esc(data.initialBalance)}" placeholder="${esc(data.capital) || 'igual al capital'}">
@@ -187,6 +195,7 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
     root.querySelector('#ce-cost').addEventListener('input', e => data.cost = e.target.value);
     root.querySelector('#ce-cost-date')?.addEventListener('input', e => data.costDate = e.target.value);
     root.querySelector('#ce-notes').addEventListener('input', e => data.notes = e.target.value);
+    root.querySelector('#ce-lastact')?.addEventListener('input', e => data.lastActivityOverride = e.target.value);
 
     // Capital con aviso si ha cambiado y hay trades, y auto-sync de saldo inicial
     const capInput = root.querySelector('#ce-capital');
@@ -254,6 +263,7 @@ function doSave(cuenta, data, close, onSaved) {
     status: data.status || 'activa',
     numFases: data.numFases === 1 ? 1 : 2,
     notes: String(data.notes || '').trim(),
+    lastActivityOverride: data.lastActivityOverride || null,
   };
 
   let saved;

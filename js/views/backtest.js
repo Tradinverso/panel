@@ -30,6 +30,7 @@ import {
 // no existe en la estrategia activa.
 let btPeriod = newPeriod();   // rango de meses { from, to }
 let btPair = 'all', btSetup = 'all', btZone = 'all', btEntry = 'all', btRes = 'all';
+let btSheetF = 'all';  // filtro de estrategia — solo en la pestaña No tomados
 
 export function backtestView(container, sheet) {
   render(container, sheet);
@@ -52,18 +53,19 @@ function filtro(trades) {
     if (btZone !== 'all' && !hasZone(t, btZone)) return false;
     if (btEntry !== 'all' && !hasEntry(t, btEntry)) return false;
     if (btRes !== 'all' && t.result !== btRes) return false;
+    if (btSheetF !== 'all' && t.sheet !== btSheetF) return false;
     return true;
   });
 }
 
 function hayFiltros() {
-  return periodActive(btPeriod) || btPair !== 'all'
+  return periodActive(btPeriod) || btPair !== 'all' || btSheetF !== 'all'
     || btSetup !== 'all' || btZone !== 'all' || btEntry !== 'all' || btRes !== 'all';
 }
 
 // Barra única de filtros bajo el encabezado. Opciones derivadas de los DATOS
 // de la estrategia (no solo de la config: los imports pueden traer variantes).
-function filtrosHtml(allSheet, meta) {
+function filtrosHtml(allSheet, meta, esNoTomados = false) {
   const months = monthsOf(allSheet);
   clampPeriod(btPeriod, months);
 
@@ -87,32 +89,62 @@ function filtrosHtml(allSheet, meta) {
       ${zones.length > 1 ? sel('btZoneF', btZone, [{ v: 'all', l: 'Todas las zonas' }, ...zones.map(z => ({ v: z, l: z }))]) : ''}
       ${entries.length > 1 ? sel('btEntryF', btEntry, [{ v: 'all', l: 'Todas las entradas' }, ...entries.map(e => ({ v: e, l: e }))]) : ''}
       ${sel('btResF', btRes, [{ v: 'all', l: 'Todos los resultados' }, { v: 'TP', l: 'Solo TP' }, { v: 'SL', l: 'Solo SL' }, { v: 'BE', l: 'Solo BE' }])}
+      ${esNoTomados ? sel('btSheetF', btSheetF, [{ v: 'all', l: 'Todas las estrategias' },
+        ...Object.keys(STRATEGIES).map(k => ({ v: k, l: STRATEGIES[k].label }))]) : ''}
       ${hayFiltros() ? '<button class="btn ghost" id="btClearF">× Limpiar filtros</button>' : ''}
     </div>`;
 }
 
+// Pestaña "No tomados": no es una estrategia, así que se le fabrica un meta con
+// lo único que la vista necesita (label para títulos/gráficas y pairs para
+// decidir si tiene sentido la tabla "Por par" — aquí siempre, porque mezcla las
+// tres estrategias).
+const NO_TOMADOS_META = {
+  label: 'No tomados',
+  pairs: ['EUR/USD', 'GBP/USD', 'XAU/USD', 'NQ'],
+};
+
 function render(container, sheet) {
-  const meta = STRATEGIES[sheet];
-  const allSheet = state.backtests.filter(t => t.sheet === sheet);
+  const esNoTomados = sheet === 'NO_TOMADOS';
+  const meta = esNoTomados ? NO_TOMADOS_META : STRATEGIES[sheet];
+  // Separación estricta: un trade NO TOMADO no aparece —ni cuenta— en la
+  // estrategia a la que pertenece. Si no lo entraste, no valida nada de la
+  // operativa; solo sirve para repasar lo que se escapó, y para eso está su
+  // propia pestaña.
+  const allSheet = esNoTomados
+    ? state.backtests.filter(t => t.not_taken === true)
+    : state.backtests.filter(t => t.sheet === sheet && t.not_taken !== true);
+  if (!esNoTomados) btSheetF = 'all';   // el filtro de estrategia solo vive ahí
   const all = filtro(allSheet);
   const c = tradeCounts(all);
   const decisive = c.tp + c.sl;
+
+  const titulo = esNoTomados
+    ? 'Backtesting <span>·</span> No tomados'
+    : `Backtesting <span>·</span> ${meta.label}`;
+  // También se crea desde aquí: el formulario lleva dentro el selector de
+  // estrategia y nace ya marcado como no tomado. Se crea donde va a vivir, en
+  // vez de crearlo en su estrategia y verlo desaparecer de allí al guardar.
+  const botonNuevo = `<button class="btn primary" id="btNewBtn">+ ${esNoTomados ? 'Nuevo no tomado' : 'Nuevo trade'}</button>`;
+  const subtituloBase = esNoTomados
+    ? 'Trades que se escaparon · NO cuentan en las estadísticas de cada estrategia'
+    : 'Histórico de backtests · separado de tu journal real';
 
   if (!allSheet.length) {
     container.innerHTML = `
       ${backtestTabs(sheet)}
       <div class="page-header">
         <div>
-          <h1>Backtesting <span>·</span> ${meta.label}</h1>
-          <div class="sub">Histórico de backtests · separado de tu journal real</div>
+          <h1>${titulo}</h1>
+          <div class="sub">${subtituloBase}</div>
         </div>
-        <div class="page-actions">
-          <button class="btn primary" id="btNewBtn">+ Nuevo trade</button>
-        </div>
+        <div class="page-actions">${botonNuevo}</div>
       </div>
       <div class="empty">
-        <div class="big">🧪</div>
-        <div>Aún no hay backtests de ${meta.label}. Registra aquí tus operaciones backtesteadas<br>para validar la operativa con datos — sin mezclarlas con tu cuenta real.<br><br>¿Los tienes en tu plantilla de Sheets? <a href="#/bt-importar">Impórtalos de golpe →</a></div>
+        <div class="big">${esNoTomados ? '👀' : '🧪'}</div>
+        <div>${esNoTomados
+          ? 'Aún no has registrado ningún trade <b>no tomado</b>.<br>Cuando una señal aparezca y no entres, dale a <b>+ Nuevo no tomado</b>:<br>eliges la estrategia dentro y queda aquí, sin ensuciar sus estadísticas.'
+          : `Aún no hay backtests de ${meta.label}. Registra aquí tus operaciones backtesteadas<br>para validar la operativa con datos — sin mezclarlas con tu cuenta real.<br><br>¿Los tienes en tu plantilla de Sheets? <a href="#/bt-importar">Impórtalos de golpe →</a>`}</div>
       </div>`;
     wire(container, sheet);
     return;
@@ -124,17 +156,15 @@ function render(container, sheet) {
       ${backtestTabs(sheet)}
       <div class="page-header">
         <div>
-          <h1>Backtesting <span>·</span> ${meta.label}</h1>
-          <div class="sub">0 de ${allSheet.length} backtests con esos filtros</div>
+          <h1>${titulo}</h1>
+          <div class="sub">0 de ${allSheet.length} ${esNoTomados ? 'no tomados' : 'backtests'} con esos filtros</div>
         </div>
-        <div class="page-actions">
-          <button class="btn primary" id="btNewBtn">+ Nuevo trade</button>
-        </div>
-        ${filtrosHtml(allSheet, meta)}
+        <div class="page-actions">${botonNuevo}</div>
+        ${filtrosHtml(allSheet, meta, esNoTomados)}
       </div>
       <div class="empty">
         <div class="big">🔍</div>
-        <div>Ningún backtest de ${meta.label} pasa esos filtros. Ajústalos arriba o límpialos.</div>
+        <div>Ninguno pasa esos filtros. Ajústalos arriba o límpialos.</div>
       </div>`;
     wire(container, sheet);
     return;
@@ -153,13 +183,11 @@ function render(container, sheet) {
     ${backtestTabs(sheet)}
     <div class="page-header">
       <div>
-        <h1>Backtesting <span>·</span> ${meta.label}</h1>
-        <div class="sub">${all.length}${all.length !== allSheet.length ? ` de ${allSheet.length}` : ''} backtests · separado de tu journal real</div>
+        <h1>${titulo}</h1>
+        <div class="sub">${all.length}${all.length !== allSheet.length ? ` de ${allSheet.length}` : ''} ${esNoTomados ? (all.length === 1 ? 'no tomado' : 'no tomados') : (all.length === 1 ? 'backtest' : 'backtests')} · ${subtituloBase}</div>
       </div>
-      <div class="page-actions">
-        <button class="btn primary" id="btNewBtn">+ Nuevo trade</button>
-      </div>
-      ${filtrosHtml(allSheet, meta)}
+      <div class="page-actions">${botonNuevo}</div>
+      ${filtrosHtml(allSheet, meta, esNoTomados)}
     </div>
 
     <div class="kpi-grid">
@@ -278,7 +306,9 @@ function render(container, sheet) {
     emptyMsg: 'Sin backtests.',
     // Ver en modo backtest: sin filas del journal, y Editar abre el formulario
     // de backtest (jamás el editor del journal real).
-    onView: t => openViewTradeModal(t, { variant: 'backtest', onEdit: bt => openBacktestFormModal(sheet, bt, null) }),
+    // OJO: la estrategia sale del backtest (bt.sheet), no de `sheet` — en la
+    // pestaña No tomados `sheet` vale 'NO_TOMADOS', que no es una estrategia.
+    onView: t => openViewTradeModal(t, { variant: 'backtest', onEdit: bt => openBacktestFormModal(bt.sheet, bt, null) }),
     onDelete: id => state.removeBacktest(id),
   });
 
@@ -286,7 +316,7 @@ function render(container, sheet) {
   requestAnimationFrame(() => {
     if (!container.querySelector('#btEquity')) return;   // la vista cambió
     createEquity(container.querySelector('#btEquity'),
-      [{ key: sheet, label: meta.label, data: equityCurve(all) }]);
+      [{ key: esNoTomados ? 'ALL' : sheet, label: meta.label, data: equityCurve(all) }]);
     const m = monthlyPnl(all);
     createBar(container.querySelector('#btMonthly'),
       m.map(x => MONTHS_ES_SHORT[+x.month.split('-')[1] - 1] + ' ' + x.month.substring(2, 4)),
@@ -301,7 +331,15 @@ function render(container, sheet) {
 
 function wire(container, sheet) {
   const btn = container.querySelector('#btNewBtn');
-  if (btn) btn.addEventListener('click', () => openBacktestFormModal(sheet, null, null));
+  if (btn) btn.addEventListener('click', () => {
+    if (sheet === 'NO_TOMADOS') {
+      // Sin estrategia fija: se elige dentro. Si hay uno filtrado, se precarga.
+      openBacktestFormModal(btSheetF !== 'all' ? btSheetF : null, null, null, null,
+        { pickSheet: true, notTaken: true });
+    } else {
+      openBacktestFormModal(sheet, null, null);
+    }
+  });
 
   // Filtros: todos re-renderizan la vista entera (KPIs + gráficas + tabla)
   const on = (id, fn) => {
@@ -314,10 +352,11 @@ function wire(container, sheet) {
   on('#btZoneF', v => { btZone = v; });
   on('#btEntryF', v => { btEntry = v; });
   on('#btResF', v => { btRes = v; });
+  on('#btSheetF', v => { btSheetF = v; });
   const clear = container.querySelector('#btClearF');
   if (clear) clear.addEventListener('click', () => {
     btPeriod = newPeriod();
-    btPair = btSetup = btZone = btEntry = btRes = 'all';
+    btPair = btSetup = btZone = btEntry = btRes = btSheetF = 'all';
     render(container, sheet);
   });
 }

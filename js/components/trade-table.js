@@ -9,6 +9,24 @@ import { accountUsd, fmtUsd } from '../utils/account-stats.js';
 const STRAT_LABEL = { ZONAS: 'Zonas', LIQUIDEZ: 'Liquidez', NASDAQ: 'Nasdaq' };
 const STRAT_CLS = { ZONAS: 'zonas', LIQUIDEZ: 'liquidez', NASDAQ: 'nasdaq' };
 
+// ── Fila marcada ("dónde iba") ───────────────────────────────
+// Al revisar trades uno a uno hay que ir recordando por cuál se iba. Se marca
+// una fila, como la celda activa de Excel, y la marca sobrevive a repintados,
+// a cambios de filtro y a recargar la página (por eso va a localStorage y no a
+// una variable). Es un id de trade: si no está en la tabla que se pinta, no se
+// ve nada — así vale para estrategias, calendario y backtesting a la vez.
+const MARK_KEY = 'tradinverso_marked_trade';
+
+function getMarked() {
+  try { return localStorage.getItem(MARK_KEY) || ''; } catch (e) { return ''; }
+}
+function setMarked(id) {
+  try {
+    if (id) localStorage.setItem(MARK_KEY, id);
+    else localStorage.removeItem(MARK_KEY);
+  } catch (e) { /* modo privado: la marca dura lo que la sesión */ }
+}
+
 export function renderTradeTable(container, trades, opts = {}) {
   // variant 'backtest': oculta columnas de Sens./Plan/Cuentas/% real y el filtro
   // de Plan (que no se auto-oculta). onView/onDelete permiten redirigir las
@@ -163,7 +181,7 @@ export function renderTradeTable(container, trades, opts = {}) {
     const sorted = sortChrono(filtered).reverse();
     const colspan = (isBacktest ? 11 : 15) + (canDelete ? 1 : 0);
     const bodyContent = sorted.length
-      ? sorted.map(t => row(t, canDelete, isBacktest)).join('')
+      ? sorted.map(t => row(t, canDelete, isBacktest, getMarked())).join('')
       : `<tr><td colspan="${colspan}" class="empty" style="padding:30px;">Ningún trade coincide con los filtros</td></tr>`;
     return `
       <div class="trade-table-wrap">
@@ -214,11 +232,32 @@ export function renderTradeTable(container, trades, opts = {}) {
   }
 
   function wireRowActions(filtered) {
+    // Pinta la marca sin re-renderizar: un repintado completo perdería el scroll
+    // justo cuando el usuario está recorriendo la lista.
+    function paintMark() {
+      const id = getMarked();
+      container.querySelectorAll('tr[data-row-id]').forEach(tr => {
+        tr.classList.toggle('row-marked', tr.dataset.rowId === id);
+      });
+    }
+
+    container.querySelectorAll('tr[data-row-id]').forEach(tr => {
+      tr.addEventListener('click', e => {
+        // Los botones de la fila (ver / borrar) tienen lo suyo.
+        if (e.target.closest('button')) return;
+        const id = tr.dataset.rowId;
+        setMarked(getMarked() === id ? '' : id);   // volver a pulsar la desmarca
+        paintMark();
+      });
+    });
+
     container.querySelectorAll('.view-btn').forEach(b => {
       b.addEventListener('click', () => {
         const id = b.dataset.id;
         const t = filtered.find(x => x.id === id);
         if (!t) return;
+        setMarked(id);      // el trade que abres es por el que ibas
+        paintMark();
         onView(t);
       });
     });
@@ -243,7 +282,7 @@ export function renderTradeTable(container, trades, opts = {}) {
   paint();
 }
 
-function row(t, canDelete, isBacktest = false) {
+function row(t, canDelete, isBacktest = false, markedId = '') {
   const sens = t.sensacion ? `<span class="sens-pill" data-s="${t.sensacion}">${t.sensacion}</span>` : '<span style="color:var(--dim)">–</span>';
 
   // Cuentas: solo la primera + "+N" si hay más. El detalle completo se ve en el modal del ojo.
@@ -282,7 +321,7 @@ function row(t, canDelete, isBacktest = false) {
     ? `<td><button class="btn ghost danger del-btn" data-id="${t.id}" style="padding:4px 8px;font-size:11px;">×</button></td>`
     : '';
   return `
-    <tr>
+    <tr data-row-id="${t.id}" class="${t.id === markedId ? 'row-marked' : ''}">
       <td>${viewBtn}</td>
       <td>${isBacktest ? formatDateShort(t.date) + '/' + String(t.date || '').substring(2, 4) : formatDateShort(t.date)}</td>
       <td>${t.open_str || '–'}</td>
@@ -291,6 +330,7 @@ function row(t, canDelete, isBacktest = false) {
       <td>${t.setup || '–'}</td>
       <td>${(Array.isArray(t.zone) ? t.zone.join(' · ') : t.zone) || '–'}</td>
       <td>${(Array.isArray(t.entry) ? t.entry.join(' · ') : t.entry) || '–'}</td>
+
       ${isBacktest ? '' : `
       <td>${sens}</td>
       <td class="td-plan">${t.plan_followed === true ? '<span class="plan-icon-yes" title="Dentro del plan">✓</span>' : t.plan_followed === false ? '<span class="plan-icon-no" title="Fuera del plan">✗</span>' : '<span class="plan-icon-na" title="No registrado">–</span>'}</td>

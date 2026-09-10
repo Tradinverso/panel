@@ -420,6 +420,10 @@ body { display: grid; grid-template-columns: var(--sidebar-w) 1fr; min-height: 1
 
 /* ── Result badges ───────────────────────────────────────── */
 .res-pill { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-family: var(--mono); font-weight: 500; }
+
+/* Backtest no tomado: la señal apareció pero no se entró */
+.nt-tag { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-family: var(--mono);
+  background: var(--orange-bg); color: var(--orange); border: 1px solid rgba(255,165,2,0.3); white-space: nowrap; }
 .res-tp { background: var(--green-bg); color: var(--green); border: 1px solid rgba(16,185,129,0.3); }
 .res-sl { background: var(--red-bg); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
 .res-be { background: var(--orange-bg); color: var(--orange); border: 1px solid rgba(255,165,2,0.3); }

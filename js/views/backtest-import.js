@@ -204,10 +204,20 @@ function paint(container) {
       <div class="setting-row">
         <div class="setting-info">
           <div class="setting-label">Borrar backtests por estrategia</div>
-          <div class="setting-desc">Elimina el histórico de una sola estrategia. Útil para reimportar desde cero. No toca tu journal real.</div>
+          <div class="setting-desc">Elimina los backtests <strong>tomados</strong> de una sola estrategia. Útil para reimportar desde cero. Los no tomados y tu journal real no se tocan.</div>
         </div>
         <div class="setting-control" style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
           ${SHEETS.map(k => `<button class="btn danger" data-bti-wipe="${k}" ${stored[k] ? '' : 'disabled'}>${STRATEGIES[k].label} (${stored[k]})</button>`).join('')}
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Borrar los no tomados</div>
+          <div class="setting-desc">Elimina solo los trades marcados como <strong>✗ No tomado</strong>, de las tres estrategias. El resto del backtesting no se toca.</div>
+        </div>
+        <div class="setting-control" style="display:flex;justify-content:flex-end;">
+          <button class="btn danger" id="btiWipeNT" ${stored.noTomados ? '' : 'disabled'}>No tomados (${stored.noTomados})</button>
         </div>
       </div>
 
@@ -396,12 +406,15 @@ function wire(container) {
   container.querySelectorAll('[data-bti-wipe]').forEach(btn => {
     btn.addEventListener('click', () => {
       const sheet = btn.dataset.btiWipe;
-      const n = state.backtests.filter(b => b.sheet === sheet).length;
+      // Solo los TOMADOS: es lo que borra state.removeBacktestsBySheet y lo que
+      // se ve en la pestaña de esa estrategia. Contar aquí todos haría que la
+      // confirmación mintiera sobre cuántos se van.
+      const n = state.backtests.filter(b => b.sheet === sheet && b.not_taken !== true).length;
       if (!n) return;
       openModal({
         title: `Borrar backtests de ${STRATEGIES[sheet].label}`,
         body: `Vas a eliminar <strong>${n} backtest${n !== 1 ? 's' : ''}</strong> de ${STRATEGIES[sheet].label}.
-               Las demás estrategias y <strong>tu journal real</strong> no se tocan.
+               Sus trades <strong>no tomados</strong>, las demás estrategias y <strong>tu journal real</strong> no se tocan.
                Esta acción <strong>no se puede deshacer</strong>. ¿Continuar?`,
         actions: [
           { label: 'Cancelar', onClick: close => close() },
@@ -413,6 +426,28 @@ function wire(container) {
           } },
         ],
       });
+    });
+  });
+
+  // ── Borrar solo los no tomados ──
+  const wipeNTBtn = container.querySelector('#btiWipeNT');
+  if (wipeNTBtn) wipeNTBtn.addEventListener('click', () => {
+    const n = state.backtests.filter(b => b.not_taken === true).length;
+    if (!n) return;
+    openModal({
+      title: 'Borrar los trades no tomados',
+      body: `Vas a eliminar <strong>${n} trade${n !== 1 ? 's' : ''} no tomado${n !== 1 ? 's' : ''}</strong> de las tres estrategias.
+             El resto del backtesting y <strong>tu journal real</strong> no se tocan.
+             Esta acción <strong>no se puede deshacer</strong>. ¿Continuar?`,
+      actions: [
+        { label: 'Cancelar', onClick: close => close() },
+        { label: `Sí, borrar ${n}`, variant: 'danger', onClick: close => {
+          const removed = state.removeNotTakenBacktests();
+          close();
+          lastMsg = { type: 'ok', text: `✓ ${removed} trade${removed !== 1 ? 's' : ''} no tomado${removed !== 1 ? 's' : ''} eliminado${removed !== 1 ? 's' : ''}.` };
+          paint(container);
+        } },
+      ],
     });
   });
 
@@ -442,8 +477,13 @@ function wire(container) {
 // Backtests YA guardados (no las filas de la rejilla de arriba): es lo que
 // alimenta los contadores de exportar y borrar.
 function countStored() {
+  // Cada contador cuadra con lo que borra su botón, y con lo que se ve en su
+  // pestaña: por estrategia van los TOMADOS; los no tomados, aparte.
   const out = { total: state.backtests.length };
-  for (const k of SHEETS) out[k] = state.backtests.filter(b => b.sheet === k).length;
+  for (const k of SHEETS) {
+    out[k] = state.backtests.filter(b => b.sheet === k && b.not_taken !== true).length;
+  }
+  out.noTomados = state.backtests.filter(b => b.not_taken === true).length;
   return out;
 }
 

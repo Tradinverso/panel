@@ -18,7 +18,19 @@ import { fmtPct } from '../utils/number-format-es.js';
 // como openModal() no apila (cierra el modal anterior), volver desde la
 // confirmación implica reabrir este formulario, y sin el draft se perdería todo
 // lo escrito.
-export function openBacktestFormModal(sheet, existing, onSaved, draft = null) {
+// `opts.pickSheet` → la estrategia se elige DENTRO del formulario (pestaña
+//   "No tomados", que no pertenece a ninguna).
+// `opts.notTaken` → alta ya marcada como no tomada.
+//
+// Al crear no se pregunta "¿se tomó?": lo dice el sitio desde el que abres el
+// formulario. Al EDITAR sí aparece, para poder corregir el error en cualquiera
+// de las dos direcciones (si no, un trade mal marcado se quedaría atrapado en
+// su pestaña para siempre).
+export function openBacktestFormModal(sheet, existing, onSaved, draft = null, opts = {}) {
+  const { pickSheet = false, notTaken = false } = opts;
+  // Con pickSheet y sin estrategia elegida aún, se arranca por la primera.
+  const sheetActual = sheet || (draft && draft.sheet) || Object.keys(STRATEGIES)[0];
+  sheet = sheetActual;
   const meta = STRATEGIES[sheet];
   const data = draft ? cloneData(draft) : existing ? {
     pair: existing.pair || '',
@@ -30,6 +42,7 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null) {
     close_str: existing.close_str || '',
     pnl_pct: existing.pnl_pct != null ? String(existing.pnl_pct) : '',
     rr: existing.rr != null ? String(existing.rr) : '',
+    not_taken: existing.not_taken === true,
     url1: existing.url1 || '',
     url2: existing.url2 || '',
     reflexion: existing.reflexion || '',
@@ -43,6 +56,7 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null) {
     close_str: '',
     pnl_pct: '',
     rr: '',
+    not_taken: notTaken === true,
     url1: '',
     url2: '',
     reflexion: '',
@@ -50,6 +64,11 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null) {
 
   const body = `
     <div class="form nt-form">
+      ${pickSheet ? `
+      <div class="nt-section">
+        <div class="nt-section-title">Estrategia</div>
+        <div data-field="sheet"></div>
+      </div>` : ''}
       <div class="nt-section">
         <div class="nt-section-title">Operativa</div>
         <div class="form-row">
@@ -108,6 +127,12 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null) {
             <input class="form-input" type="number" step="0.1" data-input="rr" value="${data.rr}" placeholder="2">
           </div>
         </div>
+        ${existing ? `
+        <div class="form-field">
+          <label class="form-label">¿Se tomó el trade?</label>
+          <div data-field="not_taken"></div>
+          <div class="bti-hint">Los <b>no tomados</b> viven en su pestaña y no cuentan en las estadísticas de la estrategia. Cambiarlo aquí mueve el trade de sección.</div>
+        </div>` : ''}
       </div>
 
       <div class="nt-section">
@@ -128,8 +153,10 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null) {
     </div>`;
 
   openModal({
-    title: existing ? 'Editar backtest' : 'Nuevo trade de backtesting',
-    meta: `${meta.label} · histórico de backtesting (separado del journal real)`,
+    title: existing ? 'Editar backtest' : (data.not_taken ? 'Nuevo trade NO TOMADO' : 'Nuevo trade de backtesting'),
+    meta: data.not_taken
+      ? `${meta.label} · no cuenta en las estadísticas de la estrategia`
+      : `${meta.label} · histórico de backtesting (separado del journal real)`,
     size: 'lg',
     body,
     actions: [
@@ -153,7 +180,7 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null) {
             if (onSaved) onSaved();
             return;
           }
-          openConfirm(sheet, meta, payload, data, onSaved);
+          openConfirm(sheet, meta, payload, data, onSaved, opts);
         },
       },
     ],
@@ -184,6 +211,23 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null) {
       onChange: v => { data.entry = meta.entriesMulti ? v : (v ? [v] : []); },
     });
   }
+  if (pickSheet) {
+    renderPills(root.querySelector('[data-field="sheet"]'), {
+      name: 'sheet',
+      options: Object.keys(STRATEGIES).map(k => ({ value: k, label: STRATEGIES[k].label })),
+      value: sheet,
+      // Cambiar de estrategia cambia par/zonas/entradas, así que hay que
+      // reconstruir el formulario: se reabre con el borrador adaptado.
+      onChange: v => { if (v !== sheet) openBacktestFormModal(v, existing, onSaved, draftForSheet(data, v), opts); },
+    });
+  }
+  const notTakenEl = root.querySelector('[data-field="not_taken"]');
+  if (notTakenEl) renderPills(notTakenEl, {
+    name: 'not_taken',
+    options: [{ value: 'si', label: '✓ Tomado' }, { value: 'no', label: '✗ No tomado' }],
+    value: data.not_taken ? 'no' : 'si',
+    onChange: v => { data.not_taken = v === 'no'; },
+  });
   root.querySelectorAll('[data-input]').forEach(el => {
     el.addEventListener('input', () => { data[el.dataset.input] = el.value; });
   });
@@ -201,6 +245,7 @@ function buildPayload(sheet, meta, data) {
     close_str: data.close_str,
     pnl_pct: parseFloat(data.pnl_pct),
     rr: data.rr !== '' && isFinite(parseFloat(data.rr)) ? parseFloat(data.rr) : null,
+    not_taken: data.not_taken === true,
     url1: data.url1.trim(),
     url2: (data.url2 || '').trim(),
     reflexion: data.reflexion,
@@ -210,13 +255,13 @@ function buildPayload(sheet, meta, data) {
 
 // Paso de confirmación antes de crear el backtest. "Volver" reabre el
 // formulario con lo escrito intacto (ver nota del `draft` arriba).
-function openConfirm(sheet, meta, payload, data, onSaved) {
+function openConfirm(sheet, meta, payload, data, onSaved, opts = {}) {
   openModal({
-    title: 'Confirmar nuevo backtest',
-    meta: `${meta.label} · ${payload.pair} · ${payload.setup} · no entra en el journal real`,
+    title: payload.not_taken ? 'Confirmar trade NO TOMADO' : 'Confirmar nuevo backtest',
+    meta: `${meta.label} · ${payload.pair} · ${payload.setup} · ${payload.not_taken ? 'irá a la pestaña No tomados' : 'no entra en el journal real'}`,
     body: confirmBody(payload),
     actions: [
-      { label: 'Volver', onClick: () => openBacktestFormModal(sheet, null, onSaved, data) },
+      { label: 'Volver', onClick: () => openBacktestFormModal(sheet, null, onSaved, data, opts) },
       {
         label: 'Confirmar y guardar', variant: 'primary',
         onClick: close => {
@@ -242,6 +287,7 @@ function confirmBody(b) {
       <dt>Zona</dt><dd>${esc((b.zone || []).join(' · '))}</dd>
       ${b.entry && b.entry.length ? `<dt>Entrada</dt><dd>${esc(b.entry.join(' · '))}</dd>` : ''}
       ${b.rr != null ? `<dt>RR</dt><dd>${b.rr}</dd>` : ''}
+      <dt>Ejecución</dt><dd>${b.not_taken ? '<span class="nt-tag">✗ No tomado</span>' : '<span style="color:var(--green);">✓ Tomado</span>'}</dd>
       <dt>% P&L</dt><dd><strong style="color:${color};">${fmtPct(b.pnl_pct)}</strong> · <span class="res-pill res-${result.toLowerCase()}">${result}</span></dd>
       ${b.reflexion ? `<dt>Notas</dt><dd style="white-space:pre-wrap;">${esc(b.reflexion)}</dd>` : ''}
     </dl>
@@ -252,6 +298,20 @@ function confirmBody(b) {
 // que el draft no quede acoplado al modal que lo generó.
 function cloneData(d) {
   return { ...d, zone: [...(d.zone || [])], entry: [...(d.entry || [])] };
+}
+
+// Al cambiar de estrategia dentro del formulario se conserva todo lo que NO
+// depende de ella (fechas, horas, %, RR, enlaces, notas) y se sueltan par, zona
+// y entrada, que sí. Mismo criterio que el "Nuevo trade" del journal.
+function draftForSheet(d, sheet) {
+  const meta = STRATEGIES[sheet];
+  return {
+    ...cloneData(d),
+    sheet,
+    pair: meta.pairs.length === 1 ? meta.pairs[0] : '',
+    zone: [],
+    entry: meta.entries && meta.entries.length === 1 ? [meta.entries[0]] : [],
+  };
 }
 
 function validate(meta, data) {

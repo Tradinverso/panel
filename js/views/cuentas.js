@@ -7,7 +7,7 @@ import { openCuentaEditModal, confirmDeleteCuenta } from '../components/cuenta-e
 import { openModal } from '../components/modal.js';
 import { gestionTabs } from '../components/gestion-tabs.js';
 import {
-  accountStats, fmtUsd, advanceInfo,
+  accountStats, fmtUsd, advanceInfo, lastActivity, daysSince,
   portfolioStats, portfolioEquityCurve, portfolioMonthlyWithdrawals,
 } from '../utils/account-stats.js';
 import { kpiCard } from '../components/kpi-card.js';
@@ -308,6 +308,7 @@ function card(c) {
 
       <div class="cuenta-stats">
         ${stat('Capital', fmtUsd(s.capital))}
+        ${inactividadStat(c)}
         ${c.fase !== 'fondeada' ? stat('Objetivo', objText) : (objUsd > 0 ? stat('Objetivo', objText) : '')}
         ${s.ddLimitUsd > 0 ? stat('DD máx', fmtUsd(s.ddLimitUsd)) : ''}
         ${stat('Trades', `${s.count} · ${wr} WR`)}
@@ -344,4 +345,23 @@ export function cuentasListView(container) {
   filterTipo = 'all';
   render(container);
   return state.on(() => render(container));
+}
+
+// ── Marcador de inactividad ──────────────────────────────────
+// Días desde el último trade asignado (o desde la fecha puesta a mano). Se pone
+// naranja a los 7 días y rojo a los 14: en cuentas de fondeo, un parón largo sin
+// avisar suele acabar en cuenta caducada.
+function inactividadStat(c) {
+  const { date, source } = lastActivity(c, state.trades);
+  const dias = daysSince(date);
+  const celda = (valor, extra = '') =>
+    `<div class="cuenta-stat"><span class="cuenta-stat-l">Sin operar</span><span class="cuenta-stat-v"${extra}>${valor}</span></div>`;
+  if (dias == null) return celda('—');
+  const color = dias >= 14 ? 'var(--red)' : dias >= 7 ? 'var(--orange)' : 'var(--muted)';
+  const texto = dias === 0 ? 'hoy' : dias === 1 ? '1 día' : `${dias} días`;
+  const origen = source === 'manual' ? ' ✎' : '';
+  const tip = source === 'manual' ? ' (puesta a mano)'
+    : source === 'alta' ? ' — la cuenta no tiene trades asignados, se cuenta desde el alta'
+    : ' — último trade asignado';
+  return celda(`${texto}${origen}`, ` style="color:${color};" title="Última actividad: ${date}${tip}"`);
 }
