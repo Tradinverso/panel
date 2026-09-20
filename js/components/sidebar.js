@@ -39,7 +39,7 @@ const NAV_BASE = [
   { path: '#/plan',        label: 'Plan de trading', icon: 'plan', class: '' },
   { section: 'Gestión' },
   // Cuentas agrupa Cuentas + Riesgo (pestañas). Contabilidad va aparte.
-  { path: '#/cuentas',      label: 'Cuentas',      icon: 'cuentas', class: '', countActiveCuentas: true, match: ['#/cuentas', '#/riesgo'] },
+  { path: '#/cuentas',      label: 'Cuentas',      icon: 'cuentas', class: '', countActiveCuentas: true, match: ['#/cuentas', '#/riesgo', '#/riesgo-futuros'] },
   { path: '#/contabilidad', label: 'Contabilidad', icon: 'contabilidad', class: '' },
   // Ajustes (engloba Importar y Tabla como pestañas) se renderiza aparte, en el pie.
 ];
@@ -127,7 +127,7 @@ export function renderSidebar(container) {
       <div class="brand-text">
         <span class="brand-line2">TRADINVERSO</span>
         <span class="brand-line1">Trading Journal</span>
-        <span class="brand-ver">v.2.4</span>
+        <span class="brand-ver">v.2.5</span>
       </div>
     </a>
     <div class="sidebar-tools">

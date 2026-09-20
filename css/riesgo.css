@@ -179,3 +179,14 @@ a.rg-tab { text-decoration: none; display: inline-flex; align-items: center; }
   /* Preview de 7 niveles: se reparte en varias filas en vez de aplastarse */
   .rg-niv-preview { grid-template-columns: repeat(4, 1fr); }
 }
+
+/* ── Futuros (riesgo-futuros.js) ─────────────────────────── */
+.fut-risk-list { margin: 8px 0 8px 18px; padding: 0; font-size: 12px; line-height: 1.8; }
+/* Cuenta sin gestión elegida (o recién pasada de fase): se usa la conservadora */
+.fut-pend { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 9px;
+  font-family: var(--mono); background: var(--orange-bg); color: var(--orange);
+  border: 1px solid rgba(255,165,2,0.35); vertical-align: middle; white-space: nowrap; }
+.fut-table td { vertical-align: middle; }
+.fut-table .select { min-width: 190px; }
+.fut-custom { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 9px; font-weight: 500;
+  font-family: var(--mono); background: var(--accent-bg); color: var(--accent); vertical-align: middle; }

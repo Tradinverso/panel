@@ -10,10 +10,20 @@
 // backtests para no duplicar ~130 líneas.
 
 import { IMPORT_HEADERS } from './sheet-parsers.js';
+import { STRATEGIES, modelLabel } from './strategy-config.js';
 import { formatDateEs } from './date-helpers.js';
 import { toCsv } from './csv.js';
 
 const DAYS_FULL_ES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+
+// Columnas del archivo: las de la plantilla de la academia y, en estrategias con
+// modelos de entrada (Nasdaq), una MODELO al final. Va al final y solo aquí —no
+// en IMPORT_HEADERS— porque esa lista también define la rejilla de importación
+// del journal, que tiene que seguir cuadrando con la plantilla.
+function exportHeaders(sheet) {
+  const base = IMPORT_HEADERS[sheet];
+  return STRATEGIES[sheet]?.models ? [...base, { key: 'model', label: 'MODELO' }] : base;
+}
 
 // Orden cronológico dentro de cada pestaña (fecha, y a igual fecha por hora).
 function sortChronoForExport(rows) {
@@ -24,7 +34,7 @@ function sortChronoForExport(rows) {
 }
 
 export function rowsToCsv(sheet, rows) {
-  const headers = IMPORT_HEADERS[sheet];
+  const headers = exportHeaders(sheet);
   const sorted = sortChronoForExport(rows);
   const headerRow = headers.map(h => h.label);
   const body = sorted.map((t, i) => headers.map(h => formatCell(h.key, t, i + 1, sheet)));
@@ -54,6 +64,7 @@ export function formatCell(key, t, idx, sheet) {
     case 'url1':    return t.url1 || '';
     case 'url2':    return t.url2 || '';
     case 'reflex':  return t.reflexion || '';
+    case 'model':   return t.model ? modelLabel(t.model) : '';   // vacío en trades sin modelo
     // Columnas calc del Sheet (BALANCE, DD, etc.) — se exportan vacías
     // para preservar el alineamiento de columnas con la hoja original.
     default:        return '';
@@ -129,7 +140,7 @@ export async function exportXlsx(rows, filename) {
   for (const sheet of ['ZONAS', 'LIQUIDEZ', 'NASDAQ']) {
     const sheetRows = rows.filter(t => t.sheet === sheet);
     if (sheetRows.length === 0) continue;
-    const headers = IMPORT_HEADERS[sheet];
+    const headers = exportHeaders(sheet);
     const sorted = sortChronoForExport(sheetRows);
     const aoa = [
       headers.map(h => h.label),

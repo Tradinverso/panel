@@ -8,7 +8,7 @@ import { state } from '../state.js';
 import { auth } from '../auth.js';
 import { openModal } from './modal.js';
 import { renderPills } from './pills.js';
-import { STRATEGIES } from '../utils/strategy-config.js';
+import { STRATEGIES, modelLabel } from '../utils/strategy-config.js';
 import { todayLocal } from '../utils/timezone.js';
 import { formatDateEs, durationMinutes } from '../utils/date-helpers.js';
 import { fmtPct } from '../utils/number-format-es.js';
@@ -32,11 +32,15 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null, op
   const sheetActual = sheet || (draft && draft.sheet) || Object.keys(STRATEGIES)[0];
   sheet = sheetActual;
   const meta = STRATEGIES[sheet];
+  // Modelo obligatorio en Nasdaq, salvo al editar un backtest anterior a los
+  // modelos (importado o registrado antes): no se obliga a clasificarlo.
+  const modeloOpcional = !!(existing && !existing.model);
   const data = draft ? cloneData(draft) : existing ? {
     pair: existing.pair || '',
     setup: existing.setup || '',
     zone: Array.isArray(existing.zone) ? [...existing.zone] : [],
     entry: Array.isArray(existing.entry) ? [...existing.entry] : [],
+    model: existing.model || '',
     date: existing.date || todayLocal(auth.timezone()),
     open_str: existing.open_str || '',
     close_str: existing.close_str || '',
@@ -51,6 +55,7 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null, op
     setup: '',
     zone: [],
     entry: meta.entries && meta.entries.length === 1 ? [meta.entries[0]] : [],
+    model: '',
     date: todayLocal(auth.timezone()),
     open_str: '',
     close_str: '',
@@ -75,10 +80,10 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null, op
           ${!meta.pairFixed ? `<div class="form-field">
             <label class="form-label">Par <span class="required">*</span></label>
             <div data-field="pair"></div>
-          </div>` : `<div class="form-field">
-            <label class="form-label">Par</label>
-            <div class="form-input" style="background:var(--card);">${meta.pairs[0]}</div>
-          </div>`}
+          </div>` : (meta.models ? `<div class="form-field">
+          <label class="form-label">Modelo de entrada${modeloOpcional ? '' : ' <span class="required">*</span>'}</label>
+          <div data-field="model"></div>
+        </div>` : '')}
           <div class="form-field">
             <label class="form-label">Setup <span class="required">*</span></label>
             <div data-field="setup"></div>
@@ -88,10 +93,34 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null, op
           <div class="form-field">
             <label class="form-label">Zona <span class="required">*</span></label>
             <div data-field="zone"></div>
+            ${!meta.zonesMulti && data.zone.filter(x => meta.zones.includes(x)).length > 1 ? `
+              <div class="legacy-note" data-multi="zone">
+                Este trade tenía varias: "${esc(data.zone.filter(x => meta.zones.includes(x)).join(' + '))}". Ahora es una sola:
+                al elegir una zona quedará solo esa, o
+                <button type="button" class="legacy-quitar" data-multi-keep="zone">quedarme con ${esc(data.zone.filter(x => meta.zones.includes(x))[0])}</button>
+              </div>` : ''}
+            ${data.zone.some(x => !meta.zones.includes(x)) ? `
+              <div class="legacy-note" data-legacy="zone">
+                Valor antiguo "${esc(data.zone.filter(x => !meta.zones.includes(x)).join(', '))}" (ya no está en la lista).
+                Se sustituye en cuanto elijas una zona, o
+                <button type="button" class="legacy-quitar" data-legacy-quitar="zone">quitarlo</button>
+              </div>` : ''}
           </div>
           ${meta.showEntry ? `<div class="form-field">
             <label class="form-label">Tipo de entrada <span class="required">*</span></label>
             <div data-field="entry"></div>
+            ${!meta.entriesMulti && data.entry.filter(x => meta.entries.includes(x)).length > 1 ? `
+              <div class="legacy-note" data-multi="entry">
+                Este trade tenía varias: "${esc(data.entry.filter(x => meta.entries.includes(x)).join(' + '))}". Ahora es una sola:
+                al elegir una entrada quedará solo esa, o
+                <button type="button" class="legacy-quitar" data-multi-keep="entry">quedarme con ${esc(data.entry.filter(x => meta.entries.includes(x))[0])}</button>
+              </div>` : ''}
+            ${data.entry.some(x => !meta.entries.includes(x)) ? `
+              <div class="legacy-note" data-legacy="entry">
+                Valor antiguo "${esc(data.entry.filter(x => !meta.entries.includes(x)).join(', '))}" (ya no está en la lista).
+                Se sustituye en cuanto elijas una entrada, o
+                <button type="button" class="legacy-quitar" data-legacy-quitar="entry">quitarlo</button>
+              </div>` : ''}
           </div>` : ''}
         </div>
       </div>
@@ -164,7 +193,7 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null, op
       {
         label: existing ? 'Guardar cambios' : 'Guardar backtest', variant: 'primary',
         onClick: close => {
-          const err = validate(meta, data);
+          const err = validate(meta, data, modeloOpcional);
           const errEl = document.getElementById('modal-root').querySelector('#btErr');
           if (err) {
             errEl.textContent = '⚠ ' + err;
@@ -200,15 +229,36 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null, op
     onChange: v => data.setup = v,
   });
   renderPills(root.querySelector('[data-field="zone"]'), {
-    name: 'zone', options: meta.zones, value: data.zone,
+    name: 'zone', options: meta.zones, value: data.zone, variant: meta.zonesCols ? `cols-${meta.zonesCols}` : '',
     multi: !!meta.zonesMulti,
-    onChange: v => { data.zone = meta.zonesMulti ? v : (v ? [v] : []); },
+    // Al elegir de la lista, un valor antiguo se sustituye (ver trade-edit-modal).
+    onChange: v => { data.zone = limpiar(meta.zonesMulti ? v : (v ? [v] : []), meta.zones); quitarAviso('zone'); },
   });
   if (meta.showEntry) {
     renderPills(root.querySelector('[data-field="entry"]'), {
-      name: 'entry', options: meta.entries, value: data.entry,
+      name: 'entry', options: meta.entries, value: data.entry, variant: meta.entriesCols ? `cols-${meta.entriesCols}` : '', rowStarts: meta.entriesRowStarts || [],
       multi: !!meta.entriesMulti,
-      onChange: v => { data.entry = meta.entriesMulti ? v : (v ? [v] : []); },
+      onChange: v => { data.entry = limpiar(meta.entriesMulti ? v : (v ? [v] : []), meta.entries); quitarAviso('entry'); },
+    });
+  }
+  root.querySelectorAll('[data-multi-keep]').forEach(b => b.addEventListener('click', () => {
+    const f = b.dataset.multiKeep;
+    const lista = f === 'zone' ? meta.zones : meta.entries;
+    data[f] = limpiar(data[f], lista).slice(0, 1);
+    quitarAviso(f);
+  }));
+  root.querySelectorAll('[data-legacy-quitar]').forEach(b => b.addEventListener('click', () => {
+    const f = b.dataset.legacyQuitar;
+    data[f] = limpiar(data[f], f === 'zone' ? meta.zones : meta.entries);
+    quitarAviso(f);
+  }));
+  function quitarAviso(f) { root.querySelectorAll(`[data-legacy="${f}"], [data-multi="${f}"]`).forEach(e => e.remove()); }
+  if (meta.models) {
+    renderPills(root.querySelector('[data-field="model"]'), {
+      name: 'model',
+      options: modeloOpcional ? [...meta.models, { value: '', label: 'Sin modelo' }] : meta.models,
+      value: data.model || '',
+      onChange: v => { data.model = v || ''; },
     });
   }
   if (pickSheet) {
@@ -240,6 +290,7 @@ function buildPayload(sheet, meta, data) {
     setup: data.setup,
     zone: data.zone,
     entry: data.entry,
+    model: meta.models ? (data.model || '') : '',
     date: data.date,
     open_str: data.open_str,
     close_str: data.close_str,
@@ -284,6 +335,7 @@ function confirmBody(b) {
       <dt>Hora</dt><dd>${esc(b.open_str)}${b.close_str ? ' → ' + esc(b.close_str) : ''}${dur != null ? ` (${dur} min)` : ''}</dd>
       <dt>Par</dt><dd>${esc(b.pair)}</dd>
       <dt>Setup</dt><dd>${esc(b.setup)}</dd>
+      ${STRATEGIES[b.sheet].models ? `<dt>Modelo</dt><dd>${esc(modelLabel(b.model))}</dd>` : ''}
       <dt>Zona</dt><dd>${esc((b.zone || []).join(' · '))}</dd>
       ${b.entry && b.entry.length ? `<dt>Entrada</dt><dd>${esc(b.entry.join(' · '))}</dd>` : ''}
       ${b.rr != null ? `<dt>RR</dt><dd>${b.rr}</dd>` : ''}
@@ -311,14 +363,16 @@ function draftForSheet(d, sheet) {
     pair: meta.pairs.length === 1 ? meta.pairs[0] : '',
     zone: [],
     entry: meta.entries && meta.entries.length === 1 ? [meta.entries[0]] : [],
+    model: '',
   };
 }
 
-function validate(meta, data) {
+function validate(meta, data, modeloOpcional = false) {
   if (!meta.pairFixed && !data.pair) return 'Selecciona el par.';
   if (!data.setup) return 'Selecciona el setup (LONG/SHORT).';
   if (!data.zone || !data.zone.length) return 'Selecciona la zona.';
   if (meta.showEntry && (!data.entry || !data.entry.length)) return 'Selecciona el tipo de entrada.';
+  if (meta.models && !modeloOpcional && !data.model) return 'Selecciona el modelo de entrada.';
   if (!data.date) return 'Pon la fecha.';
   if (!data.open_str) return 'Pon la hora de apertura.';
   const pnl = parseFloat(data.pnl_pct);
@@ -328,4 +382,9 @@ function validate(meta, data) {
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+// Deja solo los valores que están en la lista actual de la estrategia.
+function limpiar(valores, lista) {
+  return (valores || []).filter(v => lista.includes(v));
 }

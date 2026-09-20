@@ -13,7 +13,7 @@ import {
 } from '../utils/calculations.js';
 import { fmtPct, fmtPctNoSign, fmtNum } from '../utils/number-format-es.js';
 import { MONTHS_ES_SHORT } from '../utils/date-helpers.js';
-import { STRATEGIES } from '../utils/strategy-config.js';
+import { STRATEGIES, modelLabel } from '../utils/strategy-config.js';
 import { kpiCard, kpiCardComposite } from '../components/kpi-card.js';
 import { createEquity, createDonut, createBar, createHourBar, createDayBar, createLongShort } from '../components/charts.js';
 import { renderHeatmap } from '../components/heatmap.js';
@@ -30,6 +30,7 @@ import {
 // no existe en la estrategia activa.
 let btPeriod = newPeriod();   // rango de meses { from, to }
 let btPair = 'all', btSetup = 'all', btZone = 'all', btEntry = 'all', btRes = 'all';
+let btModel = 'all';   // modelo de entrada ('' = sin modelo) — solo estrategias con modelos
 let btSheetF = 'all';  // filtro de estrategia — solo en la pestaña No tomados
 
 export function backtestView(container, sheet) {
@@ -54,12 +55,13 @@ function filtro(trades) {
     if (btEntry !== 'all' && !hasEntry(t, btEntry)) return false;
     if (btRes !== 'all' && t.result !== btRes) return false;
     if (btSheetF !== 'all' && t.sheet !== btSheetF) return false;
+    if (btModel !== 'all' && (!STRATEGIES[t.sheet]?.models || (t.model || '') !== btModel)) return false;
     return true;
   });
 }
 
 function hayFiltros() {
-  return periodActive(btPeriod) || btPair !== 'all' || btSheetF !== 'all'
+  return periodActive(btPeriod) || btPair !== 'all' || btSheetF !== 'all' || btModel !== 'all'
     || btSetup !== 'all' || btZone !== 'all' || btEntry !== 'all' || btRes !== 'all';
 }
 
@@ -67,6 +69,13 @@ function hayFiltros() {
 // de la estrategia (no solo de la config: los imports pueden traer variantes).
 function filtrosHtml(allSheet, meta, esNoTomados = false) {
   const months = monthsOf(allSheet);
+  // Modelos: de los trades de estrategias que los tienen (en No tomados se
+  // mezclan estrategias, y un trade de Zonas no es "sin modelo", es que no aplica).
+  const conModelos = allSheet.filter(t => STRATEGIES[t.sheet]?.models);
+  const models = conModelos.length
+    ? [...new Set(conModelos.map(t => t.model || ''))].sort((a, b) => (a === '') - (b === '') || a.localeCompare(b))
+    : [];
+  if (btModel !== 'all' && !models.includes(btModel)) btModel = 'all';
   clampPeriod(btPeriod, months);
 
   const pairs = [...new Set(allSheet.map(t => t.pair).filter(Boolean))].sort();
@@ -86,6 +95,7 @@ function filtrosHtml(allSheet, meta, esNoTomados = false) {
       ${periodHtml(months, btPeriod, { idFrom: 'btFromF', idTo: 'btToF' })}
       ${pairs.length > 1 ? sel('btPairF', btPair, [{ v: 'all', l: 'Todos los pares' }, ...pairs.map(p => ({ v: p, l: p }))]) : ''}
       ${sel('btSetupF', btSetup, [{ v: 'all', l: 'Todas las direcciones' }, { v: 'LONG', l: 'LONG' }, { v: 'SHORT', l: 'SHORT' }])}
+      ${models.length > 1 ? sel('btModelF', btModel, [{ v: 'all', l: 'Todos los modelos' }, ...models.map(m => ({ v: m, l: modelLabel(m) }))]) : ''}
       ${zones.length > 1 ? sel('btZoneF', btZone, [{ v: 'all', l: 'Todas las zonas' }, ...zones.map(z => ({ v: z, l: z }))]) : ''}
       ${entries.length > 1 ? sel('btEntryF', btEntry, [{ v: 'all', l: 'Todas las entradas' }, ...entries.map(e => ({ v: e, l: e }))]) : ''}
       ${sel('btResF', btRes, [{ v: 'all', l: 'Todos los resultados' }, { v: 'TP', l: 'Solo TP' }, { v: 'SL', l: 'Solo SL' }, { v: 'BE', l: 'Solo BE' }])}
@@ -107,6 +117,7 @@ const NO_TOMADOS_META = {
 function render(container, sheet) {
   const esNoTomados = sheet === 'NO_TOMADOS';
   const meta = esNoTomados ? NO_TOMADOS_META : STRATEGIES[sheet];
+  if (!esNoTomados && !meta.models) btModel = 'all';
   // Separación estricta: un trade NO TOMADO no aparece —ni cuenta— en la
   // estrategia a la que pertenece. Si no lo entraste, no valida nada de la
   // operativa; solo sirve para repasar lo que se escapó, y para eso está su
@@ -250,6 +261,14 @@ function render(container, sheet) {
       </div>
     </div>
 
+    ${all.some(t => STRATEGIES[t.sheet]?.models) ? `
+    <div class="card table-card" style="margin-top:16px;">
+      <div class="card-title">Por modelo de entrada${esNoTomados ? ' <span style="color:var(--muted);font-weight:400;">(Nasdaq)</span>' : ''}</div>
+      <table class="data-table"><thead><tr>
+        <th>Modelo</th><th>Trades</th><th>WR</th><th>P&L</th><th>PF</th>
+      </tr></thead><tbody id="btModels"></tbody></table>
+    </div>` : ''}
+
     <div class="section-title">Timing</div>
     <div class="grid-2">
       <div class="card">
@@ -286,6 +305,8 @@ function render(container, sheet) {
   paintGroupTable(container.querySelector('#btPairs'), statsByGroup(all, t => t.pair || '–'));
   paintGroupTable(container.querySelector('#btZones'), statsByGroup(all, t => (Array.isArray(t.zone) ? t.zone[0] : t.zone) || '–'));
   paintGroupTable(container.querySelector('#btEntries'), statsByGroup(all, t => (Array.isArray(t.entry) ? t.entry[0] : t.entry) || '–'));
+  paintGroupTable(container.querySelector('#btModels'),
+    statsByGroup(all.filter(t => STRATEGIES[t.sheet]?.models), t => modelLabel(t.model)));
   const d = durationStats(all);
   const durEl = container.querySelector('#btDur');
   if (durEl) durEl.innerHTML = `<tr>
@@ -309,6 +330,8 @@ function render(container, sheet) {
     // OJO: la estrategia sale del backtest (bt.sheet), no de `sheet` — en la
     // pestaña No tomados `sheet` vale 'NO_TOMADOS', que no es una estrategia.
     onView: t => openViewTradeModal(t, { variant: 'backtest', onEdit: bt => openBacktestFormModal(bt.sheet, bt, null) }),
+    // Doble clic en la fila → directo al formulario de backtest
+    onEdit: bt => openBacktestFormModal(bt.sheet, bt, null),
     onDelete: id => state.removeBacktest(id),
   });
 
@@ -353,10 +376,11 @@ function wire(container, sheet) {
   on('#btEntryF', v => { btEntry = v; });
   on('#btResF', v => { btRes = v; });
   on('#btSheetF', v => { btSheetF = v; });
+  on('#btModelF', v => { btModel = v; });
   const clear = container.querySelector('#btClearF');
   if (clear) clear.addEventListener('click', () => {
     btPeriod = newPeriod();
-    btPair = btSetup = btZone = btEntry = btRes = btSheetF = 'all';
+    btPair = btSetup = btZone = btEntry = btRes = btSheetF = btModel = 'all';
     render(container, sheet);
   });
 }

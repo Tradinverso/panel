@@ -16,7 +16,7 @@ import {
   newPeriod, monthsOf, inPeriod, periodActive, clampPeriod, periodHtml, wirePeriod,
 } from '../components/period-filter.js';
 
-import { STRATEGIES as STRAT_META } from '../utils/strategy-config.js';
+import { STRATEGIES as STRAT_META, modelLabel } from '../utils/strategy-config.js';
 
 let perfMode = 'sistema'; // 'sistema' | 'real'
 
@@ -25,6 +25,7 @@ let perfMode = 'sistema'; // 'sistema' | 'real'
 // auto-resetean si el valor no existe en la activa.
 let fPeriod = newPeriod();   // rango de meses { from, to }
 let fPair = 'all', fSetup = 'all', fZone = 'all', fEntry = 'all', fRes = 'all';
+let fModel = 'all';   // modelo de entrada ('' = sin modelo) — solo estrategias con modelos
 
 function hasIn(v, x) {
   return Array.isArray(v) ? v.includes(x) : v === x;
@@ -37,6 +38,7 @@ function filtro(trades) {
     if (fSetup !== 'all' && t.setup !== fSetup) return false;
     if (fZone !== 'all' && !hasIn(t.zone, fZone)) return false;
     if (fEntry !== 'all' && !hasIn(t.entry, fEntry)) return false;
+    if (fModel !== 'all' && (!STRAT_META[t.sheet]?.models || (t.model || '') !== fModel)) return false;
     if (fRes !== 'all' && t.result !== fRes) return false;
     return true;
   });
@@ -44,10 +46,16 @@ function filtro(trades) {
 
 function hayFiltros() {
   return periodActive(fPeriod) || fPair !== 'all'
-    || fSetup !== 'all' || fZone !== 'all' || fEntry !== 'all' || fRes !== 'all';
+    || fSetup !== 'all' || fZone !== 'all' || fEntry !== 'all' || fRes !== 'all' || fModel !== 'all';
 }
 
 function filtrosHtml(allSheet) {
+  const conModelos = allSheet.some(t => STRAT_META[t.sheet]?.models);
+  // "1 · ORB" … "4 · Continuación" y, al final, "Sin modelo" (trades antiguos).
+  const models = conModelos
+    ? [...new Set(allSheet.map(t => t.model || ''))].sort((a, b) => (a === '') - (b === '') || a.localeCompare(b))
+    : [];
+  if (fModel !== 'all' && !models.includes(fModel)) fModel = 'all';
   const months = monthsOf(allSheet);
   clampPeriod(fPeriod, months);
   const pairs = [...new Set(allSheet.map(t => t.pair).filter(Boolean))].sort();
@@ -67,6 +75,7 @@ function filtrosHtml(allSheet) {
       ${periodHtml(months, fPeriod, { idFrom: 'stFromF', idTo: 'stToF' })}
       ${pairs.length > 1 ? sel('stPairF', fPair, [{ v: 'all', l: 'Todos los pares' }, ...pairs.map(p => ({ v: p, l: p }))]) : ''}
       ${sel('stSetupF', fSetup, [{ v: 'all', l: 'Todas las direcciones' }, { v: 'LONG', l: 'LONG' }, { v: 'SHORT', l: 'SHORT' }])}
+      ${models.length > 1 ? sel('stModelF', fModel, [{ v: 'all', l: 'Todos los modelos' }, ...models.map(m => ({ v: m, l: modelLabel(m) }))]) : ''}
       ${zones.length > 1 ? sel('stZoneF', fZone, [{ v: 'all', l: 'Todas las zonas' }, ...zones.map(z => ({ v: z, l: z }))]) : ''}
       ${entries.length > 1 ? sel('stEntryF', fEntry, [{ v: 'all', l: 'Todas las entradas' }, ...entries.map(e => ({ v: e, l: e }))]) : ''}
       ${sel('stResF', fRes, [{ v: 'all', l: 'Todos los resultados' }, { v: 'TP', l: 'Solo TP' }, { v: 'SL', l: 'Solo SL' }, { v: 'BE', l: 'Solo BE' }])}
@@ -85,16 +94,18 @@ function wireFiltros(container, sheet) {
   on('#stZoneF', v => { fZone = v; });
   on('#stEntryF', v => { fEntry = v; });
   on('#stResF', v => { fRes = v; });
+  on('#stModelF', v => { fModel = v; });
   const clear = container.querySelector('#stClearF');
   if (clear) clear.addEventListener('click', () => {
     fPeriod = newPeriod();
-    fPair = fSetup = fZone = fEntry = fRes = 'all';
+    fPair = fSetup = fZone = fEntry = fRes = fModel = 'all';
     render(container, sheet);
   });
 }
 
 function render(container, sheet) {
   const meta = STRAT_META[sheet];
+  if (!meta.models) fModel = 'all';
   const allSheet = state.trades.filter(t => t.sheet === sheet);
   const all = filtro(allSheet);
 
@@ -223,6 +234,15 @@ function render(container, sheet) {
       </tr></thead><tbody id="entriesTbody"></tbody></table>
     </div>` : ''}
 
+    ${meta.models ? `
+    <div class="section-title">Por modelo de entrada</div>
+    <div class="card" style="margin-bottom:24px;">
+      <div class="card-title">Rendimiento por modelo</div>
+      <table class="data-table"><thead><tr>
+        <th>Modelo</th><th>Trades</th><th>WR</th><th>P&L sist.</th><th>P&L real</th><th>PF</th>
+      </tr></thead><tbody id="modelsTbody"></tbody></table>
+    </div>` : ''}
+
     <div class="section-title">Long vs Short</div>
     <div class="grid-2">
       <div class="card">
@@ -332,6 +352,19 @@ function render(container, sheet) {
     const es = statsByGroup(all, t => (Array.isArray(t.entry) ? t.entry[0] : t.entry) || '–').sort((a, b) => b.total - a.total);
     container.querySelector('#entriesTbody').innerHTML = es.map(e => tableRow([
       e.key, e.total, coloredPct(e.wr, 50), coloredSignedPct(e.pnl), coloredSignedPct(e.pnlReal), coloredPF(e.pf),
+    ])).join('') || '<tr><td colspan="6" class="empty">Sin datos</td></tr>';
+  }
+
+  // Modelos de entrada — por orden de modelo, "Sin modelo" al final.
+  // Se agrupa por la ETIQUETA, no por el código: statsByGroup descarta las
+  // claves vacías, y el código de un trade sin modelo es '' — los trades
+  // anteriores a este campo desaparecerían de la tabla sin avisar.
+  if (meta.models) {
+    const SIN = modelLabel('');
+    const ms = statsByGroup(all, t => modelLabel(t.model))
+      .sort((a, b) => (a.key === SIN) - (b.key === SIN) || a.key.localeCompare(b.key));
+    container.querySelector('#modelsTbody').innerHTML = ms.map(m => tableRow([
+      m.key, m.total, coloredPct(m.wr, 50), coloredSignedPct(m.pnl), coloredSignedPct(m.pnlReal), coloredPF(m.pf),
     ])).join('') || '<tr><td colspan="6" class="empty">Sin datos</td></tr>';
   }
 

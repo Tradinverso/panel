@@ -21,6 +21,15 @@
 
 /* ── Pills (selectable) ──────────────────────────────────── */
 .pill-group { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Cuadrícula fija (p. ej. zonas de Nasdaq): el orden de la lista decide las filas
+   y no depende del ancho de pantalla. */
+/* Columnas IGUALES y del ancho del botón más largo, no estiradas a todo el
+   campo: con `width: max-content`, cada 1fr mide lo que el botón más ancho del
+   grupo. Así los botones quedan alineados en filas y columnas pero con el mismo
+   tamaño compacto que el resto del formulario (modelo, setup, sensación…). */
+.pill-group.cols-3 { display: grid; grid-template-columns: repeat(3, 1fr); width: max-content; max-width: 100%; }
+.pill-group.cols-3 .pill { justify-content: center; text-align: center; }
+.pill-group.cols-3 .pill-newrow { grid-column-start: 1; }
 .pill {
   background: var(--card2); border: 1px solid var(--border); color: var(--muted);
   padding: 7px 14px; border-radius: 20px; cursor: pointer; font-size: 12px;
@@ -124,3 +133,9 @@
 .trade-view-grid dd a { color: var(--accent); text-decoration: none; margin-right: 10px; }
 .trade-view-grid dd a:hover { text-decoration: underline; }
 .trade-view-reflex { white-space: pre-wrap; background: var(--card2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.6; }
+
+/* Aviso de valor antiguo (zona/entrada retirada de la lista) al editar */
+.legacy-note { font-size: 10px; color: var(--orange); font-family: var(--mono); margin-top: 6px; line-height: 1.5; }
+.legacy-quitar { background: none; border: none; padding: 0; color: var(--orange); font: inherit;
+  text-decoration: underline; cursor: pointer; }
+.legacy-quitar:hover { color: var(--text); }

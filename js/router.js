@@ -44,9 +44,14 @@ export const router = {
         window.location.hash = '#/dashboard';
         return;
       }
-      // Módulo de Riesgo desactivado por el usuario → redirige a Cuentas.
-      if (path === '#/riesgo' && state.config && state.config.riskModuleEnabled === false) {
-        window.location.hash = '#/cuentas';
+      // Riesgo CFD / Futuros desactivado en Ajustes → a la otra si está activa,
+      // si no a Cuentas.
+      if (path === '#/riesgo' && !state.riesgoActivo('CFD')) {
+        window.location.hash = state.riesgoActivo('Futuros') ? '#/riesgo-futuros' : '#/cuentas';
+        return;
+      }
+      if (path === '#/riesgo-futuros' && !state.riesgoActivo('Futuros')) {
+        window.location.hash = state.riesgoActivo('CFD') ? '#/riesgo' : '#/cuentas';
         return;
       }
 

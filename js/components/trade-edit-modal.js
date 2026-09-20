@@ -23,6 +23,7 @@ export function openEditTradeModal(trade) {
     setup: trade.setup || '',
     zone: Array.isArray(trade.zone) ? [...trade.zone] : (trade.zone ? [trade.zone] : []),
     entry: Array.isArray(trade.entry) ? [...trade.entry] : (trade.entry ? [trade.entry] : []),
+    model: trade.model || '',
     rr: trade.rr != null ? String(trade.rr) : '',
     pips: trade.pips != null ? String(trade.pips) : '',
     pnl_pct: trade.pnl_pct != null ? String(trade.pnl_pct) : '',
@@ -46,10 +47,13 @@ export function openEditTradeModal(trade) {
           ${!meta.pairFixed ? `<div class="form-field">
             <label class="form-label">Par</label>
             <div data-field="pair"></div>
-          </div>` : `<div class="form-field">
-            <label class="form-label">Par</label>
-            <div class="form-input" style="background:var(--card2);">${escapeHtml(meta.pairs[0])}</div>
+          </div>` : (meta.models ? `<div class="form-field">
+          <label class="form-label">Modelo de entrada${trade.model ? ' <span class="required">*</span>' : ''}</label>
+          <div data-field="model"></div>
+          ${trade.model ? '' : `<div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:4px;">
+            Trade anterior a los modelos de entrada: puedes asignarle uno o dejarlo sin modelo.
           </div>`}
+        </div>` : '')}
           <div class="form-field">
             <label class="form-label">Setup</label>
             <div data-field="setup"></div>
@@ -60,17 +64,33 @@ export function openEditTradeModal(trade) {
           <div class="form-field">
             <label class="form-label">Zona${meta.zonesMulti ? ' <span style="color:var(--muted);font-size:11px;">(varias permitidas)</span>' : ''}</label>
             <div data-field="zone"></div>
-            ${data.zone.some(z => !meta.zones.includes(z)) ? `
-              <div style="font-size:10px;color:var(--orange);font-family:var(--mono);margin-top:4px;">
-                Valor(es) actual(es) "${escapeHtml(data.zone.filter(z => !meta.zones.includes(z)).join(', '))}" no están en la lista (legacy). Mantenidos si no eliges otro.
+            ${!meta.zonesMulti && data.zone.filter(x => meta.zones.includes(x)).length > 1 ? `
+              <div class="legacy-note" data-multi="zone">
+                Este trade tenía varias: "${escapeHtml(data.zone.filter(x => meta.zones.includes(x)).join(' + '))}". Ahora es una sola:
+                al elegir una zona quedará solo esa, o
+                <button type="button" class="legacy-quitar" data-multi-keep="zone">quedarme con ${escapeHtml(data.zone.filter(x => meta.zones.includes(x))[0])}</button>
+              </div>` : ''}
+            ${data.zone.some(x => !meta.zones.includes(x)) ? `
+              <div class="legacy-note" data-legacy="zone">
+                Valor antiguo "${escapeHtml(data.zone.filter(x => !meta.zones.includes(x)).join(', '))}" (ya no está en la lista).
+                Se sustituye en cuanto elijas una zona, o
+                <button type="button" class="legacy-quitar" data-legacy-quitar="zone">quitarlo</button>
               </div>` : ''}
           </div>
           ${meta.showEntry ? `<div class="form-field">
             <label class="form-label">Entrada${meta.entriesMulti ? ' <span style="color:var(--muted);font-size:11px;">(varias permitidas)</span>' : ''}</label>
             <div data-field="entry"></div>
-            ${data.entry.some(e => !meta.entries.includes(e)) ? `
-              <div style="font-size:10px;color:var(--orange);font-family:var(--mono);margin-top:4px;">
-                Valor(es) actual(es) "${escapeHtml(data.entry.filter(e => !meta.entries.includes(e)).join(', '))}" no están en la lista (legacy).
+            ${!meta.entriesMulti && data.entry.filter(x => meta.entries.includes(x)).length > 1 ? `
+              <div class="legacy-note" data-multi="entry">
+                Este trade tenía varias: "${escapeHtml(data.entry.filter(x => meta.entries.includes(x)).join(' + '))}". Ahora es una sola:
+                al elegir una entrada quedará solo esa, o
+                <button type="button" class="legacy-quitar" data-multi-keep="entry">quedarme con ${escapeHtml(data.entry.filter(x => meta.entries.includes(x))[0])}</button>
+              </div>` : ''}
+            ${data.entry.some(x => !meta.entries.includes(x)) ? `
+              <div class="legacy-note" data-legacy="entry">
+                Valor antiguo "${escapeHtml(data.entry.filter(x => !meta.entries.includes(x)).join(', '))}" (ya no está en la lista).
+                Se sustituye en cuanto elijas una entrada, o
+                <button type="button" class="legacy-quitar" data-legacy-quitar="entry">quitarlo</button>
               </div>` : ''}
           </div>` : ''}
         </div>
@@ -170,17 +190,42 @@ export function openEditTradeModal(trade) {
 
     const zoneEl = root.querySelector('[data-field="zone"]');
     if (zoneEl) renderPills(zoneEl, {
-      name: 'zone', options: meta.zones, value: data.zone,
+      name: 'zone', options: meta.zones, value: data.zone, variant: meta.zonesCols ? `cols-${meta.zonesCols}` : '',
       multi: !!meta.zonesMulti,
-      onChange: v => { data.zone = meta.zonesMulti ? v : (v ? [v] : []); },
+      // Con selección múltiple, un valor antiguo (sin botón) seguía guardado
+      // al marcar otros: PD + PDH/PDL. Al elegir de la lista, se sustituye.
+      onChange: v => { data.zone = limpiar(meta.zonesMulti ? v : (v ? [v] : []), meta.zones); quitarAviso('zone'); },
     });
 
     if (meta.showEntry) {
       const entryEl = root.querySelector('[data-field="entry"]');
       if (entryEl) renderPills(entryEl, {
-        name: 'entry', options: meta.entries, value: data.entry,
+        name: 'entry', options: meta.entries, value: data.entry, variant: meta.entriesCols ? `cols-${meta.entriesCols}` : '', rowStarts: meta.entriesRowStarts || [],
         multi: !!meta.entriesMulti,
-        onChange: v => { data.entry = meta.entriesMulti ? v : (v ? [v] : []); },
+        onChange: v => { data.entry = limpiar(meta.entriesMulti ? v : (v ? [v] : []), meta.entries); quitarAviso('entry'); },
+      });
+    }
+    // "quitarlo": elimina los valores antiguos sin tocar el resto
+    root.querySelectorAll('[data-multi-keep]').forEach(b => b.addEventListener('click', () => {
+      const f = b.dataset.multiKeep;
+      const lista = f === 'zone' ? meta.zones : meta.entries;
+      data[f] = limpiar(data[f], lista).slice(0, 1);
+      quitarAviso(f);
+    }));
+    root.querySelectorAll('[data-legacy-quitar]').forEach(b => b.addEventListener('click', () => {
+      const f = b.dataset.legacyQuitar;
+      data[f] = limpiar(data[f], f === 'zone' ? meta.zones : meta.entries);
+      quitarAviso(f);
+    }));
+    function quitarAviso(f) { root.querySelectorAll(`[data-legacy="${f}"], [data-multi="${f}"]`).forEach(e => e.remove()); }
+    if (meta.models) {
+      renderPills(root.querySelector('[data-field="model"]'), {
+        name: 'model',
+        // "Sin modelo" solo para trades que nunca lo tuvieron: editar uno antiguo
+        // no obliga a clasificarlo, pero un modelo ya puesto no se puede quitar.
+        options: trade.model ? meta.models : [...meta.models, { value: '', label: 'Sin modelo' }],
+        value: data.model || '',
+        onChange: v => { data.model = v || ''; },
       });
     }
 
@@ -224,6 +269,8 @@ export function openEditTradeModal(trade) {
           const n = parseFloat(data.pnl_pct);
           return isFinite(n) ? n : 0;
         },
+        // RR del trade: en cuentas de futuros elige el riesgo de la tabla de su gestión
+        getRR: () => parseFloat(data.rr),
       });
     }
   }, 0);
@@ -240,6 +287,8 @@ function doSave(trade, data, close) {
   if (!data.date) return showErr('Falta la fecha.');
   if (!data.setup) return showErr('Falta el setup (LONG o SHORT).');
   if (data.plan_followed !== true && data.plan_followed !== false) return showErr('Indica si has seguido el plan (Sí o No).');
+  const metaSave = STRATEGIES[trade.sheet] || {};
+  if (metaSave.models && trade.model && !data.model) return showErr('Selecciona el modelo de entrada.');
 
   const pnl_pct = +pnl.toFixed(4);
   const result = pnl_pct > 0.2 ? 'TP' : pnl_pct < -0.2 ? 'SL' : 'BE';
@@ -259,6 +308,7 @@ function doSave(trade, data, close) {
     pair: data.pair || trade.pair,
     zone: Array.isArray(data.zone) ? data.zone : (data.zone ? [data.zone] : []),
     entry: Array.isArray(data.entry) ? data.entry : (data.entry ? [data.entry] : []),
+    model: data.model || '',
     rr: data.rr ? parseFloat(data.rr) : null,
     pips: data.pips ? parseFloat(data.pips) : null,
     sensacion: data.sensacion || '',
@@ -278,4 +328,9 @@ function escapeHtml(s) {
 }
 function escapeAttr(s) {
   return String(s == null ? '' : s).replace(/"/g, '&quot;');
+}
+
+// Deja solo los valores que están en la lista actual de la estrategia.
+function limpiar(valores, lista) {
+  return (valores || []).filter(v => lista.includes(v));
 }

@@ -3,8 +3,13 @@ import { fmtPct } from '../utils/number-format-es.js';
 import { sortChrono, tradeRealPnl } from '../utils/calculations.js';
 import { openModal } from './modal.js';
 import { openViewTradeModal } from './trade-view-modal.js';
+import { openEditTradeModal } from './trade-edit-modal.js';
 import { state } from '../state.js';
 import { accountUsd, fmtUsd } from '../utils/account-stats.js';
+import { STRATEGIES, modelLabel } from '../utils/strategy-config.js';
+
+// ¿La estrategia del trade usa modelos de entrada? (hoy solo Nasdaq)
+const tieneModelos = t => !!(STRATEGIES[t.sheet] && STRATEGIES[t.sheet].models);
 
 const STRAT_LABEL = { ZONAS: 'Zonas', LIQUIDEZ: 'Liquidez', NASDAQ: 'Nasdaq' };
 const STRAT_CLS = { ZONAS: 'zonas', LIQUIDEZ: 'liquidez', NASDAQ: 'nasdaq' };
@@ -38,8 +43,13 @@ export function renderTradeTable(container, trades, opts = {}) {
     showPlanFilter = variant !== 'backtest',
     onView = openViewTradeModal,
     onDelete = id => state.remove(id),
+    onEdit = null,
   } = opts;
   const isBacktest = variant === 'backtest';
+  // Doble clic en una fila = editar directamente. En backtests SOLO con el
+  // editor que pase la vista (opts.onEdit): el de por defecto es el del journal
+  // real y escribiría ahí. Sin editor, el doble clic abre la ficha.
+  const editar = onEdit || (isBacktest ? onView : openEditTradeModal);
 
   if (!trades.length) {
     container.innerHTML = `<div class="empty"><div>${emptyMsg}</div></div>`;
@@ -53,6 +63,11 @@ export function renderTradeTable(container, trades, opts = {}) {
   const zones = [...new Set(trades.flatMap(t => Array.isArray(t.zone) ? t.zone : (t.zone ? [t.zone] : [])).filter(Boolean))].sort();
   const entries = [...new Set(trades.flatMap(t => Array.isArray(t.entry) ? t.entry : (t.entry ? [t.entry] : [])).filter(Boolean))].sort();
   const sensaciones = [...new Set(trades.map(t => t.sensacion).filter(Boolean))];
+  // Modelos de entrada: columna y filtro solo si hay trades de una estrategia
+  // que los usa (Nasdaq). '' = sin modelo (trades anteriores al campo).
+  const conModelos = trades.some(tieneModelos);
+  const models = [...new Set(trades.filter(tieneModelos).map(t => t.model || ''))]
+    .sort((a, b) => (a === '') - (b === '') || a.localeCompare(b));
   const accountIds = [...new Set(trades.flatMap(t =>
     Array.isArray(t.accounts) ? t.accounts.map(a => a.accountId) : []
   ))];
@@ -60,7 +75,7 @@ export function renderTradeTable(container, trades, opts = {}) {
   // Estado de filtros (privado al componente)
   let filters = {
     sheet: 'all', result: 'all', setup: 'all',
-    pair: 'all', zone: 'all', entry: 'all',
+    pair: 'all', zone: 'all', entry: 'all', model: 'all',
     sens: 'all', account: 'all', plan: 'all',
   };
 
@@ -78,6 +93,7 @@ export function renderTradeTable(container, trades, opts = {}) {
         const entries = Array.isArray(t.entry) ? t.entry : (t.entry ? [t.entry] : []);
         if (!entries.includes(filters.entry)) return false;
       }
+      if (filters.model !== 'all' && (!tieneModelos(t) || (t.model || '') !== filters.model)) return false;
       if (filters.sens !== 'all') {
         if (filters.sens === '_empty' && t.sensacion) return false;
         if (filters.sens !== '_empty' && t.sensacion !== filters.sens) return false;
@@ -113,6 +129,7 @@ export function renderTradeTable(container, trades, opts = {}) {
     const showPair = pairs.length > 1;
     const showZone = zones.length > 1;
     const showEntry = entries.length > 1;
+    const showModel = models.length > 1;
     const showSens = sensaciones.length > 0;
     const showAccount = accountIds.length > 0;
     const hasActiveFilters = Object.values(filters).some(v => v !== 'all');
@@ -136,6 +153,10 @@ export function renderTradeTable(container, trades, opts = {}) {
         ${showPair ? sel('pair', filters.pair, [
           { v: 'all', l: 'Todos los pares' },
           ...pairs.map(p => ({ v: p, l: p })),
+        ]) : ''}
+        ${showModel ? sel('model', filters.model, [
+          { v: 'all', l: 'Todos los modelos' },
+          ...models.map(m => ({ v: m, l: modelLabel(m) })),
         ]) : ''}
         ${showZone ? sel('zone', filters.zone, [
           { v: 'all', l: 'Todas las zonas' },
@@ -179,9 +200,9 @@ export function renderTradeTable(container, trades, opts = {}) {
   function renderTable(filtered) {
     // Más reciente arriba: ordenamos cronológicamente y luego invertimos.
     const sorted = sortChrono(filtered).reverse();
-    const colspan = (isBacktest ? 11 : 15) + (canDelete ? 1 : 0);
+    const colspan = (isBacktest ? 11 : 15) + (canDelete ? 1 : 0) + (conModelos ? 1 : 0);
     const bodyContent = sorted.length
-      ? sorted.map(t => row(t, canDelete, isBacktest, getMarked())).join('')
+      ? sorted.map(t => row(t, canDelete, isBacktest, getMarked(), conModelos)).join('')
       : `<tr><td colspan="${colspan}" class="empty" style="padding:30px;">Ningún trade coincide con los filtros</td></tr>`;
     return `
       <div class="trade-table-wrap">
@@ -194,6 +215,7 @@ export function renderTradeTable(container, trades, opts = {}) {
               <th>Estrategia</th>
               <th>Activo</th>
               <th>Setup</th>
+              ${conModelos ? '<th>Modelo</th>' : ''}
               <th>Zona</th>
               <th>Entrada</th>
               ${isBacktest ? '' : `
@@ -223,6 +245,7 @@ export function renderTradeTable(container, trades, opts = {}) {
     const clear = container.querySelector('[data-clear-filters]');
     if (clear) clear.addEventListener('click', () => {
       filters = {
+        model: 'all',
         sheet: 'all', result: 'all', setup: 'all',
         pair: 'all', zone: 'all', entry: 'all',
         sens: 'all', account: 'all', plan: 'all',
@@ -248,6 +271,17 @@ export function renderTradeTable(container, trades, opts = {}) {
         const id = tr.dataset.rowId;
         setMarked(getMarked() === id ? '' : id);   // volver a pulsar la desmarca
         paintMark();
+      });
+      // Doble clic: abre el trade para editarlo. Los dos clics previos ponen y
+      // quitan la marca; aquí se deja puesta (es el trade con el que estás).
+      tr.addEventListener('dblclick', e => {
+        if (e.target.closest('button')) return;
+        const t = filtered.find(x => x.id === tr.dataset.rowId);
+        if (!t) return;
+        window.getSelection?.().removeAllRanges();   // el doble clic selecciona texto
+        setMarked(t.id);
+        paintMark();
+        editar(t);
       });
     });
 
@@ -282,7 +316,7 @@ export function renderTradeTable(container, trades, opts = {}) {
   paint();
 }
 
-function row(t, canDelete, isBacktest = false, markedId = '') {
+function row(t, canDelete, isBacktest = false, markedId = '', conModelos = false) {
   const sens = t.sensacion ? `<span class="sens-pill" data-s="${t.sensacion}">${t.sensacion}</span>` : '<span style="color:var(--dim)">–</span>';
 
   // Cuentas: solo la primera + "+N" si hay más. El detalle completo se ve en el modal del ojo.
@@ -321,13 +355,16 @@ function row(t, canDelete, isBacktest = false, markedId = '') {
     ? `<td><button class="btn ghost danger del-btn" data-id="${t.id}" style="padding:4px 8px;font-size:11px;">×</button></td>`
     : '';
   return `
-    <tr data-row-id="${t.id}" class="${t.id === markedId ? 'row-marked' : ''}">
+    <tr data-row-id="${t.id}" class="${t.id === markedId ? 'row-marked' : ''}" title="Clic: marcar · Doble clic: editar">
       <td>${viewBtn}</td>
       <td>${isBacktest ? formatDateShort(t.date) + '/' + String(t.date || '').substring(2, 4) : formatDateShort(t.date)}</td>
       <td>${t.open_str || '–'}</td>
       <td><span class="strat-pill ${STRAT_CLS[t.sheet]}">${STRAT_LABEL[t.sheet] || t.sheet}</span></td>
       <td>${t.pair || '–'}</td>
       <td>${t.setup || '–'}</td>
+      ${conModelos ? `<td>${tieneModelos(t)
+        ? (t.model ? modelLabel(t.model) : '<span style="color:var(--muted);">Sin modelo</span>')
+        : '–'}</td>` : ''}
       <td>${(Array.isArray(t.zone) ? t.zone.join(' · ') : t.zone) || '–'}</td>
       <td>${(Array.isArray(t.entry) ? t.entry.join(' · ') : t.entry) || '–'}</td>
 

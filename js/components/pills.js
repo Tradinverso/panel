@@ -1,11 +1,13 @@
 // Selectable pill group component
-// renderPills(container, { name, options, value, variant, onChange, multi }) → { get, set, focus }
+// renderPills(container, { name, options, value, variant, onChange, multi, rowStarts }) → { get, set, focus }
 //
 // - Single (default): value es string. Click reemplaza el valor.
 // - Multi (multi: true): value es array de strings. Click hace toggle (añade/quita).
 //   onChange recibe el array actualizado. get() devuelve el array.
+// - rowStarts: valores que abren fila nueva dentro de una cuadrícula (variant
+//   'cols-N'). Permite filas de distinto largo, p. ej. 2 arriba y 3 abajo.
 
-export function renderPills(container, { name, options, value, variant = '', onChange = () => {}, multi = false }) {
+export function renderPills(container, { name, options, value, variant = '', onChange = () => {}, multi = false, rowStarts = [] }) {
   const cls = `pill-group${variant ? ' ' + variant : ''}`;
   container.className = cls;
   container.dataset.name = name;
@@ -29,7 +31,8 @@ export function renderPills(container, { name, options, value, variant = '', onC
     const v = typeof opt === 'string' ? opt : opt.value;
     const label = typeof opt === 'string' ? opt : opt.label;
     const active = isActive(v) ? 'active' : '';
-    return `<button type="button" class="pill ${active}" data-val="${escapeAttr(v)}">${escapeHtml(label)}</button>`;
+    const newRow = rowStarts.includes(v) ? ' pill-newrow' : '';
+    return `<button type="button" class="pill ${active}${newRow}" data-val="${escapeAttr(v)}">${escapeHtml(label)}</button>`;
   }).join('');
 
   container.addEventListener('click', e => {

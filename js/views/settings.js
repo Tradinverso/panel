@@ -136,12 +136,12 @@ export function settingsView(container) {
       <div class="setting-row">
         <div class="setting-info">
           <div class="setting-label">Gestión de riesgo / rotación</div>
-          <div class="setting-desc">Añade la sección <strong>Riesgo</strong> en la barra lateral: escalado de riesgo por niveles según el drawdown y rotación entre cuentas. Lee de tus cuentas y trades, no añade datos.</div>
+          <div class="setting-desc">Añade en <strong>Cuentas</strong> las pestañas de riesgo: <strong>CFD</strong> (escalado por niveles según el drawdown) y <strong>Futuros</strong> (gestiones de riesgo fijo y grupos de copiado), cada una con su rotación. Elige cuáles ver. Lee de tus cuentas y trades, no añade datos.</div>
         </div>
         <div class="setting-control">
           <select class="select" id="riskModuleSel">
-            <option value="on"  ${state.config.riskModuleEnabled === false ? '' : 'selected'}>Activado</option>
-            <option value="off" ${state.config.riskModuleEnabled === false ? 'selected' : ''}>Desactivado</option>
+            ${[['ambos', 'CFD y Futuros'], ['CFD', 'Solo CFD'], ['Futuros', 'Solo Futuros'], ['off', 'Desactivado']]
+              .map(([v, l]) => `<option value="${v}" ${riskSelValue() === v ? 'selected' : ''}>${l}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -299,8 +299,11 @@ export function settingsView(container) {
 
   const riskSel = container.querySelector('#riskModuleSel');
   if (riskSel) riskSel.addEventListener('change', e => {
-    state.setConfig({ riskModuleEnabled: e.target.value === 'on' });
-    flashOk(container, e.target.value === 'on' ? 'Módulo de riesgo activado' : 'Módulo de riesgo desactivado');
+    const v = e.target.value;
+    state.setConfig(v === 'off' ? { riskModuleEnabled: false } : { riskModuleEnabled: true, riskTipos: v });
+    flashOk(container, v === 'off' ? 'Gestión de riesgo desactivada'
+      : v === 'ambos' ? 'Gestión de riesgo activada: CFD y Futuros'
+      : `Gestión de riesgo activada: solo ${v}`);
   });
 
   container.querySelector('#exportBtn').addEventListener('click', () => {
@@ -465,6 +468,12 @@ function flash(container, msg, type) {
   el.style.maxWidth = '320px';
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 2500);
+}
+
+// Valor del selector de Ajustes a partir de la config (riskModuleEnabled + riskTipos).
+function riskSelValue() {
+  if (state.config.riskModuleEnabled === false) return 'off';
+  return state.config.riskTipos || 'ambos';
 }
 
 function escapeHtml(s) {

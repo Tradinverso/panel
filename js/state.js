@@ -8,6 +8,7 @@ import { parseTime, durationMinutes } from './utils/date-helpers.js';
 import { sync } from './sync.js';
 import { auth } from './auth.js';
 import { convertTradesTz, DEFAULT_TZ } from './utils/timezone.js';
+import { unidadesRotacion, unidadActiva } from './utils/futures-risk.js';
 
 const SENS_VALID = new Set([
   'Seguro - Confiado',
@@ -45,6 +46,7 @@ const ENTRY_CANONICAL = {
   'market': 'MARKET',
   'limit': 'LIMIT',
   'choch': 'CHOCH',
+  'bag': 'BAG',
 };
 
 function canonicalEntry(s) {
@@ -59,6 +61,9 @@ const ZONE_CANONICAL = {
   // ZONAS: legacy '< 7 días' → 'Entre 2 y 7 días' (decisión del usuario)
   '< 7 días': 'Entre 2 y 7 días',
   '<7 días':  'Entre 2 y 7 días',
+  // NASDAQ: 'FVG LTF' fue el nombre provisional del FVG de 15 min (solo existió
+  // en el panel de pruebas); el definitivo es 'FVG M15'.
+  'fvg ltf': 'FVG M15',
 };
 
 function canonicalZone(s) {
@@ -119,6 +124,9 @@ function sanitizeTrade(t) {
     pair: t.pair || '',
     zone: toStrArr(t.zone).map(canonicalZone),
     entry: toStrArr(t.entry).map(canonicalEntry),
+    // Modelo de entrada (NASDAQ: M1…M4). Opcional: los trades anteriores a este
+    // campo quedan con '' y se muestran como "Sin modelo", sin tocar nada más.
+    model: typeof t.model === 'string' ? t.model : '',
     rr: t.rr != null ? t.rr : null,
     pips: t.pips != null ? t.pips : null,
     sensacion: SENS_VALID.has(t.sensacion) ? t.sensacion : '',
@@ -157,11 +165,11 @@ function sanitizeBacktest(t) {
     pair: t.pair || '',
     zone: toStrArr(t.zone).map(canonicalZone),
     entry: toStrArr(t.entry).map(canonicalEntry),
+    model: typeof t.model === 'string' ? t.model : '',
     rr: t.rr != null ? t.rr : null,
     // Trade NO TOMADO: la señal apareció pero no se entró (se escapó, dudaste,
-    // no estabas delante...). Es un backtest a todos los efectos — cuenta en las
-    // estadísticas igual que los demás, porque el sistema habría dado lo que dio
-    // — pero se marca y se puede aislar con el filtro para repasar lo que se fue.
+    // no estabas delante...). Vive en su propia pestaña de Backtesting y NO cuenta
+    // en las estadísticas de su estrategia: si no se entró, no valida la operativa.
     not_taken: t.not_taken === true,
     url1: t.url1 || '',
     url2: t.url2 || '',
@@ -252,6 +260,14 @@ function sanitizeCuenta(c) {
     perfilId: c.perfilId != null && c.perfilId !== '' ? String(c.perfilId) : null,
     enRotacion: c.enRotacion === false ? false : true,
     rotacionOrden: typeof c.rotacionOrden === 'number' ? c.rotacionOrden : (parseFloat(c.rotacionOrden) || 0),
+    // ── Futuros (utils/futures-risk.js) ──
+    // Gestión de riesgo elegida (id de GESTIONES_FUTUROS o de una personalizada
+    // de config.futGestionesCustom). null = sin elegir: se
+    // aplica la conservadora de su fase y la vista pide elegir una.
+    futGestion: c.futGestion ? String(c.futGestion) : null,
+    // Grupo de copiado ('' = cuenta suelta). Las cuentas de un mismo grupo rotan
+    // juntas; cada una conserva su gestión, saldo y drawdown propios.
+    grupo: String(c.grupo || '').trim(),
     createdAt: c.createdAt || Date.now(),
   };
 }
@@ -762,31 +778,60 @@ export const state = {
     });
   },
 
-  // Lista de rotación: cuentas activas en rotación, ordenadas por rotacionOrden
-  // y antigüedad. (Misma lógica que rotacionList() en la vista Riesgo.)
+  // Lista de rotación de CFD: cuentas activas en rotación, ordenadas por
+  // rotacionOrden y antigüedad. Las de FUTUROS tienen su propia rotación (por
+  // grupos, ver futures-risk.js): antes compartían esta lista y un SL en una
+  // cuenta de futuros movía la rotación de CFD.
   rotacionOrdenada() {
     return (this.cuentas || [])
-      .filter(c => c.status === 'activa' && c.enRotacion !== false)
+      .filter(c => c.status === 'activa' && c.enRotacion !== false && c.tipo !== 'Futuros')
       .sort((a, b) => (a.rotacionOrden || 0) - (b.rotacionOrden || 0) || (a.createdAt || 0) - (b.createdAt || 0));
   },
 
   // Al registrar un SL sobre la cuenta ACTIVA de la rotación, avanza el puntero a
   // la siguiente cuenta (TP/BE se quedan). Refleja la operativa real del equipo.
+  // ¿Está activa la gestión de riesgo de este tipo ('CFD' | 'Futuros')?
+  // Ajustes → Módulos: desactivada del todo (riskModuleEnabled=false) o
+  // activada para CFD, Futuros o ambos (riskTipos, por defecto ambos). Manda
+  // sobre pestañas, rutas y rotación.
+  riesgoActivo(tipo) {
+    const cfg = this.config || {};
+    if (cfg.riskModuleEnabled === false) return false;
+    const t = cfg.riskTipos || 'ambos';
+    return t === 'ambos' || t === tipo;
+  },
+
   rotateAfterSL(trade) {
     if (!trade || trade.result !== 'SL') return;
     if (this.config && this.config.riskModuleEnabled === false) return;
     const accts = (trade.accounts || []).map(a => a.accountId).filter(Boolean);
     if (!accts.length) return;
-    const rot = this.rotacionOrdenada();
-    if (rot.length < 2) return;
-    const activaId = (this.config && this.config.rotacionActivaId && rot.some(c => c.id === this.config.rotacionActivaId))
-      ? this.config.rotacionActivaId
-      : rot[0].id;
-    // Solo avanza si el SL se ha asignado a la cuenta que estaba activa (la que tocaba).
-    if (!accts.includes(activaId)) return;
-    const idx = rot.findIndex(c => c.id === activaId);
-    const next = rot[(idx + 1) % rot.length];
-    if (next && next.id !== activaId) this.setConfig({ rotacionActivaId: next.id });
+
+    // CFD: solo avanza si el SL se asignó a la cuenta que estaba activa.
+    const rot = this.riesgoActivo('CFD') ? this.rotacionOrdenada() : [];
+    if (rot.length >= 2) {
+      const activaId = (this.config && this.config.rotacionActivaId && rot.some(c => c.id === this.config.rotacionActivaId))
+        ? this.config.rotacionActivaId
+        : rot[0].id;
+      if (accts.includes(activaId)) {
+        const idx = rot.findIndex(c => c.id === activaId);
+        const next = rot[(idx + 1) % rot.length];
+        if (next && next.id !== activaId) this.setConfig({ rotacionActivaId: next.id });
+      }
+    }
+
+    // Futuros: por unidades. Avanza si el SL tocó alguna cuenta de la unidad
+    // activa (con copiador, el trade se asigna a todo el grupo).
+    const units = this.riesgoActivo('Futuros')
+      ? unidadesRotacion(this.cuentas, (this.config && this.config.futRotacionOrden) || [])
+      : [];
+    if (units.length >= 2) {
+      const act = unidadActiva(units, this.config && this.config.futRotacionActiva);
+      if (act && act.cuentas.some(c => accts.includes(c.id))) {
+        const next = units[(units.indexOf(act) + 1) % units.length];
+        this.setConfig({ futRotacionActiva: next.key });
+      }
+    }
   },
 
   // Salta directamente a Fondeada (sin pasar fase a fase).
