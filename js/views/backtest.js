@@ -207,7 +207,7 @@ function render(container, sheet) {
       ${kpiCard({ label: 'P&L acumulado', value: fmtPct(pnl, 1), sub: 'trades al 1%', tone: pnl >= 0 ? 'green' : 'red' })}
       ${kpiCard({ label: 'Profit factor', value: decisive ? (isFinite(pf) ? fmtNum(pf) : '∞') : '–', sub: 'bruto ganado / bruto perdido', tone: !decisive ? 'blue' : pf >= 2 ? 'green' : pf >= 1.5 ? 'orange' : 'red' })}
       ${kpiCard({ label: 'Esperanza / trade', value: decisive ? fmtPct(exp.value, 2) : '–', sub: decisive ? `media TP ${fmtPct(exp.avgWin, 1)} · media SL −${fmtPctNoSign(exp.avgLoss)}` : 'sin trades decisivos', tone: exp.value >= 0 ? 'green' : 'red' })}
-      ${kpiCard({ label: 'RR medio', value: rr > 0 ? fmtNum(rr) : '–', sub: rr > 0 ? 'riesgo : beneficio medio' : 'sin RR registrado', tone: 'blue' })}
+      ${kpiCard({ label: 'RR medio', value: rr > 0 ? '1:' + fmtNum(rr) : '–', sub: rr > 0 ? 'R media ganada en los TP' : 'sin TP todavía', tone: 'blue' })}
       ${kpiCard({ label: 'DD máximo', value: (dd > 0 ? '−' : '') + dd.toFixed(1) + '%', sub: 'sobre la curva acumulada', tone: 'red' })}
       ${kpiCardComposite({ label: 'Rachas máx', primary: `${tpStreak} TP`, secondary: `· ${slStreakMax} SL`, sub: 'máximos seguidos en todo el histórico', tone: 'purple' })}
     </div>

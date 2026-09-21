@@ -421,17 +421,18 @@ export function buildAlerts(trades) {
   }
 
   // ── RR medio bajo objetivo (WARNING, va a Alertas) ──
-  const tradesWithRR = trades.filter(t => t.rr != null && t.rr > 0);
+  // RR REALIZADO: R media de los TP (ver avgRR). Ya no se apunta el RR planeado.
+  const tradesWithRR = trades.filter(t => t.result === 'TP' && t.pnl_pct > 0);
   if (tradesWithRR.length >= UMBRALES.rr.min) {
     const rr = avgRR(tradesWithRR);
     if (rr < UMBRALES.rr.objetivo) {
       tecAlertas.push(warn('📊',
         `RR medio ${rr.toFixed(2)} bajo objetivo 1:${UMBRALES.rr.objetivo}`,
-        `${tradesWithRR.length} trades con RR registrado. Trabaja parciales y trailing para mejorar.`));
+        `R media de tus ${tradesWithRR.length} TP. Trabaja parciales y trailing para mejorar.`));
     } else {
       tecInsights.push(success('📊',
         `RR medio ${rr.toFixed(2)} cumple objetivo 1:${UMBRALES.rr.objetivo}`,
-        `${tradesWithRR.length} trades con RR registrado. Buena gestión.`));
+        `R media de tus ${tradesWithRR.length} TP. Buena gestión.`));
     }
   }
 

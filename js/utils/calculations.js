@@ -301,10 +301,13 @@ export function activeDays(trades) {
 }
 
 // Average RR (only trades with rr set)
+// RR medio REALIZADO: la R media que se gana en los TP. El % P&L del sistema va
+// en R (+2 = TP de 2R), así que no depende de apuntar el RR planeado (que ya no
+// se pide) y refleja lo que de verdad se saca, parciales incluidos.
 export function avgRR(trades) {
-  const t = trades.filter(x => x.rr != null && !isNaN(x.rr) && x.rr > 0);
+  const t = trades.filter(x => x.result === 'TP' && isFinite(x.pnl_pct) && x.pnl_pct > 0);
   if (!t.length) return 0;
-  return t.reduce((a, x) => a + x.rr, 0) / t.length;
+  return t.reduce((a, x) => a + x.pnl_pct, 0) / t.length;
 }
 
 // Expectancy: % esperado por trade en el largo plazo.

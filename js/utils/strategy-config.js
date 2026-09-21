@@ -95,7 +95,9 @@ export const STRATEGIES = {
     // varios se conservan; al editarlos y elegir uno, queda solo ese.
     zonesMulti: false,
     entriesMulti: false,
-    showRR: true,
+    // Sin campo RR: el % P&L ya es la R conseguida, y el RR planeado no aporta
+    // (el "RR medio" se calcula de los TP realizados, ver calculations.avgRR).
+    showRR: false,
     showPip: false,
     showEntry: true,
     links: [
@@ -123,7 +125,9 @@ export const STRATEGIES = {
     // varios se conservan; al editarlos y elegir uno, queda solo ese.
     zonesMulti: false,
     entriesMulti: false,
-    showRR: true,
+    // Sin campo RR: el % P&L ya es la R conseguida, y el RR planeado no aporta
+    // (el "RR medio" se calcula de los TP realizados, ver calculations.avgRR).
+    showRR: false,
     showPip: false,
     showEntry: true,
     links: [

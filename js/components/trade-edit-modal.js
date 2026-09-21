@@ -269,8 +269,10 @@ export function openEditTradeModal(trade) {
           const n = parseFloat(data.pnl_pct);
           return isFinite(n) ? n : 0;
         },
-        // RR del trade: en cuentas de futuros elige el riesgo de la tabla de su gestión
-        getRR: () => parseFloat(data.rr),
+        // Futuros: el riesgo de la tabla depende del RR. Ya no se apunta, pero en
+        // un TP la R conseguida (% P&L, en R) es el RR. En SL/BE no se sabe → NaN
+        // y la gestión usa su mínimo (editable).
+        getRR: () => { const p = parseFloat(data.pnl_pct); return p > 0.2 ? p : NaN; },
       });
     }
   }, 0);
