@@ -19,6 +19,7 @@ import { settingsView } from './views/settings.js';
 import { psicologiaView } from './views/psicologia.js';
 import { loginView } from './views/login.js';
 import { adminView } from './views/admin.js';
+import { alumnosView } from './views/alumnos.js';
 import { grupoView } from './views/grupo.js';
 import { cuentasListView } from './views/cuentas.js';
 import { cuentaDetailView } from './views/cuenta.js';
@@ -63,6 +64,7 @@ router
   .add('#/ajustes',     (_, c) => settingsView(c))
   .add('#/admin',       (_, c) => adminView(c))
   .add('#/grupo',       (_, c) => grupoView(c))
+  .add('#/alumnos',     (_, c) => alumnosView(c))
   .add('#/cuentas',     (_, c) => cuentasListView(c))
   .add('#/cuenta',      (params, c) => cuentaDetailView(c, params.id))
   .add('#/riesgo',      (_, c) => riesgoView(c, 'CFD'))

@@ -56,6 +56,12 @@ export const auth = {
 
   isAdmin() { return this.profile?.role === 'admin'; },
   isStudent() { return this.profile?.role === 'student'; },
+  // Gestor de alumnos: un alumno al que el admin da permiso para dar de alta
+  // alumnos y ver el listado (nombre, email, alta). NO ve resultados ni entra
+  // en el dashboard de nadie: las reglas de Firestore solo le dejan leer
+  // users/{uid} y users/{uid}/profile, nunca trades ni el resto.
+  isGestor() { return !this.isAdmin() && this.profile?.gestor === true; },
+  canManageStudents() { return this.isAdmin() || this.isGestor(); },
   uid() { return this.currentUser?.uid || null; },
   // Huso del usuario LOGUEADO. Sobrevive a viewAs (this.profile nunca se toca al
   // impersonar), así que el admin siempre puede convertir a SU hora.
@@ -86,7 +92,7 @@ export const auth = {
   // del secondary app (autenticada como el nuevo alumno), porque las reglas
   // exigen request.auth.uid == uid para escribir users/{uid}/profile/data.
   async createStudent(email, password, nombre) {
-    if (!this.isAdmin()) throw new Error('Solo admin puede crear alumnos');
+    if (!this.canManageStudents()) throw new Error('No tienes permiso para crear alumnos');
     const secondaryName = 'admin-creator-' + Date.now();
     const secondary = initializeApp(firebaseConfig, secondaryName);
     const secondaryAuth = getAuth(secondary);

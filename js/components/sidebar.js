@@ -60,6 +60,11 @@ const NAV_ADMIN = [
   { path: '#/grupo', label: 'Stats grupales', icon: 'grupo', class: '' },
 ];
 
+// Gestor de alumnos (alumno con permiso para dar de alta): solo el listado.
+const NAV_GESTOR = [
+  { path: '#/alumnos', label: 'Alumnos', icon: 'alumnos', class: 'nav-admin-first' },
+];
+
 let unsubAuth = null;
 let unsubState = null;
 
@@ -105,6 +110,7 @@ export function renderSidebar(container) {
   const riskOn = !(state.config && state.config.riskModuleEnabled === false);
   let nav = NAV_BASE.filter(item => (!inViewAs || !item.hideInViewAs) && (!item.riskModule || riskOn));
   if (auth.isAdmin()) nav = nav.concat(NAV_ADMIN);
+  else if (auth.isGestor()) nav = nav.concat(NAV_GESTOR);
 
   const collapsed = storage.getSidebarCollapsed();
 

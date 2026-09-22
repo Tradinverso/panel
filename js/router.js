@@ -40,6 +40,10 @@ export const router = {
         window.location.hash = auth.isAdmin() ? '#/admin' : '#/dashboard';
         return;
       }
+      if (path === '#/alumnos' && !auth.isGestor()) {
+        window.location.hash = auth.isAdmin() ? '#/admin' : '#/dashboard';
+        return;
+      }
       if (ADMIN_ROUTES.has(path) && !auth.isAdmin()) {
         window.location.hash = '#/dashboard';
         return;

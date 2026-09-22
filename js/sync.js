@@ -273,6 +273,25 @@ export const sync = {
     return result;
   },
 
+  // Gestor de alumnos: el mismo listado pero SOLO con el perfil (sin trades,
+  // que las reglas tampoco le dejan leer).
+  async listStudentsBasic() {
+    const usersSnap = await getDocs(collection(db, 'users'));
+    const profiles = await Promise.all(usersSnap.docs.map(async userDoc => {
+      try {
+        const snap = await getDoc(doc(db, 'users', userDoc.id, 'profile', 'data'));
+        if (!snap.exists()) return null;
+        const profile = snap.data();
+        if (profile.role !== 'student' || profile.blocked === true) return null;
+        return { uid: userDoc.id, profile };
+      } catch (e) {
+        console.warn('Saltando usuario por reglas o error:', userDoc.id, e.message);
+        return null;
+      }
+    }));
+    return profiles.filter(Boolean);
+  },
+
   async loadStudentTrades(studentUid) {
     return this.loadTrades(studentUid);
   },

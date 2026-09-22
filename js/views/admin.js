@@ -92,7 +92,7 @@ async function render(container) {
     render(container);
   });
   container.querySelector('#newStudentBtn').addEventListener('click', () => {
-    openCreateStudentModal(container);
+    openCreateStudentModal(() => { cache = null; render(container); });
   });
 
   // Backup handler (mismo handler para ambos botones: header + banner)
@@ -191,6 +191,7 @@ function paintStudents(container, students) {
             <th>Nombre</th>
             <th>Email</th>
             <th>Nivel</th>
+            <th title="Puede dar de alta alumnos y ver el listado, sin ver resultados">Crea alumnos</th>
             <th>Trades</th>
             <th>WR <span style="color:var(--muted);font-weight:400;">(global · estrategias)</span></th>
             <th>P&L acum. <span style="color:var(--muted);font-weight:400;">(sist · real)</span></th>
@@ -278,6 +279,23 @@ function paintStudents(container, students) {
     });
   });
 
+  // Permiso de gestor de alumnos (crear alumnos + ver listado, sin resultados).
+  content.querySelectorAll('[data-gestor-uid]').forEach(chk => {
+    chk.addEventListener('change', async () => {
+      const stu = students.find(s => s.uid === chk.dataset.gestorUid);
+      if (!stu) return;
+      const gestor = chk.checked;
+      try {
+        await sync.updateProfile(stu.uid, { gestor });
+        stu.profile = { ...stu.profile, gestor };
+      } catch (err) {
+        console.error('No se pudo cambiar el permiso:', err);
+        alert('No se pudo guardar el permiso: ' + (err.message || err));
+        chk.checked = !gestor;
+      }
+    });
+  });
+
   // Eliminar alumno (soft delete: marca profile.blocked).
   content.querySelectorAll('[data-delete-uid]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -352,6 +370,7 @@ function row(s) {
       <td>${nameCell}</td>
       <td style="font-family:var(--mono);font-size:11px;color:var(--muted);">${escapeHtml(s.profile.email)}</td>
       <td>${levelSel}</td>
+      <td style="text-align:center;"><input type="checkbox" data-gestor-uid="${s.uid}" ${s.profile?.gestor === true ? 'checked' : ''} title="Puede dar de alta alumnos y ver el listado (sin ver resultados)"></td>
       <td>${counts.total} <span style="color:var(--muted);font-size:10px;">(${counts.tp}T·${counts.sl}S)</span></td>
       <td>
         <div style="color:${wrColor};font-weight:600;">${counts.total ? fmtPctNoSign(wr, 0) : '–'}</div>
@@ -379,7 +398,8 @@ function row(s) {
   `;
 }
 
-function openCreateStudentModal(container) {
+// También lo usa la vista del gestor de alumnos (alumnos.js).
+export function openCreateStudentModal(onCreated) {
   openModal({
     title: 'Crear nuevo alumno',
     body: `
@@ -392,10 +412,21 @@ function openCreateStudentModal(container) {
           <label class="form-label">Email <span class="required">*</span></label>
           <input class="form-input" type="email" id="newEmail" placeholder="alumno@email.com" autocomplete="off">
         </div>
+        <!-- Repetir email y contraseña: el email de acceso no se puede editar
+             después desde la app, así que se evita el error al crearlo. Sin
+             pegar en los campos de repetir, para que se escriban de verdad. -->
+        <div class="form-field">
+          <label class="form-label">Repite el email <span class="required">*</span></label>
+          <input class="form-input" type="email" id="newEmail2" placeholder="alumno@email.com" autocomplete="off" onpaste="return false" ondrop="return false">
+        </div>
         <div class="form-field">
           <label class="form-label">Contraseña temporal <span class="required">*</span></label>
           <input class="form-input" type="text" id="newPassword" placeholder="Mínimo 6 caracteres" autocomplete="off">
           <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:4px;">El alumno podrá cambiarla desde su perfil.</div>
+        </div>
+        <div class="form-field">
+          <label class="form-label">Repite la contraseña <span class="required">*</span></label>
+          <input class="form-input" type="text" id="newPassword2" placeholder="Mínimo 6 caracteres" autocomplete="off" onpaste="return false" ondrop="return false">
         </div>
         <div id="createErr" class="auth-error" style="display:none;"></div>
       </div>
@@ -415,12 +446,15 @@ function openCreateStudentModal(container) {
 
           if (!email || !password) { showErr(errEl, 'Email y contraseña obligatorios'); return; }
           if (password.length < 6) { showErr(errEl, 'La contraseña debe tener al menos 6 caracteres'); return; }
+          const email2 = root.querySelector('#newEmail2').value.trim();
+          const password2 = root.querySelector('#newPassword2').value;
+          if (email.toLowerCase() !== email2.toLowerCase()) { showErr(errEl, 'Los dos emails no coinciden'); return; }
+          if (password !== password2) { showErr(errEl, 'Las dos contraseñas no coinciden'); return; }
 
           try {
             await auth.createStudent(email, password, nombre || email.split('@')[0]);
             close();
-            cache = null;
-            render(container);
+            onCreated();
             // Modal de confirmación con credenciales
             openModal({
               title: 'Alumno creado',
