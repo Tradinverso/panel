@@ -33,6 +33,9 @@ const NQ_ZONES = [
   'ORB',     'ASIA',    'LONDON',     // sesiones / rango de apertura
   'BSL/SSL', 'PDH/PDL', 'PWH/PWL',    // liquidez
   'IRL',     'FVG M15', 'FVG HTF',    // interna / imbalances
+  // CONT: entrada en continuación, que no sale de ninguna zona concreta.
+  // Sola en la última fila.
+  'CONT',
 ];
 // Orden explícito, en cuadrícula de 3 columnas: IFVG · ENVOL arriba y
 // FVG · BPR · BAG abajo (FVG abre fila: entriesRowStarts).
@@ -113,7 +116,7 @@ export const STRATEGIES = {
     pairs: ['NQ'],
     pairFixed: true,
     zones: NQ_ZONES,
-    zonesCols: 3,   // cuadrícula fija de 3 columnas: siempre 3 filas, en cualquier ancho
+    zonesCols: 3,   // cuadrícula fija de 3 columnas: mismas filas en cualquier ancho
     entries: NQ_ENTRIES,
     entriesCols: 3,
     entriesRowStarts: ['FVG'],
