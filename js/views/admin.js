@@ -413,11 +413,12 @@ export function openCreateStudentModal(onCreated) {
           <input class="form-input" type="email" id="newEmail" placeholder="alumno@email.com" autocomplete="off">
         </div>
         <!-- Repetir email y contraseña: el email de acceso no se puede editar
-             después desde la app, así que se evita el error al crearlo. Sin
-             pegar en los campos de repetir, para que se escriban de verdad. -->
+             después desde la app, así que se evita el error al crearlo.
+             Se permite pegar: bloquearlo era un incordio y, en la práctica, el
+             email llega copiado de un mensaje del alumno. -->
         <div class="form-field">
           <label class="form-label">Repite el email <span class="required">*</span></label>
-          <input class="form-input" type="email" id="newEmail2" placeholder="alumno@email.com" autocomplete="off" onpaste="return false" ondrop="return false">
+          <input class="form-input" type="email" id="newEmail2" placeholder="alumno@email.com" autocomplete="off">
         </div>
         <div class="form-field">
           <label class="form-label">Contraseña temporal <span class="required">*</span></label>
@@ -426,7 +427,7 @@ export function openCreateStudentModal(onCreated) {
         </div>
         <div class="form-field">
           <label class="form-label">Repite la contraseña <span class="required">*</span></label>
-          <input class="form-input" type="text" id="newPassword2" placeholder="Mínimo 6 caracteres" autocomplete="off" onpaste="return false" ondrop="return false">
+          <input class="form-input" type="text" id="newPassword2" placeholder="Mínimo 6 caracteres" autocomplete="off">
         </div>
         <div id="createErr" class="auth-error" style="display:none;"></div>
       </div>
