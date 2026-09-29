@@ -42,7 +42,7 @@ export function tradesForAccount(account, allTrades) {
 // Botón "avanzar de fase": si el siguiente paso ya funda la cuenta (2ª fase, o
 // cuentas de 1 sola fase), el botón dice "Fondear" en vez de "Superar fase".
 export function advanceInfo(cuenta) {
-  if (!cuenta || cuenta.fase === 'fondeada') return null;
+  if (!cuenta || (cuenta.fase !== 'challenge_1' && cuenta.fase !== 'challenge_2')) return null;
   const toFondeada = cuenta.fase === 'challenge_2' || (cuenta.fase === 'challenge_1' && cuenta.numFases === 1);
   return { toFondeada, label: toFondeada ? 'Fondear' : 'Superar fase' };
 }
@@ -50,10 +50,18 @@ export function advanceInfo(cuenta) {
 // Igual que tradesForAccount pero solo los trades de la FASE actual (desde
 // equityBaseAt). Al superar fase, el equity/stats se reinician al capital.
 // Sin base definida (1ª fase) devuelve todos.
+// Tras un reset hecho el mismo día (equityBaseTs), los trades de ese día solo
+// cuentan si se registraron después del reset.
 export function tradesForAccountPhase(account, allTrades) {
   const all = tradesForAccount(account, allTrades);
   const base = account && account.equityBaseAt;
-  return base ? all.filter(x => (x.trade && x.trade.date || '') >= base) : all;
+  if (!base) return all;
+  const ts = account.equityBaseTs;
+  return all.filter(x => {
+    const d = (x.trade && x.trade.date) || '';
+    if (d !== base) return d > base;
+    return !ts || (x.trade.createdAt || 0) >= ts;
+  });
 }
 
 // Legacy: USD = pnl_pct × riskPct × capital / 100. Solo se usa como fallback

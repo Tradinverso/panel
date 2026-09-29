@@ -24,6 +24,7 @@ const FASE = {
   challenge_1: { short: '1F', cls: 'g1', label: '1ª Fase' },
   challenge_2: { short: '2F', cls: 'g2', label: '2ª Fase' },
   fondeada:    { short: '★',  cls: 'gf', label: 'Fondeada' },
+  propia:      { short: 'CP', cls: 'gp', label: 'Capital propio' },
 };
 
 // Todas las cuentas de futuros activas (también las que están fuera de la rotación).

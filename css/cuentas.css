@@ -33,6 +33,7 @@
 .cuenta-gtag.g1 { background: var(--liquidez-bg); color: var(--liquidez); }
 .cuenta-gtag.g2 { background: var(--zonas-bg); color: var(--zonas); }
 .cuenta-gtag.gf { background: var(--green-bg); color: var(--green); }
+.cuenta-gtag.gp { background: var(--accent-bg); color: var(--accent); }
 .cuenta-col-body { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
 
 .cuenta-card {
@@ -73,6 +74,7 @@
 .badge.fase-c1, .badge.fase-challenge_1 { background: rgba(59,130,246,.15); color: var(--accent); border-color: rgba(59,130,246,.4); }
 .badge.fase-c2, .badge.fase-challenge_2 { background: rgba(168,85,247,.15); color: var(--zonas); border-color: rgba(168,85,247,.4); }
 .badge.fase-fond, .badge.fase-fondeada  { background: rgba(16,185,129,.15); color: var(--green); border-color: rgba(16,185,129,.4); }
+.badge.fase-prop, .badge.fase-propia    { background: rgba(168,85,247,.15); color: var(--liquidez); border-color: rgba(168,85,247,.4); }
 .badge.st-activa  { background: rgba(16,185,129,.12); color: var(--green); border-color: rgba(16,185,129,.3); }
 .badge.st-pausada { background: rgba(255,165,2,.12); color: var(--orange); border-color: rgba(255,165,2,.3); }
 .badge.st-pasada  { background: rgba(16,185,129,.18); color: var(--green); border-color: rgba(16,185,129,.45); }

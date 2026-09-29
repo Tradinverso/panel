@@ -80,8 +80,9 @@ function fmtPct(usd) {
   return String(+(usd / BASE_CAPITAL * 100).toFixed(2)).replace('.', ',');
 }
 
+// Capital propio va con las gestiones de fondeadas: también es dinero real.
 export function faseGestion(cuenta) {
-  return cuenta && cuenta.fase === 'fondeada' ? 'fondeada' : 'challenge';
+  return cuenta && (cuenta.fase === 'fondeada' || cuenta.fase === 'propia') ? 'fondeada' : 'challenge';
 }
 
 export function gestionesDeFase(fase, custom = []) {

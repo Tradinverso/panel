@@ -1,4 +1,5 @@
-// Modal para crear o editar una cuenta fondeada / challenge.
+// Modal para crear o editar una cuenta: de prop firm (challenge / fondeada) o
+// de CAPITAL PROPIO en un broker (fase 'propia': sin fases, coste ni objetivo).
 
 import { state } from '../state.js';
 import { renderPills } from './pills.js';
@@ -22,12 +23,18 @@ const STATUS_OPTIONS = [
 
 const TIPO_OPTIONS = ['CFD', 'Futuros'];
 
+const ORIGEN_OPTIONS = [
+  { value: 'prop',   label: 'Prop firm' },
+  { value: 'propia', label: 'Capital propio' },
+];
+
 const FASES_OPTIONS = [
   { value: '1', label: '1 fase' },
   { value: '2', label: '2 fases' },
 ];
 
-export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
+// opts.propia: al crear, abre directamente como cuenta de capital propio.
+export function openCuentaEditModal(cuenta = null, onSaved = () => {}, opts = {}) {
   const isNew = !cuenta;
   // Si es edición y la cuenta tiene trades asignados, advertir al cambiar capital
   const tradesUsing = cuenta ? tradesForAccount(cuenta, state.trades).length : 0;
@@ -58,6 +65,7 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
     numFases: cuenta?.numFases === 1 ? 1 : 2,
     notes: cuenta?.notes || '',
     lastActivityOverride: cuenta?.lastActivityOverride || '',
+    origen: cuenta ? (cuenta.fase === 'propia' ? 'propia' : 'prop') : (opts.propia ? 'propia' : 'prop'),
   };
   const originalCapital = cuenta?.capital;
   // Saldo inicial fue editado manualmente? (true si edición existente o null/!= capital)
@@ -67,9 +75,13 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
     title: isNew ? 'Nueva cuenta' : `Editar cuenta · ${cuenta.empresa} ${cuenta.numero}`,
     body: `
       <div class="form" style="max-width:none;gap:14px;">
+        <div class="form-field">
+          <label class="form-label">Origen del capital</label>
+          <div data-field="origen"></div>
+        </div>
         <div class="form-row">
           <div class="form-field">
-            <label class="form-label">Empresa <span class="required">*</span></label>
+            <label class="form-label"><span id="ce-empresa-lbl">Empresa</span> <span class="required">*</span></label>
             <input class="form-input" type="text" id="ce-empresa" value="${esc(data.empresa)}" placeholder="FTMO, MyForexFunds, My5ers…">
           </div>
           <div class="form-field">
@@ -94,7 +106,7 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
           </div>
         </div>
 
-        <div class="form-row">
+        <div class="form-row ce-prop-only">
           <div class="form-field">
             <label class="form-label">Fases del challenge <span class="required">*</span></label>
             <div data-field="fases"></div>
@@ -105,7 +117,7 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
             <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:4px;">${isNew ? 'Se registra como la primera compra de la cuenta (Contabilidad).' : 'Edita el coste inicial (primera compra).'}</div>
           </div>
         </div>
-        <div class="form-row">
+        <div class="form-row ce-prop-only">
           <div class="form-field">
             <label class="form-label">${isNew ? 'Fecha del pago' : 'Fecha de la primera compra'}</label>
             <input class="form-input" type="date" id="ce-cost-date" value="${esc(data.costDate)}">
@@ -128,7 +140,7 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
             <input class="form-input" type="number" step="0.01" id="ce-initbal" value="${esc(data.initialBalance)}" placeholder="${esc(data.capital) || 'igual al capital'}">
             <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:4px;line-height:1.5;">Lo que tiene la cuenta AHORA en el broker. Por defecto = capital nominal.</div>
           </div>
-          <div class="form-row">
+          <div class="form-row ce-prop-only">
             <div class="form-field">
               <label class="form-label">Objetivo (% del capital)</label>
               <input class="form-input" type="number" step="0.5" id="ce-targetpct" value="${esc(data.targetPct)}" placeholder="ej. 8 = 8%">
@@ -140,7 +152,7 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
             </div>
           </div>
           ${isNew ? '' : `
-          <div class="form-field">
+          <div class="form-field ce-prop-only">
             <label class="form-label">Fase actual</label>
             <div data-field="fase"></div>
           </div>
@@ -171,6 +183,21 @@ export function openCuentaEditModal(cuenta = null, onSaved = () => {}) {
   setTimeout(() => {
     const root = document.getElementById('modal-root');
     if (!root) return;
+    // Capital propio: el campo Empresa pasa a ser el Broker y se ocultan fases,
+    // coste, objetivo/DD de la firma y fase actual.
+    const applyOrigen = () => {
+      const propia = data.origen === 'propia';
+      root.querySelectorAll('.ce-prop-only').forEach(el => { el.style.display = propia ? 'none' : ''; });
+      root.querySelector('#ce-empresa-lbl').textContent = propia ? 'Broker' : 'Empresa';
+      root.querySelector('#ce-empresa').placeholder = propia
+        ? 'IC Markets, Interactive Brokers, Darwinex…'
+        : 'FTMO, MyForexFunds, My5ers…';
+    };
+    renderPills(root.querySelector('[data-field="origen"]'), {
+      name: 'origen', options: ORIGEN_OPTIONS, value: data.origen,
+      onChange: v => { data.origen = v || 'prop'; applyOrigen(); },
+    });
+    applyOrigen();
     renderPills(root.querySelector('[data-field="tipo"]'), {
       name: 'tipo', options: TIPO_OPTIONS, value: data.tipo,
       onChange: v => data.tipo = v,
@@ -231,8 +258,9 @@ function doSave(cuenta, data, close, onSaved) {
   const showErr = msg => { errEl.textContent = '⚠ ' + msg; errEl.style.display = 'flex'; };
   errEl.style.display = 'none';
 
+  const propia = data.origen === 'propia';
   const empresa = String(data.empresa || '').trim();
-  if (!empresa) return showErr('La empresa es obligatoria.');
+  if (!empresa) return showErr(propia ? 'El broker es obligatorio.' : 'La empresa es obligatoria.');
   const capital = parseFloat(data.capital);
   if (!capital || capital <= 0) return showErr('El capital debe ser mayor que 0.');
   // initialBalance opcional: si vacío, usa capital
@@ -240,12 +268,13 @@ function doSave(cuenta, data, close, onSaved) {
     ? capital
     : parseFloat(data.initialBalance);
   if (isNaN(initialBalance) || initialBalance < 0) return showErr('El saldo inicial no puede ser negativo.');
-  const cost = data.cost === '' ? 0 : parseFloat(data.cost);
+  // Capital propio: sin coste de evaluación, objetivo ni DD de firma.
+  const cost = propia || data.cost === '' ? 0 : parseFloat(data.cost);
   if (isNaN(cost) || cost < 0) return showErr('El coste no puede ser negativo.');
-  const targetPct = data.targetPct === '' || data.targetPct == null ? 0 : parseFloat(data.targetPct);
+  const targetPct = propia || data.targetPct === '' || data.targetPct == null ? 0 : parseFloat(data.targetPct);
   if (isNaN(targetPct) || targetPct < 0) return showErr('El objetivo (%) no puede ser negativo.');
   const targetUsd = targetPct > 0 ? Math.round(capital * targetPct / 100) : 0;
-  const maxDdUsd = data.maxDdUsd === '' || data.maxDdUsd == null ? 0 : parseFloat(data.maxDdUsd);
+  const maxDdUsd = propia || data.maxDdUsd === '' || data.maxDdUsd == null ? 0 : parseFloat(data.maxDdUsd);
   if (isNaN(maxDdUsd) || maxDdUsd < 0) return showErr('El max DD no puede ser negativo.');
 
   const payload = {
@@ -259,7 +288,8 @@ function doSave(cuenta, data, close, onSaved) {
     targetUsd,
     targetPct,
     maxDdUsd,
-    fase: data.fase || 'challenge_1',
+    // De capital propio a prop firm: vuelve a 1ª fase (la fase 'propia' no vale).
+    fase: propia ? 'propia' : (data.fase && data.fase !== 'propia' ? data.fase : 'challenge_1'),
     status: data.status || 'activa',
     numFases: data.numFases === 1 ? 1 : 2,
     notes: String(data.notes || '').trim(),
@@ -289,6 +319,9 @@ function doSave(cuenta, data, close, onSaved) {
       }];
       payload.cost = 0;
     }
+    // Capital propio nace fuera de la rotación de riesgo (que es de las cuentas
+    // de fondeo); se puede meter desde Riesgo → Gestionar.
+    if (propia) payload.enRotacion = false;
     saved = state.addCuenta(payload);
   }
   close();

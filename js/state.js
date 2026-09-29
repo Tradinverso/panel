@@ -181,7 +181,9 @@ function sanitizeBacktest(t) {
   };
 }
 
-const VALID_FASE = new Set(['challenge_1', 'challenge_2', 'fondeada']);
+// 'propia': cuenta de CAPITAL PROPIO en un broker (no es prop firm): sin fases,
+// sin coste ni objetivo, y fuera de Contabilidad (que es el negocio prop).
+const VALID_FASE = new Set(['challenge_1', 'challenge_2', 'fondeada', 'propia']);
 const VALID_STATUS = new Set(['activa', 'pausada', 'pasada', 'perdida']);
 const VALID_REFL_TYPE = new Set(['daily', 'weekly', 'monthly']);
 
@@ -218,6 +220,10 @@ function sanitizeCuenta(c) {
     // desde aquí (al superar fase se reinicia al capital). Migración: cuentas ya
     // fondeadas usan su fundedAt como base para que su equity se reinicie también.
     equityBaseAt: c.equityBaseAt || (c.fase === 'fondeada' ? (c.fundedAt || null) : null),
+    // Momento exacto (ms) del inicio de fase, solo cuando fue un RESET hecho el
+    // mismo día: los trades de ese día registrados ANTES del reset (los que la
+    // quemaron) no cuentan para la cuenta nueva. Sin él, cuenta el día entero.
+    equityBaseTs: typeof c.equityBaseTs === 'number' ? c.equityBaseTs : null,
     // Registro de hitos de la cuenta (fases superadas / quemada), para dejar
     // constancia aunque el profit/WR de esa fase ya no se muestre.
     phaseHistory: Array.isArray(c.phaseHistory) ? c.phaseHistory : [],
@@ -743,7 +749,7 @@ export const state = {
     let next = c.fase;
     if (c.fase === 'challenge_1') next = c.numFases === 1 ? 'fondeada' : 'challenge_2';
     else if (c.fase === 'challenge_2') next = 'fondeada';
-    else return c; // ya fondeada
+    else return c; // ya fondeada, o capital propio (sin fases)
     const today = new Date().toISOString().substring(0, 10);
     // La nueva fase empieza fresca: el equity vuelve al capital nominal y los
     // trades/stats solo cuentan desde hoy (equityBaseAt). Se deja constancia del
@@ -752,6 +758,7 @@ export const state = {
       fase: next,
       status: 'activa',
       equityBaseAt: today,
+      equityBaseTs: null,
       initialBalance: c.capital || 0,
       phaseHistory: [...(c.phaseHistory || []), { type: 'superada', from: c.fase, to: next, date: today }],
     };
@@ -759,15 +766,42 @@ export const state = {
     return this.updateCuenta(cuentaId, patch);
   },
 
+  // Con reset, una cuenta se puede quemar más de una vez: cada quemada queda en
+  // el historial y burnedAt guarda la última.
   markQuemada(cuentaId) {
     const c = this.cuentas.find(x => x.id === cuentaId);
     const patch = { status: 'perdida' };
-    if (c && !c.burnedAt) {
+    if (c && c.status !== 'perdida') {
       const today = new Date().toISOString().substring(0, 10);
       patch.burnedAt = today;
       patch.phaseHistory = [...(c.phaseHistory || []), { type: 'quemada', from: c.fase, date: today }];
     }
     return this.updateCuenta(cuentaId, patch);
+  },
+
+  // RESET de la cuenta (lo que venden las prop firms para volver a empezar):
+  // el equity vuelve al capital nominal desde `date` (equityBaseAt), la cuenta
+  // queda activa en la fase elegida y el reset queda en el historial. Los trades
+  // anteriores se conservan, pero dejan de contar para el equity/stats de la
+  // cuenta, igual que al superar fase. Si costó dinero, se registra como compra
+  // 'reset' (sale en Contabilidad como inversión).
+  // `ts`: momento del reset, solo si se hace con fecha de hoy (ver equityBaseTs).
+  resetCuenta(cuentaId, { date, cost = 0, fase, ts = null } = {}) {
+    const c = this.cuentas.find(x => x.id === cuentaId);
+    if (!c || c.fase === 'propia') return null;
+    const day = date || new Date().toISOString().substring(0, 10);
+    const to = VALID_FASE.has(fase) && fase !== 'propia' ? fase : c.fase;
+    const importe = parseFloat(cost) > 0 ? parseFloat(cost) : 0;
+    if (importe > 0) this.addPurchase(cuentaId, { date: day, amount: importe, concept: 'reset', note: 'Reset' });
+    const actual = this.cuentas.find(x => x.id === cuentaId);   // addPurchase la ha reemplazado
+    return this.updateCuenta(cuentaId, {
+      fase: to,
+      status: 'activa',
+      equityBaseAt: day,
+      equityBaseTs: typeof ts === 'number' ? ts : null,
+      initialBalance: actual.capital || 0,
+      phaseHistory: [...(actual.phaseHistory || []), { type: 'reset', from: c.fase, to, date: day, cost: importe }],
+    });
   },
 
   // Reordena la rotación: asigna rotacionOrden = posición a cada id de la lista.
@@ -838,13 +872,14 @@ export const state = {
   markFondeada(cuentaId) {
     const c = this.cuentas.find(x => x.id === cuentaId);
     if (!c) return null;
-    if (c.fase === 'fondeada') return c;
+    if (c.fase === 'fondeada' || c.fase === 'propia') return c;
     const today = new Date().toISOString().substring(0, 10);
     // Reset de fase: empieza fresca en el capital, stats desde hoy, y hito registrado.
     const patch = {
       fase: 'fondeada',
       status: 'activa',
       equityBaseAt: today,
+      equityBaseTs: null,
       initialBalance: c.capital || 0,
       phaseHistory: [...(c.phaseHistory || []), { type: 'superada', from: c.fase, to: 'fondeada', date: today }],
     };

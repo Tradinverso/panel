@@ -6,6 +6,7 @@ import { router } from '../router.js';
 import { auth } from '../auth.js';
 import { openCuentaEditModal, confirmDeleteCuenta } from '../components/cuenta-edit-modal.js';
 import { openWithdrawalModal } from '../components/withdrawal-modal.js';
+import { openResetCuentaModal } from '../components/reset-cuenta-modal.js';
 import { openModal } from '../components/modal.js';
 import {
   accountStats, tradesForAccountPhase, accountEquityCurve,
@@ -16,7 +17,7 @@ import { openViewTradeModal } from '../components/trade-view-modal.js';
 import { formatDateShort, MONTHS_ES_SHORT } from '../utils/date-helpers.js';
 import { todayLocal } from '../utils/timezone.js';
 
-const FASE_LABEL = { challenge_1: 'Challenge 1ª', challenge_2: 'Challenge 2ª', fondeada: 'Fondeada' };
+const FASE_LABEL = { challenge_1: 'Challenge 1ª', challenge_2: 'Challenge 2ª', fondeada: 'Fondeada', propia: 'Capital propio' };
 const STATUS_LABEL = { activa: 'Activa', pausada: 'Pausada', pasada: 'Pasada', perdida: 'Perdida' };
 const STATUS_DOT = { activa: '🟢', pausada: '⏸', pasada: '✓', perdida: '✗' };
 
@@ -32,13 +33,20 @@ function renderPhaseHistory(cuenta) {
   if (!h.length) return '';
   const label = m => {
     if (m.type === 'quemada') return 'Cuenta quemada';
+    if (m.type === 'reset') {
+      const fase = m.to && m.to !== m.from ? ` · vuelve a ${FASE_LABEL[m.to] || m.to}` : '';
+      return `Reset${fase} · ${m.cost > 0 ? fmtUsd(m.cost) : 'gratis'}`;
+    }
     if (m.to === 'fondeada') return 'Superó a Fondeada';
     return `Superó ${FASE_LABEL[m.from] || 'fase'}`;
   };
   const rows = h.map(m => {
     const ok = m.type !== 'quemada';
+    const reset = m.type === 'reset';
+    const bg = reset ? 'var(--orange-bg)' : ok ? 'var(--green-bg)' : 'var(--red-bg)';
+    const fg = reset ? 'var(--orange)' : ok ? 'var(--green)' : 'var(--red)';
     return `<div style="display:flex;align-items:center;gap:10px;font-size:13px;">
-      <span style="width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;background:${ok ? 'var(--green-bg)' : 'var(--red-bg)'};color:${ok ? 'var(--green)' : 'var(--red)'};font-weight:700;flex:none;">${ok ? '✓' : '✗'}</span>
+      <span style="width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;background:${bg};color:${fg};font-weight:700;flex:none;">${reset ? '↺' : ok ? '✓' : '✗'}</span>
       <span style="flex:1;color:var(--text);">${label(m)}</span>
       <span style="font-family:var(--mono);font-size:11px;color:var(--muted);">${m.date ? formatDateShort(m.date) : ''}</span>
     </div>`;
@@ -65,6 +73,7 @@ function render(container, cuentaId) {
 
   const s = accountStats(cuenta, state.trades);
   const isFondeada = cuenta.fase === 'fondeada';
+  const isPropia = cuenta.fase === 'propia';
   const adv = advanceInfo(cuenta);
   const items = tradesForAccountPhase(cuenta, state.trades);
   const monthly = monthlyPnlUsd(cuenta, state.trades);
@@ -77,7 +86,7 @@ function render(container, cuentaId) {
         <div class="sub">
           <span class="badge fase-${cuenta.fase}">${FASE_LABEL[cuenta.fase]}</span>
           <span class="badge st-${cuenta.status}">${STATUS_DOT[cuenta.status]} ${STATUS_LABEL[cuenta.status]}</span>
-          · ${esc(cuenta.tipo)} · Capital ${fmtUsd(cuenta.capital)}
+          · ${esc(cuenta.tipo)}${isPropia ? ' · Broker ' + esc(cuenta.empresa) : ''} · Capital ${fmtUsd(cuenta.capital)}
           ${cuenta.cost > 0 ? `· Coste ${fmtUsd(cuenta.cost)}` : ''}
         </div>
       </div>
@@ -86,6 +95,7 @@ function render(container, cuentaId) {
         ${adv ? `<button class="btn" id="advanceFaseBtn">${adv.toFondeada ? '★' : '✓'} ${adv.label}</button>` : ''}
         ${(adv && !adv.toFondeada) ? `<button class="btn" id="fondeadaBtn" title="Pasar a Fondeada directamente (saltando la 2ª fase)">★ A Fondeada</button>` : ''}
         ${cuenta.status !== 'perdida' ? `<button class="btn" id="ajusteEquityBtn" title="Corregir el equity actual (trade sin asignar, varianza de cuenta antigua…)">⚖ Ajustar equity</button>` : ''}
+        ${!isPropia ? `<button class="btn" id="resetCuentaBtn" title="Volver a empezar la cuenta desde el capital (reset de la prop firm)">↺ Reset</button>` : ''}
         ${cuenta.status !== 'perdida' ? `<button class="btn danger" id="quemadaBtn">✗ Quemada</button>` : ''}
         <button class="btn" id="editCuentaBtn">✏️ Editar</button>
         <button class="btn danger" id="deleteCuentaBtn">× Borrar</button>
@@ -175,6 +185,8 @@ function render(container, cuentaId) {
       });
     });
   });
+  const resetBtn = container.querySelector('#resetCuentaBtn');
+  if (resetBtn) resetBtn.addEventListener('click', () => openResetCuentaModal(cuenta));
   const quemadaBtn = container.querySelector('#quemadaBtn');
   if (quemadaBtn) quemadaBtn.addEventListener('click', () => {
     openModal({

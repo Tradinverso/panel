@@ -30,6 +30,7 @@ const GRUPOS = [
   { fase: 'challenge_1', label: '1ª Fase',  short: '1F', cls: 'g1' },
   { fase: 'challenge_2', label: '2ª Fase',  short: '2F', cls: 'g2' },
   { fase: 'fondeada',    label: 'Fondeada', short: '★',  cls: 'gf' },
+  { fase: 'propia',      label: 'Capital propio', short: 'CP', cls: 'gp' },
 ];
 const FASE_TO_GRUPO = Object.fromEntries(GRUPOS.map(g => [g.fase, g]));
 

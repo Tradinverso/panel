@@ -8,6 +8,7 @@ import { openModal } from '../components/modal.js';
 import { kpiCard } from '../components/kpi-card.js';
 import { openPurchaseModal } from '../components/purchase-modal.js';
 import { openWithdrawalModal } from '../components/withdrawal-modal.js';
+import { openResetCuentaModal } from '../components/reset-cuenta-modal.js';
 import { openCuentaEditModal, confirmDeleteCuenta } from '../components/cuenta-edit-modal.js';
 import {
   fmtUsd, totalInvested, investmentStats, monthlyInvested, empresaStats,
@@ -28,6 +29,13 @@ let calAll = false;          // calendario: ver todos los eventos (lista) en vez
 let calYear = null, calMonth = null;
 
 const STATUS_LABEL = { activa: 'Activa', pausada: 'Pausada', pasada: 'Pasada', perdida: 'Quemada' };
+// Contabilidad es el negocio prop (compras vs payouts): las cuentas de capital
+// propio no tienen coste de evaluación y sus retiros no son payouts, así que
+// quedan fuera.
+function cuentasProp() {
+  return state.cuentas.filter(c => c.fase !== 'propia');
+}
+
 const CONCEPT_LABEL = { challenge: 'Challenge', reset: 'Reset', reintento: 'Reintento', suscripcion: 'Suscripción', activacion: 'Activación', otro: 'Otro' };
 const fmtRoi = v => !isFinite(v) ? '∞' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
 
@@ -47,7 +55,7 @@ function inRange(date) {
 }
 
 function render(container) {
-  const cuentas = state.cuentas;
+  const cuentas = cuentasProp();
   const dates = [...allPurchases(cuentas), ...allWithdrawals(cuentas)].map(x => x.date || '').filter(Boolean);
   const months = monthsOf(dates.map(d => ({ date: d })));
   clampPeriod(cbPeriod, months);
@@ -123,7 +131,7 @@ function renderRankingProps(cuentas) {
 }
 
 function renderResumen() {
-  const cuentas = state.cuentas;
+  const cuentas = cuentasProp();
   const s = investmentStats(cuentas, currentRange());
   const periodNote = currentRange() ? ' · periodo seleccionado' : '';
   return `
@@ -204,6 +212,7 @@ function accountRows(cuentas) {
           ${(adv && c.status !== 'perdida') ? `<button class="btn ghost" data-cont-advance="${c.id}" title="${adv.label}" style="padding:4px 7px;font-size:11px;">${adv.toFondeada ? '★' : '✓'}</button>` : ''}
           ${(adv && !adv.toFondeada && c.status !== 'perdida') ? `<button class="btn ghost" data-cont-fondeada="${c.id}" title="Pasar a Fondeada directamente (saltando 2ª fase)" style="padding:4px 7px;font-size:11px;">★</button>` : ''}
           ${(c.fase === 'fondeada' && c.status !== 'perdida') ? `<button class="btn ghost" data-cont-retiro="${c.id}" title="Registrar retiro" style="padding:4px 7px;font-size:11px;">💵</button>` : ''}
+          <button class="btn ghost" data-cont-reset="${c.id}" title="Reset: volver a empezar desde el capital (y registrar lo que costó)" style="padding:4px 7px;font-size:11px;">↺</button>
           ${c.status !== 'perdida' ? `<button class="btn ghost danger" data-cont-quemada="${c.id}" title="Marcar quemada" style="padding:4px 7px;font-size:11px;">✗</button>` : ''}
           <button class="btn ghost" data-cont-edit="${c.id}" title="Editar cuenta" style="padding:4px 7px;font-size:11px;">✏️</button>
           <button class="btn ghost danger" data-cont-delete="${c.id}" title="Borrar cuenta" style="padding:4px 7px;font-size:11px;">🗑</button>
@@ -245,6 +254,11 @@ function wireResumen(container) {
       const c = state.cuentas.find(x => x.id === b.dataset.contDelete);
       if (c) confirmDeleteCuenta(c);
     }));
+  container.querySelectorAll('[data-cont-reset]').forEach(b =>
+    b.addEventListener('click', () => {
+      const c = state.cuentas.find(x => x.id === b.dataset.contReset);
+      if (c) openResetCuentaModal(c);
+    }));
   container.querySelectorAll('[data-cont-quemada]').forEach(b =>
     b.addEventListener('click', () => {
       const c = state.cuentas.find(x => x.id === b.dataset.contQuemada);
@@ -262,7 +276,7 @@ function wireResumen(container) {
 
 // Listas de Retiros / Compras (con filtro por cuenta + periodo)
 function renderLista(kind) {
-  const cuentas = state.cuentas;
+  const cuentas = cuentasProp();
   const all = kind === 'retiros' ? allWithdrawals(cuentas) : allPurchases(cuentas);
   const items = all.filter(x => (filterCuenta === 'all' || x.cuentaId === filterCuenta) && inRange(x.date || ''));
 
@@ -353,7 +367,7 @@ function wireLista(container) {
 
 // ── Pestaña Empresas: elegir una prop y ver sus movimientos ──
 function renderEmpresas() {
-  const cuentas = state.cuentas;
+  const cuentas = cuentasProp();
   const empresas = [...new Set(cuentas.map(c => (c.empresa || '').trim()).filter(Boolean))].sort();
   const selector = `
     <div class="emp-toolbar">
@@ -459,7 +473,7 @@ function openRetiroChooser() {
 function paintChart(container) {
   const canvas = container.querySelector('#invChart');
   if (!canvas) return;
-  const cuentas = state.cuentas;
+  const cuentas = cuentasProp();
   const gastos = monthlyInvested(cuentas);
   const ganancias = portfolioMonthlyWithdrawals(cuentas);
   const r = currentRange();
@@ -528,7 +542,7 @@ function calControls(isAll) {
 
 function renderCalendario() {
   ensureCalDate();
-  const events = accountingEvents(state.cuentas);
+  const events = accountingEvents(cuentasProp());
 
   if (calAll) {
     if (!events.length) return calControls(true) + '<div class="empty">Aún no hay eventos.</div>';

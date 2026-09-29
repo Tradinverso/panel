@@ -5,6 +5,7 @@ import { state } from '../state.js';
 import { router } from '../router.js';
 import { openCuentaEditModal, confirmDeleteCuenta } from '../components/cuenta-edit-modal.js';
 import { openModal } from '../components/modal.js';
+import { openResetCuentaModal } from '../components/reset-cuenta-modal.js';
 import { gestionTabs } from '../components/gestion-tabs.js';
 import {
   accountStats, fmtUsd, advanceInfo, lastActivity, daysSince,
@@ -19,10 +20,10 @@ let filterStatus = 'all';
 let filterFase = 'all';
 let filterTipo = 'all';   // 'all' | 'CFD' | 'Futuros'
 
-const FASE_LABEL = { challenge_1: 'Challenge 1ª', challenge_2: 'Challenge 2ª', fondeada: 'Fondeada' };
+const FASE_LABEL = { challenge_1: 'Challenge 1ª', challenge_2: 'Challenge 2ª', fondeada: 'Fondeada', propia: 'Capital propio' };
 const STATUS_LABEL = { activa: 'Activa', pausada: 'Pausada', pasada: 'Pasada', perdida: 'Perdida' };
 const STATUS_DOT = { activa: '🟢', pausada: '⏸', pasada: '✓', perdida: '✗' };
-const FASE_CLASS = { challenge_1: 'fase-c1', challenge_2: 'fase-c2', fondeada: 'fase-fond' };
+const FASE_CLASS = { challenge_1: 'fase-c1', challenge_2: 'fase-c2', fondeada: 'fase-fond', propia: 'fase-prop' };
 const STATUS_CLASS = { activa: 'st-activa', pausada: 'st-pausada', pasada: 'st-pasada', perdida: 'st-perdida' };
 
 function render(container) {
@@ -72,6 +73,7 @@ function render(container) {
       </div>
       <div class="page-actions">
         <div class="type-tabs" id="typeTabs"></div>
+        <button class="btn" id="newPropiaBtn" title="Cuenta con tu propio dinero en un broker (no es de prop firm)">+ Capital propio</button>
         <button class="btn primary" id="newCuentaBtn">+ Nueva cuenta</button>
       </div>
     </div>
@@ -96,6 +98,7 @@ function render(container) {
               <option value="challenge_1" ${filterFase === 'challenge_1' ? 'selected' : ''}>Challenge 1ª</option>
               <option value="challenge_2" ${filterFase === 'challenge_2' ? 'selected' : ''}>Challenge 2ª</option>
               <option value="fondeada" ${filterFase === 'fondeada' ? 'selected' : ''}>Fondeada</option>
+              <option value="propia" ${filterFase === 'propia' ? 'selected' : ''}>Capital propio</option>
             </select>
             <select id="cf-status" class="select">
               <option value="all" ${filterStatus === 'all' ? 'selected' : ''}>Todos los estados</option>
@@ -131,6 +134,9 @@ function render(container) {
 
   container.querySelector('#newCuentaBtn').addEventListener('click', () => {
     openCuentaEditModal(null, () => render(container));
+  });
+  container.querySelector('#newPropiaBtn').addEventListener('click', () => {
+    openCuentaEditModal(null, () => render(container), { propia: true });
   });
 
   if (all.length) {
@@ -192,6 +198,12 @@ function render(container) {
   container.querySelectorAll('[data-fondeada]').forEach(b => {
     b.addEventListener('click', () => state.markFondeada(b.dataset.fondeada));
   });
+  container.querySelectorAll('[data-reset]').forEach(b => {
+    b.addEventListener('click', () => {
+      const c = state.cuentas.find(x => x.id === b.dataset.reset);
+      if (c) openResetCuentaModal(c);
+    });
+  });
   container.querySelectorAll('[data-quemada]').forEach(b => {
     b.addEventListener('click', () => {
       const c = state.cuentas.find(x => x.id === b.dataset.quemada);
@@ -246,11 +258,12 @@ function emptyState() {
 }
 
 // Agrupa las cuentas (ya filtradas+ordenadas) por fase en columnas tipo "tablero".
-const FASE_ORDER = ['challenge_1', 'challenge_2', 'fondeada'];
+const FASE_ORDER = ['challenge_1', 'challenge_2', 'fondeada', 'propia'];
 const FASE_COL = {
   challenge_1: { label: 'Challenge 1ª', short: '1F', cls: 'g1' },
   challenge_2: { label: 'Challenge 2ª', short: '2F', cls: 'g2' },
   fondeada:    { label: 'Fondeada',     short: '★',  cls: 'gf' },
+  propia:      { label: 'Capital propio', short: 'CP', cls: 'gp' },
 };
 
 function renderGroupedCards(list) {
@@ -309,20 +322,27 @@ function card(c) {
       <div class="cuenta-stats">
         ${stat('Capital', fmtUsd(s.capital))}
         ${inactividadStat(c)}
-        ${c.fase !== 'fondeada' ? stat('Objetivo', objText) : (objUsd > 0 ? stat('Objetivo', objText) : '')}
+        ${(c.fase === 'challenge_1' || c.fase === 'challenge_2') ? stat('Objetivo', objText) : (objUsd > 0 ? stat('Objetivo', objText) : '')}
         ${s.ddLimitUsd > 0 ? stat('DD máx', fmtUsd(s.ddLimitUsd)) : ''}
         ${stat('Trades', `${s.count} · ${wr} WR`)}
         ${racha ? stat('Racha', racha) : ''}
       </div>
 
-      ${(c.fase !== 'fondeada' || c.status !== 'perdida') ? `
-      <div class="cuenta-card-foot" data-stop>
-        ${adv ? `<button class="btn ghost" data-advance="${c.id}" data-stop>${adv.toFondeada ? '★ Fondear' : '✓ Superar'}</button>` : ''}
-        ${(adv && !adv.toFondeada) ? `<button class="btn ghost" data-fondeada="${c.id}" title="Pasar a Fondeada directamente (saltando la 2ª fase)" data-stop>★ Fondear</button>` : ''}
-        ${c.status !== 'perdida' ? `<button class="btn ghost danger" data-quemada="${c.id}" data-stop>✗ Quemada</button>` : ''}
-      </div>` : ''}
+      ${cardFoot(c, adv)}
     </div>
   `;
+}
+
+// Pie de la tarjeta: avanzar fase, reset y quemada. Sin botones, no se pinta.
+function cardFoot(c, adv) {
+  const perdida = c.status === 'perdida';
+  const btns = [
+    (adv && !perdida) ? `<button class="btn ghost" data-advance="${c.id}" data-stop>${adv.toFondeada ? '★ Fondear' : '✓ Superar'}</button>` : '',
+    (adv && !adv.toFondeada && !perdida) ? `<button class="btn ghost" data-fondeada="${c.id}" title="Pasar a Fondeada directamente (saltando la 2ª fase)" data-stop>★ Fondear</button>` : '',
+    c.fase !== 'propia' ? `<button class="btn ghost" data-reset="${c.id}" title="Volver a empezar desde el capital (reset de la prop firm)" data-stop>↺ Reset</button>` : '',
+    !perdida ? `<button class="btn ghost danger" data-quemada="${c.id}" data-stop>✗ Quemada</button>` : '',
+  ].filter(Boolean);
+  return btns.length ? `<div class="cuenta-card-foot" data-stop>${btns.join('')}</div>` : '';
 }
 
 function fmtCapitalShort(c) {
