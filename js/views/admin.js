@@ -10,7 +10,7 @@ import { countDangerAlerts } from '../utils/diagnostics.js';
 import { fmtPct, fmtPctNoSign } from '../utils/number-format-es.js';
 import { openModal, closeModal } from '../components/modal.js';
 import {
-  generateBackup, downloadBackup, getLastBackupDate, setLastBackupDate,
+  generateBackup, downloadBackup, pickBackupTarget, getLastBackupDate, setLastBackupDate,
   daysSinceLastBackup, formatBackupDate,
   parseBackupFile, summarizeBackup, restoreBackup,
 } from '../utils/backup.js';
@@ -107,13 +107,16 @@ async function render(container) {
       if (btnHeader) btnHeader.disabled = b;
       if (btnInline) btnInline.disabled = b;
     };
+    // Primero, dónde guardarlo (tiene que ser durante el clic). Si cancela, nada.
+    const target = await pickBackupTarget();
+    if (!target) return;
     setBtnDisabled(true);
     setBtnText('Generando…');
     try {
       const data = await generateBackup((i, total) => {
         setBtnText(`Generando ${i}/${total}…`);
       });
-      downloadBackup(data);
+      await downloadBackup(data, target);
       setLastBackupDate();
       render(container);
     } catch (e) {

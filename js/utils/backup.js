@@ -79,14 +79,45 @@ export async function generateBackup(onProgress = () => {}) {
 }
 
 // Descarga el JSON como archivo .json en el navegador.
-export function downloadBackup(data) {
+function backupFileName() {
+  return `tradinverso-backup-${new Date().toISOString().substring(0, 10)}.json`;
+}
+
+// Pregunta DÓNDE guardar el backup (ventana "Guardar como" del sistema).
+// Hay que llamarlo nada más pulsar el botón: el navegador solo abre esa
+// ventana durante el clic, y generar el backup tarda segundos.
+//   · devuelve { name, handle } → se escribirá en el archivo elegido
+//   · devuelve { name }         → navegador sin esa función (Safari, Firefox,
+//                                 móvil): descarga normal a Descargas
+//   · devuelve null             → el usuario canceló: no hacer backup
+export async function pickBackupTarget() {
+  const name = backupFileName();
+  if (typeof window.showSaveFilePicker !== 'function') return { name };
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: name,
+      types: [{ description: 'Backup de Tradinverso', accept: { 'application/json': ['.json'] } }],
+    });
+    return { name, handle };
+  } catch (e) {
+    if (e && e.name === 'AbortError') return null;
+    return { name };
+  }
+}
+
+export async function downloadBackup(data, target = null) {
   const json = JSON.stringify(data, null, 2);
+  if (target && target.handle) {
+    const writable = await target.handle.createWritable();
+    await writable.write(json);
+    await writable.close();
+    return;
+  }
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  const today = new Date().toISOString().substring(0, 10);
   a.href = url;
-  a.download = `tradinverso-backup-${today}.json`;
+  a.download = (target && target.name) || backupFileName();
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
