@@ -1,13 +1,15 @@
 // Vista "Alumnos" del GESTOR de alumnos: un alumno al que el admin ha dado
 // permiso (profile.gestor) para dar de alta alumnos. Ve el listado (nombre,
-// email, fecha de alta) y puede crear nuevos, pero NO ve resultados ni entra
-// en el dashboard de nadie. Las reglas de Firestore lo garantizan: al gestor
-// solo le dejan leer users/{uid} y su profile, nunca trades ni lo demás.
+// email y fecha de alta), puede crear nuevos y corregir el NOMBRE de un alumno,
+// pero NO ve resultados ni entra en el dashboard de nadie. Las reglas de
+// Firestore lo garantizan: al gestor solo le dejan leer users/{uid} y su
+// profile (nunca trades ni lo demás), y en el profile solo escribir `nombre`.
 
 import { auth } from '../auth.js';
 import { sync } from '../sync.js';
 import { router } from '../router.js';
 import { openCreateStudentModal } from './admin.js';
+import { openModal } from '../components/modal.js';
 
 let cache = null;
 let searchQuery = '';
@@ -71,17 +73,25 @@ function paint(container, students) {
     ${filtered.length === 0
       ? `<div class="empty">${q ? `Ningún alumno coincide con "${esc(searchQuery)}".` : 'Aún no hay alumnos.'}</div>`
       : `<table class="data-table">
-          <thead><tr><th>Nombre</th><th>Email</th><th>Alta</th></tr></thead>
+          <thead><tr><th>Nombre</th><th>Email</th><th>Alta</th><th></th></tr></thead>
           <tbody>
             ${filtered.map(s => `
               <tr>
                 <td><strong>${esc(s.profile.nombre || '–')}</strong></td>
                 <td style="font-family:var(--mono);font-size:11px;color:var(--muted);">${esc(s.profile.email)}</td>
                 <td style="font-family:var(--mono);font-size:11px;color:var(--muted);">${fecha(s.profile.createdAt)}</td>
+                <td style="text-align:right;"><button class="btn ghost" data-edit-uid="${esc(s.uid)}" title="Editar nombre" style="padding:4px 9px;font-size:12px;">✏️</button></td>
               </tr>`).join('')}
           </tbody>
         </table>`}
   `;
+
+  content.querySelectorAll('[data-edit-uid]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const stu = students.find(s => s.uid === btn.dataset.editUid);
+      if (stu) openEditNameModal(stu, () => paint(container, students));
+    });
+  });
 
   const input = content.querySelector('#alumnosSearch');
   input.addEventListener('input', e => {
@@ -91,6 +101,47 @@ function paint(container, students) {
     el.focus();
     el.setSelectionRange(el.value.length, el.value.length);
   });
+}
+
+// Corregir el nombre del alumno. El email no: es el de acceso y no se puede
+// cambiar desde la app.
+function openEditNameModal(stu, onSaved) {
+  openModal({
+    title: 'Editar alumno',
+    body: `
+      <div class="form" style="max-width:none;gap:14px;white-space:normal;">
+        <div class="form-field">
+          <label class="form-label">Nombre completo</label>
+          <input class="form-input" type="text" id="editName" maxlength="80" value="${esc(stu.profile.nombre || '')}" autocomplete="off">
+        </div>
+        <div style="font-size:11px;color:var(--muted);font-family:var(--mono);">Email: ${esc(stu.profile.email)} · no se puede cambiar (es el de acceso).</div>
+        <div id="editErr" class="auth-error" style="display:none;"></div>
+      </div>
+    `,
+    actions: [
+      { label: 'Cancelar', onClick: close => close() },
+      {
+        label: 'Guardar',
+        variant: 'primary',
+        onClick: async close => {
+          const root = document.getElementById('modal-root');
+          const errEl = root.querySelector('#editErr');
+          const nombre = root.querySelector('#editName').value.trim();
+          if (!nombre) { errEl.textContent = '⚠ El nombre no puede quedar vacío.'; errEl.style.display = 'flex'; return; }
+          try {
+            await sync.updateProfile(stu.uid, { nombre });
+            stu.profile = { ...stu.profile, nombre };
+            close();
+            onSaved();
+          } catch (e) {
+            errEl.textContent = '⚠ No se pudo guardar: ' + (e.message || e);
+            errEl.style.display = 'flex';
+          }
+        },
+      },
+    ],
+  });
+  setTimeout(() => document.getElementById('editName')?.focus(), 0);
 }
 
 // createdAt es un Timestamp de Firestore (o falta en alumnos muy antiguos).
