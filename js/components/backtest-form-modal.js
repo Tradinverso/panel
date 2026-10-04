@@ -295,6 +295,8 @@ function buildPayload(sheet, meta, data) {
     open_str: data.open_str,
     close_str: data.close_str,
     pnl_pct: parseFloat(data.pnl_pct),
+    // Siempre del %, también al editar (si no, se quedaba el resultado viejo).
+    result: parseFloat(data.pnl_pct) > 0.2 ? 'TP' : parseFloat(data.pnl_pct) < -0.2 ? 'SL' : 'BE',
     rr: data.rr !== '' && isFinite(parseFloat(data.rr)) ? parseFloat(data.rr) : null,
     not_taken: data.not_taken === true,
     url1: data.url1.trim(),

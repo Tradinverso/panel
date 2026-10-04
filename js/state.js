@@ -155,7 +155,11 @@ function sanitizeBacktest(t) {
     kind: 'backtest',
     sheet: t.sheet,
     date: t.date,
-    result: t.result || deriveResult(pnl_pct),
+    // El resultado sale del %: si es claramente TP o SL (más de ±0,20%), manda
+    // el %. Antes, al editar un backtest se cambiaba el % pero se quedaba el
+    // resultado viejo (un "SL" con +1,5%); así se corrigen solos al cargar.
+    // Cerca de 0 se respeta el guardado (un import con resultado y sin %).
+    result: Math.abs(pnl_pct) > 0.2 ? deriveResult(pnl_pct) : (t.result || deriveResult(pnl_pct)),
     pnl_pct,
     open_hour: t.open_hour != null ? t.open_hour : parseTime(open_str),
     open_str,
