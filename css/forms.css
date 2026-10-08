@@ -37,6 +37,8 @@
 }
 .pill:hover { border-color: var(--border-strong); color: var(--text); }
 .pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pill.pill-off { opacity: .3; cursor: not-allowed; }
+.pill.pill-off:hover { border-color: var(--border); color: inherit; }
 .pill-group.green .pill.active { background: var(--green); color: #080B12; border-color: var(--green); font-weight: 600; }
 .pill-group.red .pill.active { background: var(--red); color: #fff; border-color: var(--red); }
 .pill-group.zonas .pill.active { background: var(--zonas); border-color: var(--zonas); color: #fff; }

@@ -303,7 +303,7 @@ function render(container, sheet) {
 
   // Tablas HTML (síncronas)
   paintGroupTable(container.querySelector('#btPairs'), statsByGroup(all, t => t.pair || '–'));
-  paintGroupTable(container.querySelector('#btZones'), statsByGroup(all, t => (Array.isArray(t.zone) ? t.zone[0] : t.zone) || '–'));
+  paintGroupTable(container.querySelector('#btZones'), statsByGroup(all, t => (Array.isArray(t.zone) ? (t.zone.length ? t.zone : ['–']) : (t.zone || '–'))));
   paintGroupTable(container.querySelector('#btEntries'), statsByGroup(all, t => (Array.isArray(t.entry) ? t.entry[0] : t.entry) || '–'));
   paintGroupTable(container.querySelector('#btModels'),
     statsByGroup(all.filter(t => STRATEGIES[t.sheet]?.models), t => modelLabel(t.model)));

@@ -8,7 +8,8 @@ import { state } from '../state.js';
 import { auth } from '../auth.js';
 import { openModal } from './modal.js';
 import { renderPills } from './pills.js';
-import { STRATEGIES, modelLabel } from '../utils/strategy-config.js';
+import { STRATEGIES, modelLabel, errorModeloEntrada } from '../utils/strategy-config.js';
+import { aplicarReglasModelo } from './model-rules.js';
 import { todayLocal } from '../utils/timezone.js';
 import { formatDateEs, durationMinutes } from '../utils/date-helpers.js';
 import { fmtPct } from '../utils/number-format-es.js';
@@ -76,6 +77,12 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null, op
       </div>` : ''}
       <div class="nt-section">
         <div class="nt-section-title">Operativa</div>
+        ${!meta.pairFixed && meta.models ? `<div class="form-row">
+          <div class="form-field" style="grid-column:1/-1;">
+            <label class="form-label">Modelo de entrada${modeloOpcional ? '' : ' <span class="required">*</span>'}</label>
+            <div data-field="model"></div>
+          </div>
+        </div>` : ''}
         <div class="form-row">
           ${!meta.pairFixed ? `<div class="form-field">
             <label class="form-label">Par <span class="required">*</span></label>
@@ -228,14 +235,15 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null, op
     name: 'setup', options: ['LONG', 'SHORT'], value: data.setup,
     onChange: v => data.setup = v,
   });
-  renderPills(root.querySelector('[data-field="zone"]'), {
+  const zonePills = renderPills(root.querySelector('[data-field="zone"]'), {
     name: 'zone', options: meta.zones, value: data.zone, variant: meta.zonesCols ? `cols-${meta.zonesCols}` : '',
     multi: !!meta.zonesMulti,
     // Al elegir de la lista, un valor antiguo se sustituye (ver trade-edit-modal).
     onChange: v => { data.zone = limpiar(meta.zonesMulti ? v : (v ? [v] : []), meta.zones); quitarAviso('zone'); },
   });
+  let entryPills = null;
   if (meta.showEntry) {
-    renderPills(root.querySelector('[data-field="entry"]'), {
+    entryPills = renderPills(root.querySelector('[data-field="entry"]'), {
       name: 'entry', options: meta.entries, value: data.entry, variant: meta.entriesCols ? `cols-${meta.entriesCols}` : '', rowStarts: meta.entriesRowStarts || [],
       multi: !!meta.entriesMulti,
       onChange: v => { data.entry = limpiar(meta.entriesMulti ? v : (v ? [v] : []), meta.entries); quitarAviso('entry'); },
@@ -258,8 +266,9 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null, op
       name: 'model',
       options: modeloOpcional ? [...meta.models, { value: '', label: 'Sin modelo' }] : meta.models,
       value: data.model || '',
-      onChange: v => { data.model = v || ''; },
+      onChange: v => { data.model = v || ''; aplicarReglasModelo(meta, data, { entry: entryPills, zone: zonePills }, true); },
     });
+    aplicarReglasModelo(meta, data, { entry: entryPills, zone: zonePills }, false);
   }
   if (pickSheet) {
     renderPills(root.querySelector('[data-field="sheet"]'), {
@@ -375,6 +384,8 @@ function validate(meta, data, modeloOpcional = false) {
   if (!data.zone || !data.zone.length) return 'Selecciona la zona.';
   if (meta.showEntry && (!data.entry || !data.entry.length)) return 'Selecciona el tipo de entrada.';
   if (meta.models && !modeloOpcional && !data.model) return 'Selecciona el modelo de entrada.';
+  const errME = errorModeloEntrada(meta, data.model, data.entry);
+  if (errME) return errME;
   if (!data.date) return 'Pon la fecha.';
   if (!data.open_str) return 'Pon la hora de apertura.';
   const pnl = parseFloat(data.pnl_pct);

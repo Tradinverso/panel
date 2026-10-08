@@ -20,6 +20,19 @@ const SENS_VALID = new Set([
   'Sin registrar',
 ]);
 
+// Modelo de LIQUIDEZ deducido de la zona y la entrada, para clasificar los
+// trades anteriores a los modelos (ver clasificarModelosLiquidez):
+//   LIMIT (en cualquier zona: la orden del MRA va en una mecha, un FVG…) → L1
+//   ASIA sin LIMIT → L2 (MRA Confirm) · otra zona sin LIMIT → L3 (Puntos líquidos)
+// Sin zona ni LIMIT: sin modelo (no se puede saber).
+function modeloLiquidezDeducido(t) {
+  const z = Array.isArray(t.zone) ? t.zone : (t.zone ? [t.zone] : []);
+  const e = Array.isArray(t.entry) ? t.entry : (t.entry ? [t.entry] : []);
+  if (e.includes('LIMIT')) return 'L1';
+  if (!z.length) return '';
+  return z.includes('ASIA') ? 'L2' : 'L3';
+}
+
 function deriveResult(pnl_pct) {
   if (pnl_pct == null || isNaN(pnl_pct)) return 'BE';
   if (pnl_pct > 0.2) return 'TP';
@@ -471,6 +484,7 @@ export const state = {
       this.perfiles = perfiles.map(sanitizePerfil).filter(Boolean);
       this.config = config || {};
       this.tradingPlan = sanitizeTradingPlan(tradingPlan);
+      this.clasificarModelosLiquidez(uid);
     } catch (e) {
       console.error('[state] Error cargando datos:', e);
       this.trades = [];
@@ -533,6 +547,33 @@ export const state = {
     }
     this.loading = false;
     this.emit();
+  },
+
+  // Una sola vez por usuario: pone modelo a sus trades y backtests de Liquidez
+  // anteriores a los modelos (modeloLiquidezDeducido), para que las
+  // estadísticas por modelo tengan histórico. La marca se guarda DESPUÉS de
+  // guardar los trades: si algo falla, se reintenta en la próxima carga.
+  clasificarModelosLiquidez(uid) {
+    if (!uid || this.config.liqModelosClasificados) return;
+    const clasificar = lista => {
+      const cambiados = [];
+      lista.forEach((t, i) => {
+        if (t.sheet !== 'LIQUIDEZ' || t.model) return;
+        const m = modeloLiquidezDeducido(t);
+        if (!m) return;
+        lista[i] = { ...t, model: m };
+        cambiados.push(lista[i]);
+      });
+      return cambiados;
+    };
+    const tr = clasificar(this.trades);
+    const bt = clasificar(this.backtests);
+    this.config = { ...this.config, liqModelosClasificados: true };
+    fireAndForget((async () => {
+      if (tr.length) await sync.saveTradesBatch(uid, tr);
+      if (bt.length) await sync.saveBacktestsBatch(uid, bt);
+      await sync.saveConfig(uid, { liqModelosClasificados: true });
+    })(), 'clasificarModelosLiquidez');
   },
 
   async exitViewAs() {

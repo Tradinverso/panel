@@ -51,10 +51,48 @@ const NQ_MODELS = [
   { value: 'M4', label: '4 · Continuación' },
 ];
 
+// Modelos de LIQUIDEZ. Códigos propios (L1…L3), distintos de los de Nasdaq,
+// para que nunca se mezclen en filtros ni estadísticas.
+//   MRA = manipulación del rango asiático.
+const LIQ_MODELS = [
+  { value: 'L1', label: '1 · MRA Limit' },
+  { value: 'L2', label: '2 · MRA Confirm' },
+  { value: 'L3', label: '3 · Puntos líquidos' },
+];
+
+// Qué entradas y zona implica cada modelo de Liquidez:
+//   entries   → las ÚNICAS entradas posibles (si es una, se marca sola)
+//   noEntries → entradas que no se pueden elegir con ese modelo
+//   zone      → zona que se marca sola al elegirlo (se pueden añadir más)
+// MRA Limit es por definición entrada LIMIT: la orden va por encima o por
+// debajo de Asia, en una mecha, un FVG u otra zona (se añade a ASIA). MRA
+// Confirm y Puntos líquidos son siempre con confirmaciones: nunca LIMIT.
+const LIQ_MODEL_RULES = {
+  L1: { entries: ['LIMIT'], zone: 'ASIA' },
+  L2: { noEntries: ['LIMIT'], zone: 'ASIA' },
+  L3: { noEntries: ['LIMIT'] },
+};
+
 // Nombre visible de un modelo guardado. Códigos desconocidos se muestran tal
 // cual (nunca se pierden) y vacío es "sin modelo" — los trades anteriores a que
 // existiera este campo.
-const MODEL_LABELS = Object.fromEntries(NQ_MODELS.map(m => [m.value, m.label]));
+const MODEL_LABELS = Object.fromEntries([...NQ_MODELS, ...LIQ_MODELS].map(m => [m.value, m.label]));
+
+// Entradas que NO se pueden elegir con el modelo `model` de la estrategia.
+export function entradasBloqueadas(meta, model) {
+  const r = meta && meta.modelRules && meta.modelRules[model];
+  if (!r) return [];
+  if (r.entries) return (meta.entries || []).filter(e => !r.entries.includes(e));
+  return r.noEntries || [];
+}
+
+// Error de coherencia modelo ↔ entrada al guardar ('' si todo bien).
+export function errorModeloEntrada(meta, model, entry) {
+  const bloq = entradasBloqueadas(meta, model);
+  const mal = (entry || []).filter(e => bloq.includes(e));
+  if (!mal.length) return '';
+  return `${modelLabel(model).replace(/^\d+ · /, '')} no admite la entrada ${mal.join(', ')}.`;
+}
 export function modelLabel(code) {
   if (!code) return 'Sin modelo';
   return MODEL_LABELS[code] || code;
@@ -92,11 +130,11 @@ export const STRATEGIES = {
     entries: LIQ_ENTRIES,
     entriesCols: 3,
     entriesRowStarts: ['ENVOL', 'LIMIT'],
-    // Una sola zona y un solo tipo de entrada por trade: las estadísticas por
-    // zona/entrada solo cuentan el PRIMER valor, así que con varios el trade
-    // caía en una u otra según el orden de los clics. Los trades antiguos con
-    // varios se conservan; al editarlos y elegir uno, queda solo ese.
-    zonesMulti: false,
+    models: LIQ_MODELS,
+    modelRules: LIQ_MODEL_RULES,
+    // Varias zonas (p. ej. ASIA + PDH/PDL en un MRA): en las estadísticas por
+    // zona el trade cuenta en cada una de sus zonas. Un solo tipo de entrada.
+    zonesMulti: true,
     entriesMulti: false,
     // Sin campo RR: el % P&L ya es la R conseguida, y el RR planeado no aporta
     // (el "RR medio" se calcula de los TP realizados, ver calculations.avgRR).

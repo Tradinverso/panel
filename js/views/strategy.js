@@ -342,7 +342,7 @@ function render(container, sheet) {
   }
 
   // Zones (cuenta por la PRIMARIA — la primera del array si hay varias)
-  const zs = statsByGroup(all, t => (Array.isArray(t.zone) ? t.zone[0] : t.zone) || '–').sort((a, b) => b.total - a.total);
+  const zs = statsByGroup(all, t => (Array.isArray(t.zone) ? (t.zone.length ? t.zone : ['–']) : (t.zone || '–'))).sort((a, b) => b.total - a.total);
   container.querySelector('#zonesTbody').innerHTML = zs.map(z => tableRow([
     z.key, z.total, coloredPct(z.wr, 50), coloredSignedPct(z.pnl), coloredSignedPct(z.pnlReal), coloredPF(z.pf),
   ])).join('') || '<tr><td colspan="6" class="empty">Sin datos</td></tr>';

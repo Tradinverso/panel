@@ -9,7 +9,8 @@ import { auth } from '../auth.js';
 import { todayLocal } from '../utils/timezone.js';
 import { fmtPct } from '../utils/number-format-es.js';
 import { fmtUsd } from '../utils/account-stats.js';
-import { STRATEGIES as STRAT_META, modelLabel } from '../utils/strategy-config.js';
+import { STRATEGIES as STRAT_META, modelLabel, errorModeloEntrada } from '../utils/strategy-config.js';
+import { aplicarReglasModelo } from '../components/model-rules.js';
 
 export function newTradeView(container) {
   let sheet = 'ZONAS';
@@ -102,6 +103,12 @@ function renderForm(wrap, sheet, data, getter) {
     <div class="form nt-form">
       <div class="nt-section">
         <div class="nt-section-title">Operativa</div>
+        ${!meta.pairFixed && meta.models ? `<div class="form-row">
+          <div class="form-field" style="grid-column:1/-1;">
+            <label class="form-label">Modelo de entrada <span class="required">*</span></label>
+            <div data-field="model"></div>
+          </div>
+        </div>` : ''}
         <div class="form-row">
           ${!meta.pairFixed ? `<div class="form-field">
             <label class="form-label">Par <span class="required">*</span></label>
@@ -221,13 +228,14 @@ function renderForm(wrap, sheet, data, getter) {
     name: 'setup', options: ['LONG', 'SHORT'], value: data.setup,
     onChange: v => data.setup = v,
   });
-  renderPills(wrap.querySelector('[data-field="zone"]'), {
+  const zonePills = renderPills(wrap.querySelector('[data-field="zone"]'), {
     name: 'zone', options: meta.zones, value: data.zone, variant: meta.zonesCols ? `cols-${meta.zonesCols}` : '',
     multi: !!meta.zonesMulti,
     onChange: v => { data.zone = meta.zonesMulti ? v : (v ? [v] : []); },
   });
+  let entryPills = null;
   if (meta.showEntry) {
-    renderPills(wrap.querySelector('[data-field="entry"]'), {
+    entryPills = renderPills(wrap.querySelector('[data-field="entry"]'), {
       name: 'entry', options: meta.entries, value: data.entry, variant: meta.entriesCols ? `cols-${meta.entriesCols}` : '', rowStarts: meta.entriesRowStarts || [],
       multi: !!meta.entriesMulti,
       onChange: v => { data.entry = meta.entriesMulti ? v : (v ? [v] : []); },
@@ -238,8 +246,9 @@ function renderForm(wrap, sheet, data, getter) {
       name: 'model',
       options: meta.models,   // obligatorio: en un alta no se puede dejar sin modelo
       value: data.model || '',
-      onChange: v => { data.model = v || ''; },
+      onChange: v => { data.model = v || ''; aplicarReglasModelo(meta, data, { entry: entryPills, zone: zonePills }, true); },
     });
+    aplicarReglasModelo(meta, data, { entry: entryPills, zone: zonePills }, false);
   }
   renderPills(wrap.querySelector('[data-field="sensacion"]'), {
     name: 'sensacion', options: SENS_OPTIONS, value: data.sensacion,
@@ -339,6 +348,8 @@ function validate(sheet, data) {
   if (!data.zone || !data.zone.length) errs.push({ field: 'zone', msg: 'Selecciona la zona' });
   if (meta.showEntry && (!data.entry || !data.entry.length)) errs.push({ field: 'entry', msg: 'Selecciona el tipo de entrada' });
   if (meta.models && !data.model) errs.push({ field: 'model', msg: 'Selecciona el modelo de entrada' });
+  const errME = errorModeloEntrada(meta, data.model, data.entry);
+  if (errME) errs.push({ field: 'entry', msg: errME });
   if (!data.date) errs.push({ field: 'date', msg: 'Fecha obligatoria' });
   if (!data.open_str) errs.push({ field: 'open_str', msg: 'Hora apertura obligatoria' });
   const pnl = parseFloat(data.pnl_pct);

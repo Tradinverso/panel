@@ -37,7 +37,7 @@ export function renderPills(container, { name, options, value, variant = '', onC
 
   container.addEventListener('click', e => {
     const pill = e.target.closest('.pill');
-    if (!pill) return;
+    if (!pill || pill.classList.contains('pill-off')) return;
     const v = pill.dataset.val;
     if (multi) {
       if (cur.includes(v)) {
@@ -55,6 +55,15 @@ export function renderPills(container, { name, options, value, variant = '', onC
   });
 
   return {
+    // Desactiva (atenúa e ignora el clic) los valores de la lista; el resto,
+    // activos. Lo usan las reglas modelo → entrada.
+    disable: vals => {
+      [...container.querySelectorAll('.pill')].forEach(p => {
+        const off = (vals || []).includes(p.dataset.val);
+        p.classList.toggle('pill-off', off);
+        p.title = off ? 'No disponible con este modelo' : '';
+      });
+    },
     get: () => (multi ? [...cur] : cur),
     set: v => {
       cur = multi

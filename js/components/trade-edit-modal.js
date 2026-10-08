@@ -8,7 +8,8 @@ import { openModal, closeModal } from './modal.js';
 import { renderCuentaAssign } from './cuenta-assign.js';
 import { TODAS as SENS_OPTIONS } from '../utils/sensaciones.js';
 import { parseTime, durationMinutes, hourToString } from '../utils/date-helpers.js';
-import { STRATEGIES } from '../utils/strategy-config.js';
+import { STRATEGIES, errorModeloEntrada } from '../utils/strategy-config.js';
+import { aplicarReglasModelo } from './model-rules.js';
 
 export function openEditTradeModal(trade) {
   const meta = STRATEGIES[trade.sheet];
@@ -43,6 +44,15 @@ export function openEditTradeModal(trade) {
     meta: `${trade.date} · ${trade.pair || ''} · ${trade.setup || ''} · ${trade.result}`,
     body: `
       <div class="form" style="max-width:none;gap:14px;">
+        ${!meta.pairFixed && meta.models ? `<div class="form-row">
+          <div class="form-field" style="grid-column:1/-1;">
+            <label class="form-label">Modelo de entrada${trade.model ? ' <span class="required">*</span>' : ''}</label>
+            <div data-field="model"></div>
+            ${trade.model ? '' : `<div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:4px;">
+              Trade anterior a los modelos de entrada: puedes asignarle uno o dejarlo sin modelo.
+            </div>`}
+          </div>
+        </div>` : ''}
         <div class="form-row">
           ${!meta.pairFixed ? `<div class="form-field">
             <label class="form-label">Par</label>
@@ -189,7 +199,7 @@ export function openEditTradeModal(trade) {
     });
 
     const zoneEl = root.querySelector('[data-field="zone"]');
-    if (zoneEl) renderPills(zoneEl, {
+    const zonePills = zoneEl && renderPills(zoneEl, {
       name: 'zone', options: meta.zones, value: data.zone, variant: meta.zonesCols ? `cols-${meta.zonesCols}` : '',
       multi: !!meta.zonesMulti,
       // Con selección múltiple, un valor antiguo (sin botón) seguía guardado
@@ -197,9 +207,10 @@ export function openEditTradeModal(trade) {
       onChange: v => { data.zone = limpiar(meta.zonesMulti ? v : (v ? [v] : []), meta.zones); quitarAviso('zone'); },
     });
 
+    let entryPills = null;
     if (meta.showEntry) {
       const entryEl = root.querySelector('[data-field="entry"]');
-      if (entryEl) renderPills(entryEl, {
+      if (entryEl) entryPills = renderPills(entryEl, {
         name: 'entry', options: meta.entries, value: data.entry, variant: meta.entriesCols ? `cols-${meta.entriesCols}` : '', rowStarts: meta.entriesRowStarts || [],
         multi: !!meta.entriesMulti,
         onChange: v => { data.entry = limpiar(meta.entriesMulti ? v : (v ? [v] : []), meta.entries); quitarAviso('entry'); },
@@ -225,8 +236,9 @@ export function openEditTradeModal(trade) {
         // no obliga a clasificarlo, pero un modelo ya puesto no se puede quitar.
         options: trade.model ? meta.models : [...meta.models, { value: '', label: 'Sin modelo' }],
         value: data.model || '',
-        onChange: v => { data.model = v || ''; },
+        onChange: v => { data.model = v || ''; aplicarReglasModelo(meta, data, { entry: entryPills, zone: zonePills }, true); },
       });
+      aplicarReglasModelo(meta, data, { entry: entryPills, zone: zonePills }, false);
     }
 
     const sensEl = root.querySelector('[data-field="sensacion"]');
@@ -291,6 +303,8 @@ function doSave(trade, data, close) {
   if (data.plan_followed !== true && data.plan_followed !== false) return showErr('Indica si has seguido el plan (Sí o No).');
   const metaSave = STRATEGIES[trade.sheet] || {};
   if (metaSave.models && trade.model && !data.model) return showErr('Selecciona el modelo de entrada.');
+  const errME = errorModeloEntrada(metaSave, data.model, data.entry);
+  if (errME) return showErr(errME);
 
   const pnl_pct = +pnl.toFixed(4);
   const result = pnl_pct > 0.2 ? 'TP' : pnl_pct < -0.2 ? 'SL' : 'BE';

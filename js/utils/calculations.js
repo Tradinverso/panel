@@ -250,13 +250,17 @@ export function longVsShort(trades) {
 }
 
 // Per-pair stats (or any group key)
+// keyFn puede devolver una lista (p. ej. las zonas de un trade): entonces el
+// trade cuenta en cada grupo de la lista.
 export function statsByGroup(trades, keyFn) {
   const map = new Map();
   for (const t of trades) {
-    const k = keyFn(t);
-    if (!k) continue;
-    if (!map.has(k)) map.set(k, []);
-    map.get(k).push(t);
+    const ks = keyFn(t);
+    for (const k of (Array.isArray(ks) ? [...new Set(ks)] : [ks])) {
+      if (!k) continue;
+      if (!map.has(k)) map.set(k, []);
+      map.get(k).push(t);
+    }
   }
   const result = [];
   for (const [k, arr] of map) {
