@@ -1,9 +1,10 @@
 // Vista "Alumnos" del GESTOR de alumnos: un alumno al que el admin ha dado
 // permiso (profile.gestor) para dar de alta alumnos. Ve el listado (nombre,
-// email y fecha de alta), puede crear nuevos y corregir el NOMBRE de un alumno,
-// pero NO ve resultados ni entra en el dashboard de nadie. Las reglas de
-// Firestore lo garantizan: al gestor solo le dejan leer users/{uid} y su
-// profile (nunca trades ni lo demás), y en el profile solo escribir `nombre`.
+// email y fecha de alta), puede crear nuevos, corregir el NOMBRE de un alumno y
+// PAUSAR / REACTIVAR su acceso, pero NO ve resultados ni entra en el dashboard
+// de nadie. Las reglas de Firestore lo garantizan: al gestor solo le dejan leer
+// users/{uid} y su profile (nunca trades ni lo demás), y en el profile solo
+// escribir `nombre` o el estado de pausa — nunca en el de otro gestor.
 
 import { auth } from '../auth.js';
 import { sync } from '../sync.js';
@@ -36,6 +37,7 @@ async function render(container) {
     <div id="studentsContent" class="card">
       <div class="loader"><div class="spinner"></div><div>Cargando alumnos…</div></div>
     </div>
+    <div id="pausedContent"></div>
   `;
 
   container.querySelector('#refreshBtn').addEventListener('click', () => { cache = null; render(container); });
@@ -44,7 +46,8 @@ async function render(container) {
 
   try {
     if (!cache) cache = await sync.listStudentsBasic();
-    paint(container, cache);
+    paint(container, cache.filter(s => s.profile.blocked !== true));
+    paintPaused(container, cache.filter(s => s.profile.blocked === true));
   } catch (e) {
     container.querySelector('#studentsContent').innerHTML = `
       <div class="empty"><div class="big">⚠</div><div>Error cargando alumnos: ${esc(e.message || String(e))}</div></div>`;
@@ -80,7 +83,10 @@ function paint(container, students) {
                 <td><strong>${esc(s.profile.nombre || '–')}</strong></td>
                 <td style="font-family:var(--mono);font-size:11px;color:var(--muted);">${esc(s.profile.email)}</td>
                 <td style="font-family:var(--mono);font-size:11px;color:var(--muted);">${fecha(s.profile.createdAt)}</td>
-                <td style="text-align:right;"><button class="btn ghost" data-edit-uid="${esc(s.uid)}" title="Editar nombre" style="padding:4px 9px;font-size:12px;">✏️</button></td>
+                <td style="text-align:right;white-space:nowrap;">
+                  <button class="btn ghost" data-edit-uid="${esc(s.uid)}" title="Editar nombre" style="padding:4px 9px;font-size:12px;">✏️</button>
+                  ${pausable(s) ? `<button class="btn ghost" data-pause-uid="${esc(s.uid)}" title="Pausar acceso (no borra nada)" style="padding:4px 9px;font-size:12px;color:var(--orange);">⏸</button>` : ''}
+                </td>
               </tr>`).join('')}
           </tbody>
         </table>`}
@@ -93,6 +99,13 @@ function paint(container, students) {
     });
   });
 
+  content.querySelectorAll('[data-pause-uid]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const stu = students.find(s => s.uid === btn.dataset.pauseUid);
+      if (stu) confirmarPausa(stu, true, () => { cache = null; render(container); });
+    });
+  });
+
   const input = content.querySelector('#alumnosSearch');
   input.addEventListener('input', e => {
     searchQuery = e.target.value;
@@ -100,6 +113,72 @@ function paint(container, students) {
     const el = container.querySelector('#alumnosSearch');
     el.focus();
     el.setSelectionRange(el.value.length, el.value.length);
+  });
+}
+
+// Un gestor no puede pausarse a sí mismo ni a otro gestor.
+function pausable(s) {
+  return s.uid !== auth.uid() && s.profile.gestor !== true;
+}
+
+function paintPaused(container, paused) {
+  const el = container.querySelector('#pausedContent');
+  if (!paused.length) { el.innerHTML = ''; return; }
+  const sorted = [...paused].sort((a, b) =>
+    (a.profile.nombre || a.profile.email || '').localeCompare(b.profile.nombre || b.profile.email || '', 'es'));
+  el.innerHTML = `
+    <div class="section-title" style="margin-top:24px;">⏸ Pausados (${paused.length})</div>
+    <div class="card table-card">
+      <div class="card-sub" style="margin-bottom:10px;">No pueden entrar en la app. Sus datos se conservan: al reactivarlos lo encuentran todo como lo dejaron.</div>
+      <table class="data-table">
+        <thead><tr><th>Nombre</th><th>Email</th><th>Pausado desde</th><th></th></tr></thead>
+        <tbody>
+          ${sorted.map(s => `
+            <tr>
+              <td><strong>${esc(s.profile.nombre || '–')}</strong></td>
+              <td style="font-family:var(--mono);font-size:11px;color:var(--muted);">${esc(s.profile.email)}</td>
+              <td style="font-family:var(--mono);font-size:11px;color:var(--muted);">${fecha(s.profile.blockedAt)}</td>
+              <td style="text-align:right;">${pausable(s) ? `<button class="btn primary" data-reactivar-uid="${esc(s.uid)}" style="padding:6px 12px;font-size:11px;">▶ Reactivar</button>` : ''}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  el.querySelectorAll('[data-reactivar-uid]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const stu = paused.find(s => s.uid === btn.dataset.reactivarUid);
+      if (stu) confirmarPausa(stu, false, () => { cache = null; render(container); });
+    });
+  });
+}
+
+// pausar=true → pausar acceso; false → reactivar. No se borra nada.
+function confirmarPausa(stu, pausar, onDone) {
+  const quien = `<strong>${esc(stu.profile.nombre || stu.profile.email)}</strong>`;
+  openModal({
+    title: pausar ? '⏸ Pausar acceso' : '▶ Reactivar acceso',
+    body: `<div style="white-space:normal;font-size:13px;line-height:1.55;">${pausar
+      ? `${quien} no podrá entrar en la app hasta que se reactive. <span style="color:var(--muted);">No se borra nada: sus datos se quedan tal cual.</span>`
+      : `${quien} podrá volver a entrar con su misma contraseña y verá todos sus datos como los dejó.`}
+      <div id="pauseErr" class="auth-error" style="display:none;margin-top:10px;"></div></div>`,
+    actions: [
+      { label: 'Cancelar', onClick: c => c() },
+      {
+        label: pausar ? '⏸ Pausar' : '▶ Reactivar',
+        variant: pausar ? 'danger' : 'primary',
+        onClick: async c => {
+          try {
+            if (pausar) await sync.blockStudent(stu.uid);
+            else await sync.unblockStudent(stu.uid);
+            c();
+            onDone();
+          } catch (e) {
+            const err = document.getElementById('modal-root').querySelector('#pauseErr');
+            err.textContent = '⚠ No se pudo: ' + (e.message || e);
+            err.style.display = 'flex';
+          }
+        },
+      },
+    ],
   });
 }
 

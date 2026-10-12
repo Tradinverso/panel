@@ -12,7 +12,8 @@ const STORAGE_KEY = 'tradinverso_last_backup';
 // de todos los alumnos — listStudents filtra por role==='student' y
 // dejaba al admin fuera.
 export async function generateBackup(onProgress = () => {}) {
-  const students = await sync.listStudents();
+  // Con los pausados: son alumnos que pueden volver, sus datos también cuentan.
+  const students = await sync.listStudents({ includePaused: true });
   const adminUid = auth.currentUser?.uid;
   const adminAlreadyIn = adminUid && students.some(s => s.uid === adminUid);
   const includeAdmin = adminUid && !adminAlreadyIn;

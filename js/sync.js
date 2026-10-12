@@ -17,7 +17,7 @@ export const sync = {
     if (snap.exists()) {
       const data = snap.data();
       if (data.blocked === true) {
-        const err = new Error('Cuenta bloqueada por el administrador.');
+        const err = new Error('Tu acceso está pausado. Escríbenos para reactivarlo.');
         err.code = 'auth/account-blocked';
         throw err;
       }
@@ -38,14 +38,25 @@ export const sync = {
     await setDoc(doc(db, 'users', uid, 'profile', 'data'), patch, { merge: true });
   },
 
-  // Soft delete: marca el profile del alumno como bloqueado. No borra datos
-  // (trades, cuentas, reflexiones se conservan). El alumno deja de aparecer en
-  // listStudents y no puede iniciar sesión.
+  // PAUSAR el acceso de un alumno (p. ej. deja de pagar): marca su profile como
+  // bloqueado. No borra nada (trades, cuentas, reflexiones se conservan). No
+  // puede entrar, y las reglas de Firestore le cierran sus datos hasta que se
+  // reactive. Sale de la lista de activos y pasa a "Pausados".
   async blockStudent(uid) {
     if (!uid) throw new Error('uid requerido');
     await setDoc(
       doc(db, 'users', uid, 'profile', 'data'),
       { blocked: true, blockedAt: serverTimestamp() },
+      { merge: true }
+    );
+  },
+
+  // REACTIVAR: vuelve a entrar con su misma contraseña y lo encuentra todo igual.
+  async unblockStudent(uid) {
+    if (!uid) throw new Error('uid requerido');
+    await setDoc(
+      doc(db, 'users', uid, 'profile', 'data'),
+      { blocked: false, unblockedAt: serverTimestamp() },
       { merge: true }
     );
   },
@@ -253,7 +264,9 @@ export const sync = {
   },
 
   // ── Admin: listado de alumnos + sus métricas ──────────────
-  async listStudents() {
+  // includePaused: también los pausados (Mis Alumnos los enseña aparte y el
+  // backup los guarda). Por defecto no: las estadísticas grupales son de activos.
+  async listStudents({ includePaused = false } = {}) {
     const usersSnap = await getDocs(collection(db, 'users'));
     const result = [];
     for (const userDoc of usersSnap.docs) {
@@ -262,7 +275,7 @@ export const sync = {
         if (!profileSnap.exists()) continue;
         const profile = profileSnap.data();
         if (profile.role !== 'student') continue;
-        if (profile.blocked === true) continue;
+        if (profile.blocked === true && !includePaused) continue;
         const tradesSnap = await getDocs(collection(db, 'users', userDoc.id, 'trades'));
         const trades = tradesSnap.docs.map(d => d.data());
         result.push({ uid: userDoc.id, profile, trades });
@@ -282,7 +295,8 @@ export const sync = {
         const snap = await getDoc(doc(db, 'users', userDoc.id, 'profile', 'data'));
         if (!snap.exists()) return null;
         const profile = snap.data();
-        if (profile.role !== 'student' || profile.blocked === true) return null;
+        // Con los pausados: el gestor también puede reactivarlos.
+        if (profile.role !== 'student') return null;
         return { uid: userDoc.id, profile };
       } catch (e) {
         console.warn('Saltando usuario por reglas o error:', userDoc.id, e.message);

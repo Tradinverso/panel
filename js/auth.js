@@ -34,7 +34,7 @@ export const auth = {
             await fbSignOut(fbAuth);
             this.currentUser = null;
             this.profile = null;
-            this._blockedNotice = 'Cuenta bloqueada por el administrador.';
+            this._blockedNotice = 'Tu acceso está pausado. Escríbenos para reactivarlo.';
             this.ready = true;
             this.emit();
             return;
@@ -165,7 +165,7 @@ export function authErrorMsg(err) {
     case 'auth/weak-password':         return 'La contraseña debe tener al menos 6 caracteres.';
     case 'auth/requires-recent-login': return 'Vuelve a iniciar sesión para cambiar la contraseña.';
     case 'auth/missing-email':         return 'Introduce un email.';
-    case 'auth/account-blocked':       return 'Cuenta bloqueada por el administrador.';
+    case 'auth/account-blocked':       return 'Tu acceso está pausado. Escríbenos para reactivarlo.';
     default: return err?.message || 'Error desconocido.';
   }
 }
