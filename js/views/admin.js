@@ -3,6 +3,7 @@
 
 import { auth, authErrorMsg } from '../auth.js';
 import { sync } from '../sync.js';
+import { firebaseConfig } from '../firebase.js';
 import { state } from '../state.js';
 import { router } from '../router.js';
 import { winrate, pnlPct, pnlPctReal, currentSlStreak, tradeCounts } from '../utils/calculations.js';
@@ -533,6 +534,81 @@ function openPauseStudentModal(adminContainer, stu) {
   });
 }
 
+// Eliminar DEFINITIVAMENTE a un alumno pausado: borra todos sus datos. Pide
+// escribir su email. Después recuerda quitar su cuenta de acceso en la consola.
+function openDeleteForeverModal(adminContainer, stu) {
+  const nombre = stu.profile?.nombre || '';
+  const email = stu.profile?.email || '';
+  const nTrades = (stu.trades || []).length;
+  openModal({
+    title: '🗑 Eliminar definitivamente',
+    body: `
+      <div style="display:flex;flex-direction:column;gap:12px;white-space:normal;">
+        <div style="padding:12px 14px;background:var(--red-bg);border:1px solid rgba(255,71,87,0.4);border-radius:8px;font-size:13px;line-height:1.55;">
+          Vas a borrar <strong>todos los datos</strong> de <strong>${escapeHtml(nombre || email)}</strong>
+          ${nombre ? `<span style="color:var(--muted);">(${escapeHtml(email)})</span>` : ''}:
+          sus ${nTrades} trade${nTrades === 1 ? '' : 's'}, backtests, cuentas, reflexiones, plan de trading y ajustes.
+          <strong>No se puede deshacer.</strong>
+        </div>
+        <div style="font-size:12px;color:var(--muted);font-family:var(--mono);line-height:1.6;">
+          Si quieres guardar una copia, cancela y haz antes un <strong>📥 Backup</strong> (incluye a los pausados).
+        </div>
+        <div class="form-field">
+          <label class="form-label">Escribe su email para confirmar</label>
+          <input class="form-input" type="text" id="delForeverInp" placeholder="${escAttr(email)}" autocomplete="off">
+        </div>
+        <div id="delForeverErr" class="auth-error" style="display:none;"></div>
+      </div>`,
+    actions: [
+      { label: 'Cancelar', onClick: close => close() },
+      {
+        label: '🗑 Eliminar para siempre',
+        variant: 'danger',
+        onClick: async close => {
+          const root = document.getElementById('modal-root');
+          const errEl = root.querySelector('#delForeverErr');
+          const typed = (root.querySelector('#delForeverInp').value || '').trim().toLowerCase();
+          if (!email || typed !== email.trim().toLowerCase()) {
+            errEl.textContent = '⚠ El email no coincide.';
+            errEl.style.display = 'flex';
+            return;
+          }
+          const btns = [...root.querySelectorAll('button')];
+          btns.forEach(b => { b.disabled = true; });
+          errEl.style.display = 'none';
+          try {
+            if (state.viewAsUid === stu.uid) await state.exitViewAs();
+            await sync.deleteStudentCompletely(stu.uid);
+            close();
+            cache = null;
+            render(adminContainer);
+            const consola = `https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/users`;
+            openModal({
+              title: 'Datos eliminados',
+              body: `
+                <div style="white-space:normal;font-size:13px;line-height:1.6;">
+                  Se han borrado todos los datos de <strong>${escapeHtml(nombre || email)}</strong>.
+                  <div style="margin-top:12px;padding:12px 14px;background:var(--orange-bg);border-radius:8px;">
+                    <strong>Último paso:</strong> borra su cuenta de acceso (la app no puede hacerlo sola).<br>
+                    Firebase → Authentication → busca <code>${escapeHtml(email)}</code> → ⋮ → <strong>Eliminar cuenta</strong>.<br>
+                    <a href="${consola}" target="_blank" rel="noopener">Abrir Authentication en la consola ↗</a>
+                  </div>
+                  <div style="margin-top:10px;font-size:11px;color:var(--muted);font-family:var(--mono);">Mientras tanto no puede entrar: su cuenta está bloqueada y vacía.</div>
+                </div>`,
+              actions: [{ label: 'Entendido', variant: 'primary', onClick: c => c() }],
+            });
+          } catch (err) {
+            console.error('No se pudo eliminar al alumno:', err);
+            btns.forEach(b => { b.disabled = false; });
+            errEl.textContent = '⚠ Error: ' + (err.message || String(err)) + ' (puede haberse borrado una parte: vuelve a intentarlo).';
+            errEl.style.display = 'flex';
+          }
+        },
+      },
+    ],
+  });
+}
+
 function paintPaused(container, paused) {
   const el = container.querySelector('#pausedContent');
   if (!el) return;
@@ -556,11 +632,20 @@ function paintPaused(container, paused) {
               <td style="font-family:var(--mono);font-size:11px;color:var(--muted);">${escapeHtml(s.profile?.email || '')}</td>
               <td style="font-family:var(--mono);font-size:11px;color:var(--muted);">${fecha(s.profile?.blockedAt)}</td>
               <td>${(s.trades || []).length}</td>
-              <td style="text-align:right;"><button class="btn primary" data-reactivar-uid="${s.uid}" style="padding:6px 12px;font-size:11px;">▶ Reactivar</button></td>
+              <td style="text-align:right;white-space:nowrap;">
+                <button class="btn primary" data-reactivar-uid="${s.uid}" style="padding:6px 12px;font-size:11px;">▶ Reactivar</button>
+                <button class="btn" data-eliminar-uid="${s.uid}" title="Eliminar definitivamente (borra todos sus datos)" style="padding:6px 9px;font-size:12px;margin-left:6px;color:var(--red);">🗑</button>
+              </td>
             </tr>`).join('')}
         </tbody>
       </table>
     </div>`;
+  el.querySelectorAll('[data-eliminar-uid]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const stu = paused.find(s => s.uid === btn.dataset.eliminarUid);
+      if (stu) openDeleteForeverModal(container, stu);
+    });
+  });
   el.querySelectorAll('[data-reactivar-uid]').forEach(btn => {
     btn.addEventListener('click', () => {
       const stu = paused.find(s => s.uid === btn.dataset.reactivarUid);

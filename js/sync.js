@@ -51,6 +51,38 @@ export const sync = {
     );
   },
 
+  // ELIMINAR DEFINITIVAMENTE (solo admin, solo alumnos ya pausados). Borra
+  // todos sus datos y lo saca del listado. No se puede deshacer.
+  // Su CUENTA DE ACCESO (Authentication) no se puede borrar desde la app (hace
+  // falta un servidor): se deja su profile reducido a una marca de "eliminado"
+  // y bloqueado, para que si entra con ella no vea nada ni se le cree un
+  // journal nuevo. La cuenta se quita a mano en la consola de Firebase.
+  async deleteStudentCompletely(uid) {
+    if (!uid) throw new Error('uid requerido');
+    const COLS = ['trades', 'backtests', 'cuentas', 'reflections', 'perfiles', 'config', 'tradingPlan'];
+    const borrados = {};
+    for (const c of COLS) {
+      const snap = await getDocs(collection(db, 'users', uid, c));
+      const ids = snap.docs.map(d => d.id);
+      for (let i = 0; i < ids.length; i += FIRESTORE_BATCH_LIMIT) {
+        const batch = writeBatch(db);
+        for (const id of ids.slice(i, i + FIRESTORE_BATCH_LIMIT)) batch.delete(doc(db, 'users', uid, c, id));
+        await batch.commit();
+      }
+      borrados[c] = ids.length;
+    }
+    const pRef = doc(db, 'users', uid, 'profile', 'data');
+    const pSnap = await getDoc(pRef);
+    const p = pSnap.exists() ? pSnap.data() : {};
+    await setDoc(pRef, {
+      email: p.email || '', nombre: p.nombre || '', role: 'student',
+      blocked: true, deleted: true, deletedAt: serverTimestamp(),
+    });
+    // Sin el documento padre deja de salir en el listado de alumnos.
+    await deleteDoc(doc(db, 'users', uid));
+    return borrados;
+  },
+
   // REACTIVAR: vuelve a entrar con su misma contraseña y lo encuentra todo igual.
   async unblockStudent(uid) {
     if (!uid) throw new Error('uid requerido');
