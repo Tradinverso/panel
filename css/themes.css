@@ -56,6 +56,7 @@
   --pair-gbp: #C084FC;
   --pair-eur: #60A5FA;
   --pair-gold: #FBBF24;
+  --pair-oil: #94A3B8;
 
   /* Glows / elevación */
   --glow-accent: 0 0 26px -6px rgba(34,211,238,0.5);
@@ -123,6 +124,7 @@
   --pair-gbp: #9333EA;
   --pair-eur: #2563EB;
   --pair-gold: #B45309;
+  --pair-oil: #475569;
 
   --glow-accent: 0 0 22px -8px rgba(37,99,235,0.35);
   --glow-soft: 0 12px 30px -18px rgba(30,50,90,0.25);

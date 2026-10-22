@@ -111,7 +111,7 @@ function filtrosHtml(allSheet, meta, esNoTomados = false) {
 // tres estrategias).
 const NO_TOMADOS_META = {
   label: 'No tomados',
-  pairs: ['EUR/USD', 'GBP/USD', 'XAU/USD', 'NQ'],
+  pairs: ['EUR/USD', 'GBP/USD', 'ORO', 'OIL', 'NQ'],
 };
 
 function render(container, sheet) {

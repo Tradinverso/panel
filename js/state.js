@@ -4,6 +4,7 @@
 // Errores de red se loguean pero no rompen el flujo del usuario.
 
 import { uuid } from './utils/uuid.js';
+import { renamePair } from './utils/pair-normalize.js';
 import { parseTime, durationMinutes } from './utils/date-helpers.js';
 import { sync } from './sync.js';
 import { auth } from './auth.js';
@@ -134,7 +135,7 @@ function sanitizeTrade(t) {
     close_str,
     dur: t.dur != null ? t.dur : durationMinutes(open_str, close_str),
     setup: t.setup || '',
-    pair: t.pair || '',
+    pair: renamePair(t.pair),
     zone: toStrArr(t.zone).map(canonicalZone),
     entry: toStrArr(t.entry).map(canonicalEntry),
     // Modelo de entrada (NASDAQ: M1…M4). Opcional: los trades anteriores a este
@@ -179,7 +180,7 @@ function sanitizeBacktest(t) {
     close_str,
     dur: t.dur != null ? t.dur : durationMinutes(open_str, close_str),
     setup: t.setup || '',
-    pair: t.pair || '',
+    pair: renamePair(t.pair),
     zone: toStrArr(t.zone).map(canonicalZone),
     entry: toStrArr(t.entry).map(canonicalEntry),
     model: typeof t.model === 'string' ? t.model : '',

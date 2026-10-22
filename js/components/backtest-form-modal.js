@@ -227,7 +227,7 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null, op
 
   if (!meta.pairFixed) {
     renderPills(root.querySelector('[data-field="pair"]'), {
-      name: 'pair', options: meta.pairs, value: data.pair,
+      name: 'pair', options: meta.pairs, value: data.pair, variant: meta.pairsCols ? 'cols-' + meta.pairsCols : '', rowStarts: meta.pairsRowStarts || [],
       onChange: v => data.pair = v,
     });
   }

@@ -217,8 +217,7 @@ function renderForm(wrap, sheet, data, getter) {
   // Pills wiring
   if (!meta.pairFixed) {
     renderPills(wrap.querySelector('[data-field="pair"]'), {
-      name: 'pair', options: meta.pairs, value: data.pair,
-      variant: STRAT_META[sheet].pairFixed ? '' : '',
+      name: 'pair', options: meta.pairs, value: data.pair, variant: meta.pairsCols ? 'cols-' + meta.pairsCols : '', rowStarts: meta.pairsRowStarts || [],
       onChange: v => data.pair = v,
     });
   } else {

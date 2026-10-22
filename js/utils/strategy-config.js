@@ -103,8 +103,11 @@ export const STRATEGIES = {
     label: 'Zonas',
     color: 'var(--zonas)',
     cls: 'zonas',
-    desc: 'Reacciones en zonas técnicas en EUR/USD, GBP/USD y XAU/USD',
-    pairs: ['EUR/USD', 'GBP/USD', 'XAU/USD'],
+    desc: 'Reacciones en zonas técnicas en EUR/USD, GBP/USD, ORO y OIL',
+    pairs: ['EUR/USD', 'GBP/USD', 'ORO', 'OIL'],
+    // Dos filas: divisas arriba (EUR/USD · GBP/USD), ORO · OIL abajo.
+    pairsCols: 3,
+    pairsRowStarts: ['ORO'],
     pairFixed: false,
     zones: ['> 7 días', 'Entre 2 y 7 días', '< 2 días', 'Retest'],
     entries: ['Clásica', 'Otras', 'Volumen'],

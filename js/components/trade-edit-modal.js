@@ -187,7 +187,7 @@ export function openEditTradeModal(trade) {
     if (!meta.pairFixed) {
       const pairEl = root.querySelector('[data-field="pair"]');
       if (pairEl) renderPills(pairEl, {
-        name: 'pair', options: meta.pairs, value: data.pair,
+        name: 'pair', options: meta.pairs, value: data.pair, variant: meta.pairsCols ? 'cols-' + meta.pairsCols : '', rowStarts: meta.pairsRowStarts || [],
         onChange: v => data.pair = v,
       });
     }

@@ -4,6 +4,7 @@
 // solo % y conteos sobre trades.
 
 import { auth } from '../auth.js';
+import { renamePair } from '../utils/pair-normalize.js';
 import { sync } from '../sync.js';
 import { router } from '../router.js';
 import {
@@ -288,7 +289,7 @@ function paint(container) {
     createLongShort(body.querySelector('#grupoLs'), ls);
   });
 
-  const byPair = statsByGroup(filtered, t => t.pair || '–').filter(p => p.total >= 1).sort((a, b) => b.total - a.total);
+  const byPair = statsByGroup(filtered, t => renamePair(t.pair) || '–').filter(p => p.total >= 1).sort((a, b) => b.total - a.total);
   body.querySelector('#grupoPairs').innerHTML = byPair.map(p => {
     const avgPnl = p.pnl / nStudents;
     const avgPnlReal = p.pnlReal / nStudents;

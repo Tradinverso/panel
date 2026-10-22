@@ -11,6 +11,8 @@
 //   · Columnas derivadas (BALANCE, DD, rachas, mini-tablas laterales) se ignoran.
 //   · La columna Sensación se ignora: el backtesting no lleva emociones.
 
+import { normalizePair } from './pair-normalize.js';
+
 // ── Parser CSV de verdad (comillas, comas y saltos de línea embebidos) ──
 export function parseCsv(text) {
   const rows = [];
@@ -220,7 +222,7 @@ export function draftToBacktest(draft, sheet) {
     date,
     open_str: normTime(draft.open),
     close_str: normTime(draft.close),
-    pair: draft.pair || '',
+    pair: sheet === 'NASDAQ' ? 'NQ' : normalizePair(draft.pair || '', sheet),   // XAUUSD → ORO, USOIL → OIL…
     setup,
     zone: draft.zone || '',
     entry: draft.entry || '',
