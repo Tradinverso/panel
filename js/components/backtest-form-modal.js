@@ -10,6 +10,7 @@ import { openModal } from './modal.js';
 import { renderPills } from './pills.js';
 import { STRATEGIES, modelLabel, errorModeloEntrada } from '../utils/strategy-config.js';
 import { aplicarReglasModelo } from './model-rules.js';
+import { attachDictation } from '../utils/dictation.js';
 import { todayLocal } from '../utils/timezone.js';
 import { formatDateEs, durationMinutes } from '../utils/date-helpers.js';
 import { fmtPct } from '../utils/number-format-es.js';
@@ -181,7 +182,7 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null, op
         `).join('')}
         <div class="form-field">
           <label class="form-label">Notas</label>
-          <textarea class="form-textarea" data-input="reflexion" placeholder="Qué viste en este backtest, contexto, observaciones...">${esc(data.reflexion)}</textarea>
+          <div><textarea class="form-textarea" data-input="reflexion" placeholder="Qué viste en este backtest, contexto, observaciones...">${esc(data.reflexion)}</textarea></div>
         </div>
       </div>
 
@@ -290,6 +291,7 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null, op
   root.querySelectorAll('[data-input]').forEach(el => {
     el.addEventListener('input', () => { data[el.dataset.input] = el.value; });
   });
+  attachDictation(root.querySelector('[data-input="reflexion"]'));
 }
 
 function buildPayload(sheet, meta, data) {

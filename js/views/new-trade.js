@@ -11,6 +11,7 @@ import { fmtPct } from '../utils/number-format-es.js';
 import { fmtUsd } from '../utils/account-stats.js';
 import { STRATEGIES as STRAT_META, modelLabel, errorModeloEntrada } from '../utils/strategy-config.js';
 import { aplicarReglasModelo } from '../components/model-rules.js';
+import { attachDictation } from '../utils/dictation.js';
 
 export function newTradeView(container) {
   let sheet = 'ZONAS';
@@ -196,7 +197,7 @@ function renderForm(wrap, sheet, data, getter) {
         `).join('')}
         <div class="form-field">
           <label class="form-label">Reflexión</label>
-          <textarea class="form-textarea" data-input="reflexion" placeholder="Notas sobre el trade, lo que hiciste bien o mal, qué aprender...">${data.reflexion}</textarea>
+          <div><textarea class="form-textarea" data-input="reflexion" placeholder="Notas sobre el trade, lo que hiciste bien o mal, qué aprender...">${data.reflexion}</textarea></div>
         </div>
       </div>
 
@@ -271,6 +272,7 @@ function renderForm(wrap, sheet, data, getter) {
       data[k] = el.value;
     });
   });
+  attachDictation(wrap.querySelector('[data-input="reflexion"]'));
 
   // Asignación a cuentas
   const assignBox = wrap.querySelector('#cuentaAssignBox');
