@@ -349,7 +349,7 @@ function render(container, sheet) {
 
   // Entries (cuenta por la PRIMARIA — la primera del array si hay varias)
   if (meta.entries) {
-    const es = statsByGroup(all, t => (Array.isArray(t.entry) ? t.entry[0] : t.entry) || '–').sort((a, b) => b.total - a.total);
+    const es = statsByGroup(all, t => (Array.isArray(t.entry) ? (t.entry.length ? t.entry : ['–']) : (t.entry || '–'))).sort((a, b) => b.total - a.total);
     container.querySelector('#entriesTbody').innerHTML = es.map(e => tableRow([
       e.key, e.total, coloredPct(e.wr, 50), coloredSignedPct(e.pnl), coloredSignedPct(e.pnlReal), coloredPF(e.pf),
     ])).join('') || '<tr><td colspan="6" class="empty">Sin datos</td></tr>';

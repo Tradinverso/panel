@@ -135,10 +135,11 @@ export const STRATEGIES = {
     entriesRowStarts: ['ENVOL', 'LIMIT'],
     models: LIQ_MODELS,
     modelRules: LIQ_MODEL_RULES,
-    // Varias zonas (p. ej. ASIA + PDH/PDL en un MRA): en las estadísticas por
-    // zona el trade cuenta en cada una de sus zonas. Un solo tipo de entrada.
+    // Varias zonas (p. ej. ASIA + PDH/PDL en un MRA) y varias confirmaciones
+    // (p. ej. IFVG + CHOCH): en las estadísticas por zona y por entrada el
+    // trade cuenta en cada una. MRA Limit sigue siendo solo LIMIT (modelRules).
     zonesMulti: true,
-    entriesMulti: false,
+    entriesMulti: true,
     // Sin campo RR: el % P&L ya es la R conseguida, y el RR planeado no aporta
     // (el "RR medio" se calcula de los TP realizados, ver calculations.avgRR).
     showRR: false,
@@ -163,12 +164,10 @@ export const STRATEGIES = {
     entriesRowStarts: ['FVG'],
     // Solo NASDAQ tiene modelos: en el resto de estrategias el campo no aparece.
     models: NQ_MODELS,
-    // Una sola zona y un solo tipo de entrada por trade: las estadísticas por
-    // zona/entrada solo cuentan el PRIMER valor, así que con varios el trade
-    // caía en una u otra según el orden de los clics. Los trades antiguos con
-    // varios se conservan; al editarlos y elegir uno, queda solo ese.
+    // Una sola zona por trade; varios tipos de entrada (p. ej. IFVG + BPR): en
+    // las estadísticas por entrada el trade cuenta en cada una.
     zonesMulti: false,
-    entriesMulti: false,
+    entriesMulti: true,
     // Sin campo RR: el % P&L ya es la R conseguida, y el RR planeado no aporta
     // (el "RR medio" se calcula de los TP realizados, ver calculations.avgRR).
     showRR: false,
