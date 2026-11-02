@@ -24,10 +24,11 @@ import { fmtPct } from '../utils/number-format-es.js';
 //   "No tomados", que no pertenece a ninguna).
 // `opts.notTaken` → alta ya marcada como no tomada.
 //
-// Al crear no se pregunta "¿se tomó?": lo dice el sitio desde el que abres el
-// formulario. Al EDITAR sí aparece, para poder corregir el error en cualquiera
-// de las dos direcciones (si no, un trade mal marcado se quedaría atrapado en
-// su pestaña para siempre).
+// "¿Se tomó?" sale siempre. Al crear viene ya marcado según el sitio desde el
+// que abres el formulario (pestaña de estrategia → tomado; No tomados → no
+// tomado), pero se ve y se puede cambiar antes de guardar. Al EDITAR sirve para
+// corregir el error en cualquiera de las dos direcciones (si no, un trade mal
+// marcado se quedaría atrapado en su pestaña para siempre).
 export function openBacktestFormModal(sheet, existing, onSaved, draft = null, opts = {}) {
   const { pickSheet = false, notTaken = false } = opts;
   // Con pickSheet y sin estrategia elegida aún, se arranca por la primera.
@@ -164,12 +165,13 @@ export function openBacktestFormModal(sheet, existing, onSaved, draft = null, op
             <input class="form-input" type="number" step="0.1" data-input="rr" value="${data.rr}" placeholder="2">
           </div>` : ''}
         </div>
-        ${existing ? `
         <div class="form-field">
           <label class="form-label">¿Se tomó el trade?</label>
           <div data-field="not_taken"></div>
-          <div class="bti-hint">Los <b>no tomados</b> viven en su pestaña y no cuentan en las estadísticas de la estrategia. Cambiarlo aquí mueve el trade de sección.</div>
-        </div>` : ''}
+          <div class="bti-hint">${existing
+            ? 'Los <b>no tomados</b> viven en su pestaña y no cuentan en las estadísticas de la estrategia. Cambiarlo aquí mueve el trade de sección.'
+            : 'Los <b>no tomados</b> se guardan en su propia pestaña y no cuentan en las estadísticas de la estrategia.'}</div>
+        </div>
       </div>
 
       <div class="nt-section">
