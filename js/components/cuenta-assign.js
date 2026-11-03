@@ -12,21 +12,22 @@
 //   - opts.getDefaultRisk: () => number — riesgo % a usar al añadir cuenta
 //     (se aplica como factor para calcular el USD inicial usando el pnl_pct
 //     actual del trade)
-//   - opts.getPnlPct: () => number — pnl_pct actual del trade. Solo se usa
-//     para calcular el USD inicial al AÑADIR una cuenta y para migrar
-//     asignaciones legacy. NO se recalcula al cambiar pnl_pct: el USD que
-//     introduce el usuario queda congelado.
+//   - opts.getPnlPct: () => number — pnl_pct actual del trade, para calcular el
+//     USD de cada cuenta y migrar asignaciones legacy. Si el formulario llama a
+//     recalc() al cambiar el % P&L o el riesgo, el USD de las cuentas que puso
+//     la app se actualiza; el que el usuario escribió a mano no se toca.
 //   - opts.getRR: () => number — RR del trade. En cuentas de FUTUROS elige el
 //     riesgo de la tabla de su gestión (RR 1:2 → 750 $, RR 1:1,5 → 1.000 $…).
 //   - return.get(): devuelve el array actual
 //   - return.refresh(): re-pinta (útil al añadir/quitar cuentas)
+//   - return.recalc(): el % P&L o el riesgo del trade han cambiado
 //
 // Futuros: el USD inicial es R × riesgo en $ de la gestión de la cuenta (el
 // pnl_pct del trade va en R: +2 = TP de 2R). Y se puede añadir un GRUPO de
 // copiado entero de una vez: cada cuenta con su propia gestión.
 
 import { state } from '../state.js';
-import { riesgoSugerido } from '../utils/futures-risk.js';
+import { riesgoSugerido, gestionEfectiva, usdEs } from '../utils/futures-risk.js';
 
 export function renderCuentaAssign(container, initial = [], onChange = () => {}, opts = {}) {
   function currentPnlPct() {
@@ -55,20 +56,37 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {},
       });
   }
 
-  let assigned = normalize(initial);
+  // `auto`: el $ lo calcula la app y se RECALCULA al cambiar el % P&L o el
+  // riesgo del trade (antes se congelaba al marcar la cuenta, y si la marcabas
+  // antes de rellenar el riesgo se quedaba al 1%). Al escribir el $ a mano deja
+  // de ser auto. Lo ya guardado (al editar un trade) entra como manual: no se
+  // toca lo que el alumno guardó.
+  let assigned = normalize(initial).map(a => ({ ...a, auto: false }));
 
-  // USD inicial al añadir una cuenta. CFD: riesgo % nominal sobre el capital.
-  // Futuros: R × riesgo en $ de su gestión. Si pnl_pct aún es 0 sale 0 y el
-  // usuario lo edita, como siempre.
-  function usdInicial(c) {
-    const pnlPct = currentPnlPct();
+  function riesgoCfd() {
+    const def = typeof opts.getDefaultRisk === 'function' ? opts.getDefaultRisk() : 1;
+    return isFinite(def) && def > 0 ? def : 1;
+  }
+
+  // Riesgo en $ que se usa para la cuenta y de dónde sale (para enseñarlo).
+  function riesgoDe(c) {
     if (c.tipo === 'Futuros') {
       const rr = typeof opts.getRR === 'function' ? opts.getRR() : NaN;
-      return +(pnlPct * riesgoSugerido(c, rr, state.config.futGestionesCustom).usd).toFixed(2);
+      const custom = state.config.futGestionesCustom;
+      const { pendiente } = gestionEfectiva(c, custom);
+      const r = riesgoSugerido(c, rr, custom);
+      return { usd: r.usd, texto: `${usdEs(r.usd)} · gestión ${r.gestion.nombre}${pendiente ? ' (elige gestión en Riesgo Futuros)' : ''}`, pendiente };
     }
-    const def = typeof opts.getDefaultRisk === 'function' ? opts.getDefaultRisk() : 1;
-    const risk = isFinite(def) && def > 0 ? def : 1;
-    return +(pnlPct * risk * (c.capital || 0) / 100).toFixed(2);
+    const pct = riesgoCfd();
+    const usd = pct * (c.capital || 0) / 100;
+    return { usd, texto: `${String(+pct.toFixed(2)).replace('.', ',')} % de ${usdEs(c.capital || 0)} = ${usdEs(usd)}`, pendiente: false };
+  }
+
+  // USD al añadir una cuenta (y al recalcular): R × riesgo en $. CFD: riesgo
+  // real % sobre el capital. Futuros: el de su gestión (el riesgo real % no
+  // se usa). Si pnl_pct aún es 0 sale 0.
+  function usdInicial(c) {
+    return +(currentPnlPct() * riesgoDe(c).usd).toFixed(2);
   }
 
   function fmtUsdValue(v) {
@@ -111,8 +129,13 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {},
               <button type="button" class="ca-x" data-remove="${i}">×</button>
             </div>`;
           }
+          const rg = riesgoDe(c);
           return `<div class="ca-row">
-            <span class="ca-label">${esc(c.empresa)} ${capShort(c.capital)} <span class="ca-meta">${c.numero ? '#' + esc(c.numero) : ''}${c.tipo === 'Futuros' && c.grupo ? ' · ' + esc(c.grupo) : ''}</span></span>
+            <span class="ca-label">${esc(c.empresa)} ${capShort(c.capital)} <span class="ca-meta">${c.numero ? '#' + esc(c.numero) : ''}${c.tipo === 'Futuros' && c.grupo ? ' · ' + esc(c.grupo) : ''}</span>
+              <span class="ca-hint${rg.pendiente ? ' warn' : ''}" data-hint="${i}">${a.auto
+                ? `Riesgo: ${esc(rg.texto)}`
+                : `✎ $ fijado a mano · <a href="#" data-auto="${i}" title="Volver a calcularlo con el % P&L y el riesgo">recalcular (${esc(rg.texto)})</a>`}</span>
+            </span>
             <span class="ca-usd">
               P&L
               <input type="number" step="0.01" value="${fmtUsdValue(a.usdPnl)}" data-usd="${i}" class="ca-usd-input">
@@ -155,9 +178,18 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {},
         const usd = parseFloat(inp.value);
         if (isNaN(usd)) return;
         assigned[i].usdPnl = +usd.toFixed(2);
+        if (assigned[i].auto) {
+          // Escrito a mano: ya no se recalcula solo (sin repintar: perdería el foco)
+          assigned[i].auto = false;
+          const c = cuentas.find(x => x.id === assigned[i].accountId);
+          const h = container.querySelector(`[data-hint="${i}"]`);
+          if (c && h) h.innerHTML = `✎ $ fijado a mano · <a href="#" data-auto="${i}">recalcular (${esc(riesgoDe(c).texto)})</a>`;
+          wireAuto();
+        }
         onChange(currentArray());
       });
     });
+    wireAuto();
 
     const sel = container.querySelector('#ca-select');
     if (sel) {
@@ -166,7 +198,7 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {},
         if (!id) return;
         const c = cuentas.find(x => x.id === id);
         if (!c) return;
-        assigned.push({ accountId: id, usdPnl: usdInicial(c) });
+        assigned.push({ accountId: id, usdPnl: usdInicial(c), auto: true });
         onChange(currentArray());
         paint();
       });
@@ -180,12 +212,57 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {},
         const g = selGrupo.value;
         if (!g) return;
         for (const c of disponibles.filter(x => x.tipo === 'Futuros' && x.grupo === g)) {
-          assigned.push({ accountId: c.id, usdPnl: usdInicial(c) });
+          assigned.push({ accountId: c.id, usdPnl: usdInicial(c), auto: true });
         }
         onChange(currentArray());
         paint();
       });
     }
+  }
+
+  // "recalcular": vuelve a calcular el $ de esa cuenta y a seguir los cambios.
+  function wireAuto() {
+    container.querySelectorAll('[data-auto]').forEach(l => {
+      if (l.dataset.wired) return;
+      l.dataset.wired = '1';
+      l.addEventListener('click', e => {
+        e.preventDefault();
+        const a = assigned[parseInt(l.dataset.auto, 10)];
+        const c = (state.cuentas || []).find(x => x.id === a.accountId);
+        if (!c) return;
+        a.auto = true;
+        a.usdPnl = usdInicial(c);
+        onChange(currentArray());
+        paint();
+      });
+    });
+  }
+
+  // El % P&L o el riesgo del trade han cambiado: recalcula las cuentas cuyo $
+  // pone la app (no las escritas a mano) y el texto del riesgo usado.
+  function recalc() {
+    const cuentas = state.cuentas || [];
+    let cambio = false;
+    assigned.forEach((a, i) => {
+      const c = cuentas.find(x => x.id === a.accountId);
+      if (!c) return;
+      if (a.auto) {
+        const usd = usdInicial(c);
+        if (usd !== a.usdPnl) { a.usdPnl = usd; cambio = true; }
+        const inp = container.querySelector(`[data-usd="${i}"]`);
+        if (inp) inp.value = fmtUsdValue(usd);
+      }
+      const h = container.querySelector(`[data-hint="${i}"]`);
+      const rg = riesgoDe(c);
+      if (h) {
+        h.classList.toggle('warn', rg.pendiente);
+        h.innerHTML = a.auto
+          ? `Riesgo: ${esc(rg.texto)}`
+          : `✎ $ fijado a mano · <a href="#" data-auto="${i}">recalcular (${esc(rg.texto)})</a>`;
+      }
+    });
+    wireAuto();
+    if (cambio) onChange(currentArray());
   }
 
   function currentArray() {
@@ -200,6 +277,7 @@ export function renderCuentaAssign(container, initial = [], onChange = () => {},
   return {
     get: currentArray,
     refresh: paint,
+    recalc,
   };
 }
 

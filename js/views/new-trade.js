@@ -277,6 +277,9 @@ function renderForm(wrap, sheet, data, getter) {
   // Asignación a cuentas
   const assignBox = wrap.querySelector('#cuentaAssignBox');
   let ca = null;
+  // El $ de las cuentas sigue al % P&L y al riesgo (salvo los escritos a mano)
+  wrap.querySelectorAll('[data-input="pnl_pct"], [data-input="risk_real_pct"]').forEach(el =>
+    el.addEventListener('input', () => { if (ca) ca.recalc(); }));
   if (assignBox) {
     ca = renderCuentaAssign(assignBox, data.accounts || [], (accs) => {
       data.accounts = accs;

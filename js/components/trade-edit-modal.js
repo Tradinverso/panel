@@ -271,6 +271,10 @@ export function openEditTradeModal(trade) {
     // Asignación de cuentas
     const assignBox = root.querySelector('#cuentaAssignBoxEdit');
     let caEdit = null;
+    // El $ de las cuentas añadidas ahora sigue al % P&L y al riesgo; lo ya
+    // guardado se queda como estaba (se puede recalcular desde la propia fila).
+    root.querySelectorAll('[data-input="pnl_pct"], [data-input="risk_real_pct"]').forEach(el =>
+      el.addEventListener('input', () => { if (caEdit) caEdit.recalc(); }));
     if (assignBox) {
       caEdit = renderCuentaAssign(assignBox, data.accounts || [], (accs) => {
         data.accounts = accs;
